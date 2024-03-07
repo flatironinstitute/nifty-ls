@@ -1,6 +1,8 @@
 # nifty-ls
 A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT!
 
+[![PyPI](https://img.shields.io/pypi/v/nifty-ls)](https://pypi.org/project/nifty-ls/) [![Tests](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml/badge.svg)](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/flatironinstitute/nifty-ls/main.svg)](https://results.pre-commit.ci/latest/github/flatironinstitute/nifty-ls/main)
+
 > [!WARNING]
 > This project is in a pre-release stage and will likely undergo breaking changes during development. Some of the instructions in the README are aspirational.
 
@@ -20,20 +22,20 @@ with default settings for many regions of parameter space.
 For CPU support:
 
 ```console
-$ pip install niftyls
+$ pip install nifty-ls
 ```
 
 For GPU (CUDA) support:
 
 ```console
-$ pip install niftyls[cuda]
+$ pip install nifty-ls[cuda]
 ```
 
 
 ### From source
 First, clone the repo:
 ```console
-$ git clone https://www.github.com/flatironinstitute/niftyls
+$ git clone https://www.github.com/flatironinstitute/nifty-ls
 ```
 
 To install with CPU support:
