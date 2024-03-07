@@ -1,0 +1,4 @@
+build/
+*.pyc
+__pycache__/
+/src/nifty_ls/version.py

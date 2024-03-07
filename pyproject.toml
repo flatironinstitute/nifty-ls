@@ -1,0 +1,43 @@
+[build-system]
+requires = ["nanobind", "scikit-build-core>=0.8"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "nifty-ls"
+description = "A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT."
+readme = "README.md"
+authors = [{ name = "Lehman Garrison", email = "lgarrison@flatironinstitute.org" },
+           { name = "Dan Foreman-Mackey" },
+           ]
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+urls = { Homepage = "https://github.com/flatironinstitute.org/nifty-ls" }
+dependencies = ["numpy", "finufft >= 2.2"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+cuda = ["cufinufft", "cupy-cuda12x"]
+dev = ["pre-commit"]
+test = ["pytest", "pytest-benchmark"]
+
+[tool.scikit-build]
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+# sdist.include = ["src/nifty_ls/version.py"]
+minimum-version = "0.8"
+build-dir = "build/{wheel_tag}"
+editable.rebuild = true  # use with --no-build-isolation
+
+# For debugging:
+# cmake.build-type = "Debug"
+cmake.verbose = true
+install.strip = false
+
+[tool.setuptools_scm]
+version_file = "src/nifty_ls/version.py"
+
+[tool.pytest.ini_options]
+# is there a way to set this in the test script?
+addopts = "--benchmark-group-by=param --benchmark-disable-gc"
+
+[tool.ruff.format]
+quote-style = "single"
