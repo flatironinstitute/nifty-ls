@@ -99,10 +99,29 @@ Two kinds of batching are supported:
 1. multiple periodograms with the same observation times, and
 2. multiple periodograms with distinct observation times.
 
-Kind (1) will be very fast, as finufft has native support for computing multiple
-simultaneous transforms with the same non-uniform points (observation times).
+Kind (1) uses finufft's native support for computing multiple simultaneous transforms
+with the same non-uniform points (observation times).
 
 Kind (2) uses multi-threading to compute multiple distinct transforms in parallel.
+
+These two kinds of batching can be combined.
+
+#### Batched Periodograms
+
+```python
+N_t = 100
+N_obj = 10
+Nf = 200
+
+rng = np.random.default_rng()
+t = rng.random(N_t)
+freqs = rng.random(N_obj).reshape(-1,1)
+y_batch = np.sin(freqs * t)
+dy_batch = rng.random(y.shape)
+
+batched_power = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf)
+print(batched_power.shape)  # (10, 200)
+```
 
 
 ## Performance
