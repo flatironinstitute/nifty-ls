@@ -63,7 +63,7 @@ def lombscargle_finufft(
     df,
     Nf,
     nthreads=None,
-    no_cpp_helpers=False,
+    _no_cpp_helpers=False,
     **finufft_kwargs,
 ):
     """
@@ -93,17 +93,24 @@ def lombscargle_finufft(
 
     cdtype = np.complex128 if dtype == np.float64 else np.complex64
 
-    if not no_cpp_helpers:
+    # treat 1D arrays as a batch of size 1
+    squeeze_output = y.ndim == 1
+    y = np.atleast_2d(y)
+    dy = np.atleast_2d(dy)
+
+    if not _no_cpp_helpers:
         t1 = np.empty_like(t)
         t2 = np.empty_like(t)
-        yw = np.empty(len(t), dtype=cdtype)
-        w = np.empty(len(t), dtype=cdtype)
+        yw = np.empty(y.shape, dtype=cdtype)
+        w = np.empty(dy.shape, dtype=cdtype)
+        norm = np.empty(len(y), dtype=dtype)
 
-        norm = cpu.process_finufft_inputs(
+        cpu.process_finufft_inputs(
             t1,  # output
             t2,  # output
             yw,  # output
             w,  # output
+            norm,  # output
             t,  # input
             y,  # input
             dy,  # input
@@ -121,9 +128,9 @@ def lombscargle_finufft(
         dy = dy.astype(dtype, copy=False)
 
         w = dy**-2.0
-        w /= w.sum()
+        w /= w.sum(axis=-1, keepdims=True)
 
-        norm = np.dot(w, y**2)
+        norm = (w * y**2).sum(axis=-1, keepdims=True)
 
         Nshift = Nf // 2
 
@@ -141,7 +148,7 @@ def lombscargle_finufft(
     plan = finufft.Plan(
         nufft_type=1,
         n_modes_or_dim=(Nf,),
-        n_trans=1,  # TODO
+        n_trans=len(yw),
         dtype=cdtype,
         nthreads=nthreads,
         **finufft_kwargs,
@@ -152,8 +159,8 @@ def lombscargle_finufft(
     plan.setpts(t2)
     f2 = plan.execute(w)
 
-    if not no_cpp_helpers:
-        power = np.empty(len(f1), dtype=dtype)
+    if not _no_cpp_helpers:
+        power = np.empty(f1.shape, dtype=dtype)
         cpu.process_finufft_outputs(power, f1, f2, norm)
     else:
         tan_2omega_tau = f2.imag / f2.real
@@ -170,4 +177,6 @@ def lombscargle_finufft(
         power = YC * YC / CC + YS * YS / SS
         power /= norm
 
+    if squeeze_output:
+        power = power.squeeze()
     return power
