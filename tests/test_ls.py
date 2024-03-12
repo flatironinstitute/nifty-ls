@@ -7,7 +7,7 @@ def gen_data(N=100, nobj=None, seed=5043, dtype=np.float64):
 
     t = np.sort(rng.random(N, dtype=dtype)) * 123
     freqs = rng.random((nobj, 1) if nobj else 1, dtype=dtype) * 10 + 1
-    y = np.sin(freqs * t)
+    y = np.sin(freqs * t) + 1.23
     dy = rng.random(y.shape, dtype=dtype) * 0.1 + 0.01
 
     t.setflags(write=False)
@@ -47,10 +47,18 @@ def astropy(
     fit_mean=False,
     center_data=False,
     use_fft=False,
+    normalization='standard',
 ):
     from astropy.timeseries import LombScargle
 
-    ls = LombScargle(t, y, dy, fit_mean=fit_mean, center_data=center_data)
+    ls = LombScargle(
+        t,
+        y,
+        dy,
+        fit_mean=fit_mean,
+        center_data=center_data,
+        normalization=normalization,
+    )
 
     freq = np.linspace(fmin, fmax, Nf, endpoint=True)
     power = ls.power(
@@ -105,6 +113,32 @@ def test_batched(batched_data, Nf=1000):
     dtype = t.dtype
 
     assert np.allclose(nifty_res, brute_res, rtol=1e-9 if dtype == np.float64 else 1e-5)
+
+
+def test_normalization(data, Nf=1000):
+    """Check that the normalization modes work as expected"""
+    import nifty_ls
+
+    fmin = 0.1
+    fmax = 10.0
+
+    for norm in ['standard', 'model', 'log', 'psd']:
+        nifty_res = nifty_ls.lombscargle(
+            **data,
+            fmin=fmin,
+            fmax=fmax,
+            Nf=Nf,
+            normalization=norm,
+        )
+        astropy_res = astropy(
+            **data,
+            fmin=fmin,
+            fmax=fmax,
+            Nf=Nf,
+            use_fft=False,
+            normalization=norm,
+        )
+        assert np.allclose(nifty_res, astropy_res)
 
 
 def test_astropy_hook(data, Nf=1000):
