@@ -50,13 +50,13 @@ void process_finufft_inputs(
     auto y  = y_ .view();  // read-only
     auto dy = dy_.view();  // read-only
 
-    size_t Nseq = y.shape(0);
+    size_t Nbatch = y.shape(0);
     size_t N = y.shape(1);
     size_t Nshift = Nf / 2;
 
     // w = dy**-2.
-    std::vector<double> sum(Nseq, 0.);  // use double for stability
-    for (size_t i = 0; i < Nseq; ++i) {
+    std::vector<double> sum(Nbatch, 0.);  // use double for stability
+    for (size_t i = 0; i < Nbatch; ++i) {
         for (size_t j = 0; j < N; ++j) {
             w(i, j) = 1 / (dy(i, j) * dy(i, j));
             sum[i] += w(i, j).real();
