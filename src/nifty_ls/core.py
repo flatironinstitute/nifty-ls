@@ -19,6 +19,7 @@ def lombscargle(
     fmax=None,
     Nf=None,
     nthreads=None,
+    normalization='standard',
     backend='finufft',
     backend_kwargs=None,
 ):
@@ -49,7 +50,15 @@ def lombscargle(
 
     if backend == 'finufft':
         return lombscargle_finufft(
-            t, y, dy, fmin, df, Nf, nthreads, **(backend_kwargs or {})
+            t,
+            y,
+            dy,
+            fmin,
+            df,
+            Nf,
+            nthreads,
+            normalization,
+            **(backend_kwargs or {}),
         )
     else:
         raise ValueError(f'Unknown backend: {backend}. Available backends are: finufft')
@@ -63,6 +72,7 @@ def lombscargle_finufft(
     df,
     Nf,
     nthreads=None,
+    normalization='standard',
     _no_cpp_helpers=False,
     **finufft_kwargs,
 ):
@@ -117,6 +127,7 @@ def lombscargle_finufft(
             fmin,
             df,
             Nf,
+            normalization.lower() == 'psd',
         )
     else:
         t1 = 2 * np.pi * df * t
@@ -160,8 +171,15 @@ def lombscargle_finufft(
     f2 = plan.execute(w)
 
     if not _no_cpp_helpers:
+        norm_enum = dict(
+            standard=cpu.NormKind.Standard,
+            model=cpu.NormKind.Model,
+            log=cpu.NormKind.Log,
+            psd=cpu.NormKind.PSD,
+        )[normalization.lower()]
+
         power = np.empty(f1.shape, dtype=dtype)
-        cpu.process_finufft_outputs(power, f1, f2, norm)
+        cpu.process_finufft_outputs(power, f1, f2, norm, norm_enum)
     else:
         tan_2omega_tau = f2.imag / f2.real
         S2w = tan_2omega_tau / np.sqrt(1 + tan_2omega_tau * tan_2omega_tau)
@@ -175,7 +193,17 @@ def lombscargle_finufft(
         SS = 0.5 * (1 - f2.real * C2w - f2.imag * S2w)
 
         power = YC * YC / CC + YS * YS / SS
-        power /= norm
+
+        if normalization == 'standard':
+            power /= norm
+        elif normalization == 'model':
+            power /= norm - power
+        elif normalization == 'log':
+            power = -np.log(1 - power / norm)
+        elif normalization == 'psd':
+            power *= 0.5 * (dy**-2.0).sum()
+        else:
+            raise ValueError(f'Unknown normalization: {normalization}')
 
     if squeeze_output:
         power = power.squeeze()

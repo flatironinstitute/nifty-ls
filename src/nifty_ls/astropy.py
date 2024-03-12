@@ -31,8 +31,9 @@ def lombscargle_fastnifty(
         fmin=f0,
         df=df,
         Nf=Nf,
-        # center_data=center_data, fit_mean=fit_mean,  # TODO
-        # normalization=normalization,
+        # center_data=center_data,
+        # fit_mean=fit_mean,  # TODO
+        normalization=normalization,
         nthreads=nthreads,
         **finufft_kwargs,
     )
