@@ -1,3 +1,9 @@
+/* This module contains C++ helper routines for processing finufft
+ * inputs and outputs. Its main purpose is to enable "kernel fusion",
+ * i.e. do as much array processing as possible element-wise, instead
+ * of array-wise as occurs in Numpy.
+*/
+
 #include <complex>
 #include <vector>
 
@@ -32,6 +38,7 @@ void process_finufft_inputs(
     nifty_arr_1d<Scalar> t2_,
     nifty_arr_2d<Complex<Scalar>> yw_,
     nifty_arr_2d<Complex<Scalar>> w_,
+    nifty_arr_2d<Complex<Scalar>> w2_,
     nifty_arr_1d<Scalar> norm_,
     nifty_arr_1d<const Scalar> t_,
     nifty_arr_2d<const Scalar> y_,
@@ -39,12 +46,17 @@ void process_finufft_inputs(
     const Scalar fmin,
     const Scalar df,
     const size_t Nf,
+    const bool center_data,
+    const bool fit_mean,
     const bool psd_norm
 ) {
+    (void) fit_mean;  // unused
+
     auto t1 = t1_.view();
     auto t2 = t2_.view();
     auto yw = yw_.view();
-    auto w  = w_ .view();
+    auto w = w_.view();
+    auto w2  = w2_ .view();
     auto norm = norm_.view();
     auto t  = t_ .view();  // read-only
     auto y  = y_ .view();  // read-only
@@ -54,36 +66,42 @@ void process_finufft_inputs(
     size_t N = y.shape(1);
     size_t Nshift = Nf / 2;
 
-    // w = dy**-2.
-    std::vector<double> sum(Nbatch, 0.);  // use double for stability
+    // w2 = dy**-2.
+    std::vector<double> wsum(Nbatch, 0.);  // use double for stability
+    std::vector<double> yoff(Nbatch, 0.);
     for (size_t i = 0; i < Nbatch; ++i) {
         for (size_t j = 0; j < N; ++j) {
-            w(i, j) = 1 / (dy(i, j) * dy(i, j));
-            sum[i] += w(i, j).real();
+            w2(i, j) = 1 / (dy(i, j) * dy(i, j));
+            if (center_data || fit_mean){
+                yoff[i] += w2(i, j).real() * y(i, j);
+            }
+            wsum[i] += w2(i, j).real();
         }
     }
 
-    // norm = (w * y**2).sum(axis=-1, keepdims=True)
-    // TODO: currently we're storing w as complex
+    // norm = (w2 * y**2).sum(axis=-1, keepdims=True)
+    // We're storing w2 as complex
     // but it's real at this point in the code, before the phase shift
     for (size_t i = 0; i < Nbatch; ++i) {
         if (psd_norm) {
-            norm(i) = sum[i];
-        }
-        else {
+            norm(i) = wsum[i];
+        } else {
             norm(i) = 0;
         }
+        if(center_data || fit_mean) {
+            yoff[i] /= wsum[i];
+        }
         for (size_t j = 0; j < N; ++j) {
-            w(i, j).real( w(i, j).real() / sum[i] );  // w /= sum
+            w2(i, j).real( w2(i, j).real() / wsum[i] );  // w2 /= sum
             if (!psd_norm) {
-                norm(i) += w(i, j).real() * y(i, j) * y(i, j);
+                norm(i) += w2(i, j).real() * (y(i, j) - yoff[i]) * (y(i, j) - yoff[i]);
             }
         }
     }
 
-    // TODO: if fmin/df is an integer, we may be able to do
-    //   t = ((df * t) % 1) * 2 * np.pi
-    // Could help a lot with range-reduction performance.
+    // if center_data or fit_mean:
+    //     y = y - np.dot(w2, y)
+
     const std::complex<Scalar> phase_shift = std::complex<Scalar>(0, Nshift + fmin/df);
     const Scalar TWO_PI = 2 * static_cast<Scalar>(PI);
     for(size_t j = 0; j < N; ++j) {
@@ -91,10 +109,16 @@ void process_finufft_inputs(
         t2(j) = 2 * t1(j);
 
         for(size_t i = 0; i < Nbatch; ++i) {
-            yw(i, j) = y(i, j) * w(i, j) * std::exp(phase_shift * t1(j));
-            w(i, j) *= std::exp(phase_shift * t2(j));
+            yw(i, j) = (y(i, j) - static_cast<Scalar>(yoff[i])) * w2(i, j) * std::exp(phase_shift * t1(j));
+            if (fit_mean){
+                w(i, j) = w2(i, j) * std::exp(phase_shift * t1(j));
+            }
+            w2(i, j) *= std::exp(phase_shift * t2(j));
         }
 
+        // TODO: if fmin/df is an integer, we may be able to do
+        //   t = ((df * t) % 1) * 2 * np.pi
+        // Could help a lot with range-reduction performance.
         t1(j) = std::fmod(t1(j), TWO_PI);
         t2(j) = std::fmod(t2(j), TWO_PI);
     }
@@ -105,12 +129,15 @@ template <typename Scalar>
 void process_finufft_outputs(
     nifty_arr_2d<Scalar> power_,
     nifty_arr_2d<const std::complex<Scalar>> f1_,
+    nifty_arr_2d<const std::complex<Scalar>> fw_,
     nifty_arr_2d<const std::complex<Scalar>> f2_,
     nifty_arr_1d<const Scalar> norm_YY_,
-    const NormKind norm_kind
+    const NormKind norm_kind,
+    const bool fit_mean
 ){
     auto power = power_.view();
     auto f1 = f1_.view();  // read-only
+    auto fw = fw_.view();  // read-only
     auto f2 = f2_.view();  // read-only
     auto norm_YY = norm_YY_.view();  // read-only
 
@@ -121,7 +148,13 @@ void process_finufft_outputs(
 
     for(size_t i = 0; i < Nbatch; ++i) {
         for(size_t j = 0; j < N; ++j) {
-            Scalar tan_2omega_tau = f2(i, j).imag() / f2(i, j).real();
+            Scalar tan_2omega_tau;
+            if(fit_mean) {
+                tan_2omega_tau = (f2(i, j).imag() - 2 * fw(i, j).imag() * fw(i, j).real()) /
+                    (f2(i, j).real() - (fw(i, j).real() * fw(i, j).real() - fw(i, j).imag() * fw(i, j).imag()));
+            } else {
+                tan_2omega_tau = f2(i, j).imag() / f2(i, j).real();
+            }
             Scalar S2w = tan_2omega_tau / std::sqrt(1 + tan_2omega_tau * tan_2omega_tau);
             Scalar C2w = 1 / std::sqrt(1 + tan_2omega_tau * tan_2omega_tau);
             Scalar Cw = SQRT_HALF * std::sqrt(1 + C2w);
@@ -131,6 +164,13 @@ void process_finufft_outputs(
             Scalar YS = f1(i, j).imag() * Cw - f1(i, j).real() * Sw;
             Scalar CC = (1 + f2(i, j).real() * C2w + f2(i, j).imag() * S2w) / 2;
             Scalar SS = (1 - f2(i, j).real() * C2w - f2(i, j).imag() * S2w) / 2;
+
+            if(fit_mean) {
+                Scalar CC_fac = fw(i, j).real() * Cw + fw(i, j).imag() * Sw;
+                Scalar SS_fac = fw(i, j).imag() * Cw - fw(i, j).real() * Sw;
+                CC -= CC_fac * CC_fac;
+                SS -= SS_fac * SS_fac;
+            }
 
             power(i, j) = YC * YC / CC + YS * YS / SS;
             
@@ -146,7 +186,7 @@ void process_finufft_outputs(
                     break;
                 case NormKind::PSD:
                     // For PSD, norm_YY is actually (dy ** -2).sum()
-                    // instead of (w * y**2).sum()
+                    // instead of (w2 * y**2).sum()
                     power(i, j) *= 0.5 * norm_YY(i);
                     break;
             }
@@ -155,11 +195,14 @@ void process_finufft_outputs(
 }
 
 NB_MODULE(cpu, m) {
+    // We're using noconvert() here to ensure the input arrays are not copied
+    
     m.def("process_finufft_inputs", &process_finufft_inputs<double>,
         "t1"_a.noconvert(),
         "t2"_a.noconvert(),
         "yw"_a.noconvert(),
         "w"_a.noconvert(),
+        "w2"_a.noconvert(),
         "norm"_a.noconvert(),
         "t"_a.noconvert(),
         "y"_a.noconvert(),
@@ -171,11 +214,13 @@ NB_MODULE(cpu, m) {
         "fit_mean"_a,
         "psd_normalization"_a
         );
+
     m.def("process_finufft_inputs", &process_finufft_inputs<float>,
         "t1"_a.noconvert(),
         "t2"_a.noconvert(),
         "yw"_a.noconvert(),
         "w"_a.noconvert(),
+        "w2"_a.noconvert(),
         "norm"_a.noconvert(),
         "t"_a.noconvert(),
         "y"_a.noconvert(),
@@ -187,19 +232,25 @@ NB_MODULE(cpu, m) {
         "fit_mean"_a,
         "psd_normalization"_a
         );
+
     m.def("process_finufft_outputs", &process_finufft_outputs<double>,
         "power"_a.noconvert(),
         "f1"_a.noconvert(),
+        "fw"_a.noconvert(),
         "f2"_a.noconvert(),
         "norm_YY"_a.noconvert(),
-        "norm_kind"_a
+        "norm_kind"_a,
+        "fit_mean"_a
         );
+
     m.def("process_finufft_outputs", &process_finufft_outputs<float>,
         "power"_a.noconvert(),
         "f1"_a.noconvert(),
+        "fw"_a.noconvert(),
         "f2"_a.noconvert(),
         "norm_YY"_a.noconvert(),
-        "norm_kind"_a
+        "norm_kind"_a,
+        "fit_mean"_a
         );
 
     nb::enum_<NormKind>(m, "NormKind")

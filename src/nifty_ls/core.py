@@ -19,6 +19,8 @@ def lombscargle(
     fmax=None,
     Nf=None,
     nthreads=None,
+    center_data=True,
+    fit_mean=True,
     normalization='standard',
     backend='finufft',
     backend_kwargs=None,
@@ -57,6 +59,8 @@ def lombscargle(
             df,
             Nf,
             nthreads,
+            center_data,
+            fit_mean,
             normalization,
             **(backend_kwargs or {}),
         )
@@ -72,6 +76,8 @@ def lombscargle_finufft(
     df,
     Nf,
     nthreads=None,
+    center_data=True,
+    fit_mean=True,
     normalization='standard',
     _no_cpp_helpers=False,
     **finufft_kwargs,
@@ -108,18 +114,33 @@ def lombscargle_finufft(
     y = np.atleast_2d(y)
     dy = np.atleast_2d(dy)
 
+    # If fit_mean, we need to transform (t,yw) and (t,w),
+    # so we stack yw and w into a single array to allow a batched transform.
+    # Regardless, we need to do a separate (t2,w2) transform.
+    Nbatch, N = y.shape
+    if fit_mean:
+        yw_w_shape = (2 * Nbatch, N)
+    else:
+        yw_w_shape = (Nbatch, N)
+
+    yw_w = np.empty(yw_w_shape, dtype=cdtype)
+    w2 = np.empty(dy.shape, dtype=cdtype)
+
+    yw = yw_w[:Nbatch]
+    w = yw_w[Nbatch:]
+
     if not _no_cpp_helpers:
         t1 = np.empty_like(t)
         t2 = np.empty_like(t)
-        yw = np.empty(y.shape, dtype=cdtype)
-        w = np.empty(dy.shape, dtype=cdtype)
-        norm = np.empty(len(y), dtype=dtype)
+
+        norm = np.empty(Nbatch, dtype=dtype)
 
         cpu.process_finufft_inputs(
             t1,  # output
             t2,  # output
             yw,  # output
             w,  # output
+            w2,  # output
             norm,  # output
             t,  # input
             y,  # input
@@ -127,6 +148,8 @@ def lombscargle_finufft(
             fmin,
             df,
             Nf,
+            center_data,
+            fit_mean,
             normalization.lower() == 'psd',
         )
     else:
@@ -138,10 +161,13 @@ def lombscargle_finufft(
         y = y.astype(dtype, copy=False)
         dy = dy.astype(dtype, copy=False)
 
-        w = dy**-2.0
-        w /= w.sum(axis=-1, keepdims=True)
+        w2[:] = dy**-2.0
+        w2.real /= w2.real.sum(axis=-1, keepdims=True)
 
-        norm = (w * y**2).sum(axis=-1, keepdims=True)
+        if center_data or fit_mean:
+            y = y - (w2.real * y).sum(axis=-1, keepdims=True)
+
+        norm = (w2.real * y**2).sum(axis=-1, keepdims=True)
 
         Nshift = Nf // 2
 
@@ -151,24 +177,50 @@ def lombscargle_finufft(
         t1 %= 2 * np.pi
         t2 %= 2 * np.pi
 
-        yw = y * w
+        yw[:] = y * w2.real
+        if fit_mean:
+            # Up to now, w and w2 are identical
+            # but now they pick up a different phase shift
+            w[:] = w2
 
-        yw = yw * phase_shift1
-        w = w * phase_shift2
+        yw_w *= phase_shift1
+        w2 *= phase_shift2
 
-    plan = finufft.Plan(
+    plan_solo = finufft.Plan(
         nufft_type=1,
         n_modes_or_dim=(Nf,),
-        n_trans=len(yw),
+        n_trans=Nbatch,
         dtype=cdtype,
         nthreads=nthreads,
         **finufft_kwargs,
     )
-    plan.setpts(t1)
-    f1 = plan.execute(yw)
 
-    plan.setpts(t2)
-    f2 = plan.execute(w)
+    if fit_mean:
+        # fit_mean needs two transforms with the same NU points,
+        # so we pack them into one transform
+        plan_pair = finufft.Plan(
+            nufft_type=1,
+            n_modes_or_dim=(Nf,),
+            n_trans=2 * Nbatch,
+            dtype=cdtype,
+            nthreads=nthreads,
+            **finufft_kwargs,
+        )
+
+        # S, C = trig_sum(t, w, **kwargs)
+        # tan_2omega_tau = (S2 - 2 * S * C) / (C2 - (C * C - S * S))
+        plan_pair.setpts(t1)
+        f1_fw = plan_pair.execute(yw_w)
+
+    else:
+        plan_solo.setpts(t1)
+        f1_fw = plan_solo.execute(yw_w)
+
+    f1 = f1_fw[:Nbatch]
+    fw = f1_fw[Nbatch:]
+
+    plan_solo.setpts(t2)
+    f2 = plan_solo.execute(w2)
 
     if not _no_cpp_helpers:
         norm_enum = dict(
@@ -179,9 +231,14 @@ def lombscargle_finufft(
         )[normalization.lower()]
 
         power = np.empty(f1.shape, dtype=dtype)
-        cpu.process_finufft_outputs(power, f1, f2, norm, norm_enum)
+        cpu.process_finufft_outputs(power, f1, fw, f2, norm, norm_enum, fit_mean)
     else:
-        tan_2omega_tau = f2.imag / f2.real
+        if fit_mean:
+            tan_2omega_tau = (f2.imag - 2 * fw.imag * fw.real) / (
+                f2.real - (fw.real * fw.real - fw.imag * fw.imag)
+            )
+        else:
+            tan_2omega_tau = f2.imag / f2.real
         S2w = tan_2omega_tau / np.sqrt(1 + tan_2omega_tau * tan_2omega_tau)
         C2w = 1 / np.sqrt(1 + tan_2omega_tau * tan_2omega_tau)
         Cw = np.sqrt(0.5) * np.sqrt(1 + C2w)
@@ -191,6 +248,10 @@ def lombscargle_finufft(
         YS = f1.imag * Cw - f1.real * Sw
         CC = 0.5 * (1 + f2.real * C2w + f2.imag * S2w)
         SS = 0.5 * (1 - f2.real * C2w - f2.imag * S2w)
+
+        if fit_mean:
+            CC -= (fw.real * Cw + fw.imag * Sw) ** 2
+            SS -= (fw.imag * Cw - fw.real * Sw) ** 2
 
         power = YC * YC / CC + YS * YS / SS
 
