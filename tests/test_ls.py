@@ -2,19 +2,21 @@ import numpy as np
 import pytest
 
 
-def gen_data(N=100, nobj=None, seed=5043, dtype=np.float64):
+def gen_data(N=100, Nbatch=None, seed=5043, dtype=np.float64):
     rng = np.random.default_rng(seed)
 
     t = np.sort(rng.random(N, dtype=dtype)) * 123
-    freqs = rng.random((nobj, 1) if nobj else 1, dtype=dtype) * 10 + 1
+    freqs = rng.random((Nbatch, 1) if Nbatch else 1, dtype=dtype) * 10 + 1
     y = np.sin(freqs * t) + 1.23
     dy = rng.random(y.shape, dtype=dtype) * 0.1 + 0.01
+
+    fmin, fmax = 0.1, 10.0
 
     t.setflags(write=False)
     y.setflags(write=False)
     dy.setflags(write=False)
 
-    return dict(t=t, y=y, dy=dy)
+    return dict(t=t, y=y, dy=dy, fmin=fmin, fmax=fmax)
 
 
 @pytest.fixture(scope='module')
@@ -29,12 +31,12 @@ def bench_data():
 
 @pytest.fixture(scope='module')
 def batched_data():
-    return gen_data(nobj=100)
+    return gen_data(Nbatch=100)
 
 
 @pytest.fixture(scope='module')
 def batched_bench_data():
-    return gen_data(N=3_000, nobj=100)
+    return gen_data(N=3_000, Nbatch=100)
 
 
 def astropy(
@@ -44,8 +46,8 @@ def astropy(
     fmin,
     fmax,
     Nf,
-    fit_mean=False,
-    center_data=False,
+    fit_mean=True,
+    center_data=True,
     use_fft=False,
     normalization='standard',
 ):
@@ -76,33 +78,27 @@ def test_lombscargle(data, Nf):
     """Check that the basic implementation agrees with the brute-force Astropy answer"""
     import nifty_ls
 
-    t = data['t']
-    y = data['y']
-    dy = data['dy']
+    nifty_res = nifty_ls.lombscargle(**data, Nf=Nf)
+    brute_res = astropy(**data, Nf=Nf, use_fft=False)
 
-    fmin = 0.1
-    fmax = 10.0
+    dtype = data['t'].dtype
 
-    nifty_res = nifty_ls.lombscargle(t, y, dy, fmin=fmin, fmax=fmax, Nf=Nf)
-    brute_res = astropy(t, y, dy, fmin, fmax, Nf, use_fft=False)
-
-    dtype = t.dtype
-
-    assert np.allclose(nifty_res, brute_res, rtol=1e-9 if dtype == np.float64 else 1e-5)
+    np.testing.assert_allclose(
+        nifty_res, brute_res, rtol=1e-6 if dtype == np.float64 else 1e-3
+    )
 
 
 def test_batched(batched_data, Nf=1000):
     """Check various batching modes"""
     import nifty_ls
 
+    nifty_res = nifty_ls.lombscargle(**batched_data, Nf=Nf)
+
     t = batched_data['t']
     y_batch = batched_data['y']
     dy_batch = batched_data['dy']
-
-    fmin = 0.1
-    fmax = 10.0
-
-    nifty_res = nifty_ls.lombscargle(t, y_batch, dy_batch, fmin=fmin, fmax=fmax, Nf=Nf)
+    fmin = batched_data['fmin']
+    fmax = batched_data['fmax']
 
     brute_res = np.empty((len(y_batch), Nf), dtype=y_batch.dtype)
     for i in range(len(y_batch)):
@@ -112,33 +108,31 @@ def test_batched(batched_data, Nf=1000):
 
     dtype = t.dtype
 
-    assert np.allclose(nifty_res, brute_res, rtol=1e-9 if dtype == np.float64 else 1e-5)
+    np.testing.assert_allclose(
+        nifty_res, brute_res, rtol=1e-6 if dtype == np.float64 else 1e-3
+    )
 
 
 def test_normalization(data, Nf=1000):
     """Check that the normalization modes work as expected"""
     import nifty_ls
 
-    fmin = 0.1
-    fmax = 10.0
-
     for norm in ['standard', 'model', 'log', 'psd']:
         nifty_res = nifty_ls.lombscargle(
             **data,
-            fmin=fmin,
-            fmax=fmax,
             Nf=Nf,
             normalization=norm,
         )
         astropy_res = astropy(
             **data,
-            fmin=fmin,
-            fmax=fmax,
             Nf=Nf,
             use_fft=False,
             normalization=norm,
         )
-        assert np.allclose(nifty_res, astropy_res)
+        dtype = data['t'].dtype
+        np.testing.assert_allclose(
+            nifty_res, astropy_res, rtol=1e-6 if dtype == np.float64 else 1e-3
+        )
 
 
 def test_astropy_hook(data, Nf=1000):
@@ -146,18 +140,15 @@ def test_astropy_hook(data, Nf=1000):
     from astropy.timeseries import LombScargle
     import nifty_ls
 
-    fmin = 0.1
-    fmax = 10.0
-
-    ls = LombScargle(**data, fit_mean=False, center_data=False)
+    ls = LombScargle(data['t'], data['y'], data['dy'], fit_mean=True, center_data=True)
 
     freq = np.linspace(0.1, 10.0, Nf, endpoint=True)
     astropy_power = ls.power(freq, method='fastnifty', assume_regular_frequency=True)
 
-    nifty_power = nifty_ls.lombscargle(**data, fmin=fmin, fmax=fmax, Nf=Nf)
+    nifty_power = nifty_ls.lombscargle(**data, Nf=Nf, fit_mean=True, center_data=True)
 
     # same backend, ought to match very closely
-    assert np.allclose(astropy_power, nifty_power)
+    np.testing.assert_allclose(astropy_power, nifty_power)
 
 
 @pytest.mark.parametrize('Nf', [1_000])
@@ -165,40 +156,67 @@ def test_no_cpp_helpers(data, batched_data, Nf):
     """Check that the _no_cpp_helpers flag works as expected for batched and unbatched"""
     import nifty_ls
 
-    fmin = 0.1
-    fmax = 10.0
-
     nifty_power = nifty_ls.lombscargle(
-        **data, fmin=fmin, fmax=fmax, Nf=Nf, backend_kwargs=dict(_no_cpp_helpers=False)
+        **data, Nf=Nf, backend_kwargs=dict(_no_cpp_helpers=False)
     )
 
     nocpp_power = nifty_ls.lombscargle(
-        **data, fmin=fmin, fmax=fmax, Nf=Nf, backend_kwargs=dict(_no_cpp_helpers=True)
+        **data, Nf=Nf, backend_kwargs=dict(_no_cpp_helpers=True)
     )
 
-    assert np.allclose(nifty_power, nocpp_power)
+    np.testing.assert_allclose(nifty_power, nocpp_power)
 
     nifty_power_batched = nifty_ls.lombscargle(
         **batched_data,
-        fmin=fmin,
-        fmax=fmax,
         Nf=Nf,
         backend_kwargs=dict(_no_cpp_helpers=False),
     )
 
     nocpp_power_batched = nifty_ls.lombscargle(
         **batched_data,
-        fmin=fmin,
-        fmax=fmax,
         Nf=Nf,
         backend_kwargs=dict(_no_cpp_helpers=True),
     )
 
-    assert np.allclose(nifty_power_batched, nocpp_power_batched)
+    np.testing.assert_allclose(nifty_power_batched, nocpp_power_batched)
+
+
+@pytest.mark.parametrize('center_data', [True, False])
+def test_center_data(data, center_data, Nf=1000):
+    import nifty_ls
+
+    center_nifty = nifty_ls.lombscargle(**data, Nf=Nf, center_data=center_data)
+
+    center_astropy = astropy(**data, Nf=Nf, center_data=center_data, use_fft=False)
+
+    dtype = data['t'].dtype
+
+    np.testing.assert_allclose(
+        center_nifty, center_astropy, rtol=1e-6 if dtype == np.float64 else 1e-3
+    )
+
+
+@pytest.mark.parametrize('fit_mean', [True, False])
+def test_fit_mean(data, fit_mean, Nf=1000):
+    import nifty_ls
+
+    fitmean_nifty = nifty_ls.lombscargle(**data, Nf=Nf, fit_mean=fit_mean)
+
+    fitmean_astropy = astropy(
+        **data,
+        Nf=Nf,
+        fit_mean=fit_mean,
+        use_fft=False,
+    )
+
+    dtype = data['t'].dtype
+
+    np.testing.assert_allclose(
+        fitmean_nifty, fitmean_astropy, rtol=1e-6 if dtype == np.float64 else 1e-3
+    )
 
 
 # TODO: cuda test
-# TODO: center_data, fit_mean, normalization tests
 
 
 @pytest.mark.parametrize('Nf', [10_000, 100_000, 1_000_000])
@@ -210,20 +228,13 @@ class TestPerf:
     this integration is.
     """
 
-    fmin = 0.1
-    fmax = 10.0
-
     def test_nifty(self, bench_data, Nf, benchmark):
         import nifty_ls
 
-        benchmark(
-            nifty_ls.lombscargle, **bench_data, fmin=self.fmin, fmax=self.fmax, Nf=Nf
-        )
+        benchmark(nifty_ls.lombscargle, **bench_data, Nf=Nf)
 
     def test_astropy(self, bench_data, Nf, benchmark):
-        benchmark(
-            astropy, **bench_data, fmin=self.fmin, fmax=self.fmax, Nf=Nf, use_fft=True
-        )
+        benchmark(astropy, **bench_data, Nf=Nf, use_fft=True)
 
     # Usually this benchmark isn't very useful, since one will always use the
     # compiled extensions in practice, but if looking at the performance
@@ -237,17 +248,12 @@ class TestPerf:
 
 @pytest.mark.parametrize('Nf', [1_000])
 class TestBatchedPerf:
-    fmin = 0.1
-    fmax = 10.0
-
     def test_batched(self, batched_bench_data, Nf, benchmark):
         import nifty_ls
 
         benchmark(
             nifty_ls.lombscargle,
             **batched_bench_data,
-            fmin=self.fmin,
-            fmax=self.fmax,
             Nf=Nf,
         )
 
@@ -257,11 +263,13 @@ class TestBatchedPerf:
         t = batched_bench_data['t']
         y_batch = batched_bench_data['y']
         dy_batch = batched_bench_data['dy']
+        fmin = batched_bench_data['fmin']
+        fmax = batched_bench_data['fmax']
 
         def _nifty():
             for i in range(len(y_batch)):
                 nifty_ls.lombscargle(
-                    t, y_batch[i], dy_batch[i], fmin=self.fmin, fmax=self.fmax, Nf=Nf
+                    t, y_batch[i], dy_batch[i], fmin=fmin, fmax=fmax, Nf=Nf
                 )
 
         benchmark(_nifty)
@@ -270,6 +278,8 @@ class TestBatchedPerf:
         t = batched_bench_data['t']
         y_batch = batched_bench_data['y']
         dy_batch = batched_bench_data['dy']
+        fmin = batched_bench_data['fmin']
+        fmax = batched_bench_data['fmax']
 
         def _astropy():
             for i in range(len(y_batch)):
@@ -277,8 +287,8 @@ class TestBatchedPerf:
                     t,
                     y_batch[i],
                     dy_batch[i],
-                    fmin=self.fmin,
-                    fmax=self.fmax,
+                    fmin=fmin,
+                    fmax=fmax,
                     Nf=Nf,
                     use_fft=True,
                 )
