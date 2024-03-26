@@ -3,6 +3,8 @@ Tests for the nifty-ls Lomb-Scargle implementation, including comparison against
 Astropy's implementation.
 """
 
+from __future__ import annotations
+
 from functools import partial
 
 import numpy as np

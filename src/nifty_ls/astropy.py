@@ -2,6 +2,8 @@
 Hooks for astropy's Lomb-Scargle implementation.  The hooks are installed in __init__.py.
 """
 
+from __future__ import annotations
+
 from .core import lombscargle
 
 

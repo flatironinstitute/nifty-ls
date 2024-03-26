@@ -3,6 +3,8 @@ This module provides a CUDA-accelerated implementation of the Lomb-Scargle perio
 via cufinufft and cupy.
 """
 
+from __future__ import annotations
+
 try:
     import cupy as cp
     import cufinufft

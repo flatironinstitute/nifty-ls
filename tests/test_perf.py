@@ -6,6 +6,8 @@ the moment but doesn't seem to be very actively maintained, so we may want to ke
 eye out for alternatives.
 """
 
+from __future__ import annotations
+
 import pytest
 
 import nifty_ls
