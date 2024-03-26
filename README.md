@@ -124,6 +124,11 @@ batched_power = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf)
 print(batched_power.shape)  # (10, 200)
 ```
 
+### Limitations
+The code only supports frequency grids with fixed spacing; however, finufft does
+support type 3 NUFFTs (non-uniform to non-uniform), which would enable arbitrary
+frequency grids. It's not clear how useful this is, so it hasn't been implemented,
+but please open a GitHub issue if you're interested in this functionality.
 
 ## Performance
 

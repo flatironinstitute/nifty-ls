@@ -5,14 +5,14 @@ find_package(Python 3.8 COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(nanobind CONFIG REQUIRED)
 
 # TODO: stable ABI?
-nanobind_add_module(cpu src/nifty_ls/cpu.cpp NOMINSIZE)
+nanobind_add_module(cpu_helpers src/nifty_ls/cpu_helpers.cpp NOMINSIZE)
 
-target_compile_options(cpu PRIVATE
+target_compile_options(cpu_helpers PRIVATE
     -Wall -Wextra -Werror -std=c++17
 )
 
 if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_options(cpu PRIVATE -Ofast)
+    target_compile_options(cpu_helpers PRIVATE -Ofast)
 endif()
 
-install(TARGETS cpu LIBRARY DESTINATION nifty_ls)
+install(TARGETS cpu_helpers LIBRARY DESTINATION nifty_ls)

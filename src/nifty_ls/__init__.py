@@ -4,7 +4,7 @@ from .core import lombscargle
 
 __all__ = ['lombscargle']
 
-# Make fastnifty available as a method for astropy's Lomb Scargle
+# Make "fastnifty" available as a method for astropy's Lomb Scargle
 try:
     import astropy.timeseries.periodograms.lombscargle.implementations.main as astropy_ls
 except ImportError:

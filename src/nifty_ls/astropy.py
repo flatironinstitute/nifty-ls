@@ -1,8 +1,8 @@
 """
-Hooks for astropy's Lomb-Scargle implementation.
+Hooks for astropy's Lomb-Scargle implementation.  The hooks are installed in __init__.py.
 """
 
-from .core import lombscargle_finufft
+from .core import lombscargle
 
 
 def lombscargle_fastnifty(
@@ -15,25 +15,23 @@ def lombscargle_fastnifty(
     center_data=True,
     fit_mean=True,
     normalization='standard',
-    nthreads=1,
-    **finufft_kwargs,
+    **lombscargle_kwargs,
 ):
     """
-    This will always use finufft/cufinufft, rather than a brute-force implementation.
-    Brute-force should only be used with many small time series, which needs to go
-    through the nifty-ls interface directly because Astropy doesn't support batching.
+    Usually one will want to use the finufft or cufinufft backends, rather than a brute-force backend.
+    Brute-force is probably only faster for many small NUFFTs, for which one needs to use the native
+    nifty-ls interface anyway (because astropy does not support batching).
     """
 
-    return lombscargle_finufft(
+    return lombscargle(
         t,
         y,
         dy,
         fmin=f0,
-        df=df,
+        fmax=f0 + df * (Nf - 1),
         Nf=Nf,
-        # center_data=center_data,
-        # fit_mean=fit_mean,  # TODO
+        center_data=center_data,
+        fit_mean=fit_mean,
         normalization=normalization,
-        nthreads=nthreads,
-        **finufft_kwargs,
-    )
+        **lombscargle_kwargs,
+    )['power']

@@ -194,7 +194,7 @@ void process_finufft_outputs(
     }
 }
 
-NB_MODULE(cpu, m) {
+NB_MODULE(cpu_helpers, m) {
     // We're using noconvert() here to ensure the input arrays are not copied
     
     m.def("process_finufft_inputs", &process_finufft_inputs<double>,
