@@ -39,7 +39,11 @@ version_file = "src/nifty_ls/version.py"
 
 [tool.pytest.ini_options]
 # is there a way to set this in the test script?
-addopts = "--benchmark-group-by=param --benchmark-disable-gc"
+addopts = [
+    "--benchmark-group-by=param:Nf",
+    "--benchmark-disable-gc",
+    "--benchmark-columns=min,mean,stddev,rounds,iterations",
+    ]
 
 [tool.ruff.format]
 quote-style = "single"
