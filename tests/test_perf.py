@@ -36,8 +36,7 @@ def backend(request):
     return request.param
 
 
-# @pytest.mark.parametrize('Nf', [10_000, 100_000, 1_000_000])
-@pytest.mark.parametrize('Nf', [10_000_000])
+@pytest.mark.parametrize('Nf', [10_000, 100_000, 1_000_000])
 class TestPerf:
     """Benchmark nifty-ls versus astropy's FFT-based implementation."""
 
