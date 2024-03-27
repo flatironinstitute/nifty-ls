@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import os
 
 import finufft
 import numpy as np
 
 from . import cpu_helpers
 
-DEFAULT_NTHREAD = len(os.sched_getaffinity(0))
+DEFAULT_NTHREAD = 0  # let finufft detect according to OMP
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
@@ -40,9 +39,6 @@ def lombscargle(
     if nthreads is None:
         # TODO: better thread heuristics?
         nthreads = 1 if Nf <= 10**5 else DEFAULT_NTHREAD
-
-    if nthreads < 1:
-        nthreads = DEFAULT_NTHREAD
 
     dtype = t.dtype
 
