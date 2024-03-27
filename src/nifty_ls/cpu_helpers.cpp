@@ -50,8 +50,6 @@ void process_finufft_inputs(
     const bool fit_mean,
     const bool psd_norm
 ) {
-    (void) fit_mean;  // unused
-
     auto t1 = t1_.view();
     auto t2 = t2_.view();
     auto yw = yw_.view();

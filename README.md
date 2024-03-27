@@ -60,6 +60,14 @@ $ pip install nanobind scikit-build-core
 $ pip install -e .[test] --no-build-isolation
 ```
 
+Developers may also be interested in setting these keys in `pyproject.toml`:
+
+```toml
+[tool.scikit-build]
+cmake.build-type = "Debug"
+cmake.verbose = true
+install.strip = false
+```
 
 ## Usage
 ### From Astropy
@@ -133,7 +141,7 @@ print(batched_power.shape)  # (10, 200)
 The code only supports frequency grids with fixed spacing; however, finufft does
 support type 3 NUFFTs (non-uniform to non-uniform), which would enable arbitrary
 frequency grids. It's not clear how useful this is, so it hasn't been implemented,
-but please open a GitHub issue if you're interested in this functionality.
+but please open a GitHub issue if this is of interest to you.
 
 ## Performance
 
