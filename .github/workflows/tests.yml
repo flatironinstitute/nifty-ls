@@ -7,7 +7,6 @@ on:
     - cron: '15 12 * * 5'
 
 # TODO: cibuildwheel and PyPI upload
-# TODO: CUDA tests on Jenkins
 
 jobs:
   tests:

@@ -87,17 +87,19 @@ To use the CUDA (cufinufft) backend, pass the appropriate arguments via `method_
 frequency, power = LombScargle(t, y, method="fastnifty", method_kws=dict(backend="cufinufft")).autopower()
 ```
 
-
-In many cases, accelerating your periodogram is as simple as setting the method
+In many cases, accelerating your periodogram is as simple as setting the `method`
 in your Astropy Lomb Scargle code! More advanced usage, such as computing multiple
 periodograms in parallel, should go directly through the nifty-ls interface.
 
 
 ### From nifty-ls (native interface)
+
 nifty-ls has its own interface that offers more flexibility than the Astropy
 interface for batched periodograms.
 
-A single periodogram can be computed as:
+#### Single periodograms
+
+A single periodogram can be computed through nifty-ls as:
 
 ```python
 import nifty_ls
@@ -108,21 +110,15 @@ nifty_res = nifty_ls.lombscargle(t, y, dy)
 nifty_res = nifty_ls.lombscargle(t, y, dy, fmin=0.1, fmax=10, Nf=10**6)
 ```
 
-Two kinds of batching are supported:
-
-1. multiple periodograms with the same observation times, and
-2. multiple periodograms with distinct observation times.
-
-Kind (1) uses finufft's native support for computing multiple simultaneous transforms
-with the same non-uniform points (observation times).
-
-Kind (2) uses multi-threading to compute multiple distinct transforms in parallel.
-
-These two kinds of batching can be combined.
-
 #### Batched Periodograms
 
+Batched periodograms (multiple objects with the same observation times) can be
+computed as:
+
 ```python
+import nifty_ls
+import numpy as np
+
 N_t = 100
 N_obj = 10
 Nf = 200
@@ -133,9 +129,17 @@ freqs = rng.random(N_obj).reshape(-1,1)
 y_batch = np.sin(freqs * t)
 dy_batch = rng.random(y.shape)
 
-batched_power = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf)
-print(batched_power.shape)  # (10, 200)
+batched = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf)
+print(batched['power'].shape)  # (10, 200)
 ```
+
+Note that this computes multiple periodograms simultaneously on a set of time
+series with the same observation times.  This approach is particularly efficient
+for short time series, and/or when using the GPU.
+
+Support for batching multiple time series with distinct observation times is
+also planned.
+
 
 ### Limitations
 The code only supports frequency grids with fixed spacing; however, finufft does
@@ -144,6 +148,11 @@ frequency grids. It's not clear how useful this is, so it hasn't been implemente
 but please open a GitHub issue if this is of interest to you.
 
 ## Performance
+On the CPU, nifty-ls gain performance not only through its use of finufft, but also
+by offloading the pre- and post-processing steps to compiled extensions. The extensions
+enable us to do much more processing element-wise, rather than array-wise. In other words,
+they enable "kernel fusion" (to borrow a term from GPU computing), increasing the compute
+density.
 
 
 ## Accuracy
