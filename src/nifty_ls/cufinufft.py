@@ -28,16 +28,49 @@ def lombscargle(
     center_data=True,
     fit_mean=True,
     normalization='standard',
-    copy_result_to_cpu=True,
+    copy_result_to_host=True,
     **cufinufft_kwargs,
 ):
     """
-    Computes `nthreads` finuffts in parallel, or fewer if newer NU points are given.
-    The rest of the threads will be passed down into finufft.
+    Compute the Lomb-Scargle periodogram using the cufinufft backend.
+
+    Parameters
+    ----------
+    t : array-like
+        The time values, shape (N_t,)
+    y : array-like
+        The data values, shape (N_t,) or (N_y, N_t)
+    dy : array-like
+        The uncertainties of the data values, broadcastable to `y`
+    fmin : float
+        The minimum frequency of the periodogram.
+    df : float
+        The frequency bin width.
+    Nf : int
+        The number of frequency bins.
+    center_data : bool, optional
+        Whether to center the data before computing the periodogram. Default is True.
+    fit_mean : bool, optional
+        Whether to fit a mean value to the data before computing the periodogram. Default is True.
+    normalization : str, optional
+        The normalization method to use. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
+    copy_result_to_host : bool, optional
+        If True, the result will be copied to host (CPU) memory before returning.
+        This is usually desired unless you plan to do further computation on the GPU.
+    cufinufft_kwargs : dict, optional
+        Additional keyword arguments to pass to the `cufinufft.Plan()` constructor.
+        Particular cufinufft parameters of interest are:
+        - `eps`: the requested precision (default is 1e-9 for double precision and 1e-5 for single precision)
+        - `upsampfac`: the upsampling factor (default is 2.0)
+        - `gpu_method`: the method to use on the GPU (default is 2)
+        - `gpu_sort`: whether to sort the data before transforming (default is 1)
+        - `gpu_kerevalmeth`: the kernel evaluation method (default is 1)
     """
 
-    # TODO: better upsampfrac heuristics?
-    default_cufinufft_kwargs = dict(eps='default')
+    # TODO: better defaults?
+    default_cufinufft_kwargs = dict(
+        eps='default', upsampfac=2.0, gpu_method=2, gpu_sort=1, gpu_kerevalmeth=1
+    )
 
     cufinufft_kwargs = {**default_cufinufft_kwargs, **cufinufft_kwargs}
 
@@ -77,6 +110,8 @@ def lombscargle(
     w = yw_w[Nbatch:]
 
     # begin preprocessing
+    # We could fuse these kernels like we do on the CPU,
+    # but so far the performance is excellent without it.
     t1 = 2 * cp.pi * df * t
     t2 = 2 * t1
 
@@ -181,7 +216,7 @@ def lombscargle(
     if squeeze_output:
         power = power.squeeze()
 
-    if copy_result_to_cpu:
+    if copy_result_to_host:
         power = power.get()
 
     return power

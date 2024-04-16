@@ -10,27 +10,23 @@ def validate_frequency_grid(
     Validate the frequency grid parameters and return them in a canonical form.
     """
 
-    # TODO: the problem is overspecified, we may need to rethink the interface
-
     if fmin is None or fmax is None or Nf is None:
         if assume_sorted_t:
-            tmin = t[0]
-            tmax = t[-1]
+            baseline = t[-1] - t[0]
         else:
-            tmin = np.min(t)
-            tmax = np.max(t)
+            baseline = np.ptp(t)
 
-        baseline = tmax - tmin
+        target_df = 1 / (samples_per_peak * baseline)
 
         if fmax is None:
             avg_nyquist = 0.5 * len(t) / baseline
             fmax = avg_nyquist * nyquist_factor
 
         if fmin is None:
-            fmin = 1 / (2 * samples_per_peak * baseline)
+            fmin = target_df / 2
 
         if Nf is None:
-            Nf = 1 + int(np.round((fmax - fmin) / df))  # noqa: F821
+            Nf = 1 + int(np.round((fmax - fmin) / target_df))
 
     fmin = float(fmin)
     fmax = float(fmax)

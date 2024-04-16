@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from importlib import import_module
+from typing import Literal, get_args
+
+BACKEND_TYPE = Literal['finufft', 'cufinufft']
+BACKEND_NAMES = list(get_args(BACKEND_TYPE))
 
 
-BACKEND_NAMES = ['finufft', 'cufinufft']
-
-
-def available_backends(verbose: bool = True) -> list[str]:
+def available_backends(verbose: bool = False) -> list[str]:
     """Return a list of available backends.  Backends may be unavailable if their dependencies are not installed."""
     backends = []
 
