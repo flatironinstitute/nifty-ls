@@ -5,6 +5,8 @@ via cufinufft and cupy.
 
 from __future__ import annotations
 
+from timeit import default_timer as timer
+
 try:
     import cupy as cp
     import cufinufft
@@ -29,10 +31,21 @@ def lombscargle(
     fit_mean=True,
     normalization='standard',
     copy_result_to_host=True,
+    verbose=True,
     **cufinufft_kwargs,
 ):
     """
     Compute the Lomb-Scargle periodogram using the cufinufft backend.
+
+    Performance Tuning
+    ------------------
+    cufinufft is not as finicky to tune as finufft. The default parameters are probably
+    fine for most cases, but you may want to experiment with the `eps` and `gpu_method`.
+
+    The cufinufft documentation has a stub pointing to the location in the source code
+    where the tuning parameters can be found:
+
+    https://finufft.readthedocs.io/en/latest/c_gpu.html#non-standard-options
 
     Parameters
     ----------
@@ -57,20 +70,16 @@ def lombscargle(
     copy_result_to_host : bool, optional
         If True, the result will be copied to host (CPU) memory before returning.
         This is usually desired unless you plan to do further computation on the GPU.
+    verbose : bool, optional
+        Whether to print diagnostic messages.
     cufinufft_kwargs : dict, optional
         Additional keyword arguments to pass to the `cufinufft.Plan()` constructor.
         Particular cufinufft parameters of interest are:
-        - `eps`: the requested precision (default is 1e-9 for double precision and 1e-5 for single precision)
-        - `upsampfac`: the upsampling factor (default is 2.0)
-        - `gpu_method`: the method to use on the GPU (default is 2)
-        - `gpu_sort`: whether to sort the data before transforming (default is 1)
-        - `gpu_kerevalmeth`: the kernel evaluation method (default is 1)
+        - `eps`: the requested precision [1e-9 for double precision and 1e-5 for single precision]
+        - `gpu_method`: the method to use on the GPU [1]
     """
 
-    # TODO: better defaults?
-    default_cufinufft_kwargs = dict(
-        eps='default', upsampfac=2.0, gpu_method=2, gpu_sort=1, gpu_kerevalmeth=1
-    )
+    default_cufinufft_kwargs = dict(eps='default', gpu_method=1)
 
     cufinufft_kwargs = {**default_cufinufft_kwargs, **cufinufft_kwargs}
 
@@ -84,10 +93,16 @@ def lombscargle(
 
     cdtype = cp.complex128 if dtype == cp.float64 else cp.complex64
 
+    t_copy = -timer()
+
     # transfer arrays to GPU if not already there
     t = cp.asarray(t)
     y = cp.asarray(y)
     dy = cp.asarray(dy)
+
+    t_copy += timer()
+
+    t_prepost = -timer()
 
     # treat 1D arrays as a batch of size 1
     squeeze_output = y.ndim == 1
@@ -145,6 +160,10 @@ def lombscargle(
     yw_w *= phase_shift1
     w2 *= phase_shift2
 
+    t_prepost += timer()
+
+    t_cufinufft = -timer()
+
     plan_solo = cufinufft.Plan(
         nufft_type=1,
         n_modes=(Nf,),
@@ -179,7 +198,11 @@ def lombscargle(
     plan_solo.setpts(t2)
     f2 = plan_solo.execute(w2)
 
+    t_cufinufft += timer()
+
     # begin postprocessing
+    t_prepost -= timer()
+
     if fit_mean:
         tan_2omega_tau = (f2.imag - 2 * fw.imag * fw.real) / (
             f2.real - (fw.real * fw.real - fw.imag * fw.imag)
@@ -216,7 +239,16 @@ def lombscargle(
     if squeeze_output:
         power = power.squeeze()
 
+    t_prepost += timer()
+
     if copy_result_to_host:
+        t_copy -= timer()
         power = power.get()
+        t_copy += timer()
+
+    if verbose:
+        print(f'nifty-ls cufinufft: HtoD + DtoH = {t_copy:.4g} sec')
+        print(f'nifty-ls cufinufft: pre/post = {t_prepost:.4g} sec')
+        print(f'nifty-ls cufinufft: cufinufft = {t_cufinufft:.4g} sec')
 
     return power
