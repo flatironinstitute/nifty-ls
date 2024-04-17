@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import os
+from timeit import default_timer as timer
 
 import finufft
 import numpy as np
 
 from . import cpu_helpers
 
-DEFAULT_NTHREAD = 0  # let finufft detect according to OMP
-
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
+
+MAX_THREADS = len(os.sched_getaffinity(0))
 
 
 def lombscargle(
@@ -24,21 +26,70 @@ def lombscargle(
     fit_mean=True,
     normalization='standard',
     _no_cpp_helpers=False,
+    verbose=False,
     **finufft_kwargs,
 ):
     """
-    Computes `nthreads` finuffts in parallel, or fewer if newer NU points are given.
-    The rest of the threads will be passed down into finufft.
+    Compute the Lomb-Scargle periodogram using the FINUFFT backend.
+
+    Performance
+    -----------
+    The performance of this backend depends almost entirely on the performance of finufft,
+    which can vary significantly depending on tuning parameters like the number of threads.
+    Order-of-magnitude speedups or slowdowns are possible. Unfortunately, it's very difficult
+    to predict what will work best for a given problem on a given platform, so some experimentation
+    may be necessary. For nthreads, start with 1 and increase until performance stops improving.
+    Some other tuning parameters are listed under "finufft_kwargs" below.
+
+    See the finufft documentation for the full list of tuning parameters:
+    https://finufft.readthedocs.io/en/latest/opts.html
+
+
+    Parameters
+    ----------
+    t : array-like
+        The time values, shape (N_t,)
+    y : array-like
+        The data values, shape (N_t,) or (N_y, N_t)
+    dy : array-like
+        The uncertainties of the data values, broadcastable to `y`
+    fmin : float
+        The minimum frequency of the periodogram.
+    df : float
+        The frequency bin width.
+    Nf : int
+        The number of frequency bins.
+    nthreads : int, optional
+        The number of threads to use. The default behavior is to use (N_t / 4) * (Nf / 2^15) threads,
+        capped to the number of available CPUs. This is a heuristic that may not work well in all cases.
+    center_data : bool, optional
+        Whether to center the data before computing the periodogram. Default is True.
+    fit_mean : bool, optional
+        Whether to fit a mean value to the data before computing the periodogram. Default is True.
+    normalization : str, optional
+        The normalization method to use. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
+    _no_cpp_helpers : bool, optional
+        Whether to use the pure Python implementation of the finufft pre- and post-processing.
+        Default is False.
+    verbose : bool, optional
+        Whether to print additional information about the finufft computation.
+    finufft_kwargs : dict, optional
+        Additional keyword arguments to pass to the `finufft.Plan()` constructor.
+        Particular finufft parameters of interest may be:
+        - `eps`: the requested precision [1e-9 for double precision and 1e-5 for single precision]
+        - `upsampfac`: the upsampling factor [1.25]
+        - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     """
 
     # TODO: better upsampfrac heuristics?
-    default_finufft_kwargs = dict(eps='default', upsampfac=1.25, fftw=FFTW_ESTIMATE)
+    default_finufft_kwargs = dict(
+        eps='default',
+        upsampfac=1.25,
+        fftw=FFTW_ESTIMATE,
+        debug=int(verbose),
+    )
 
     finufft_kwargs = {**default_finufft_kwargs, **finufft_kwargs}
-
-    if nthreads is None:
-        # TODO: better thread heuristics?
-        nthreads = 1 if Nf <= 10**5 else DEFAULT_NTHREAD
 
     dtype = t.dtype
 
@@ -61,6 +112,21 @@ def lombscargle(
     # so we stack yw and w into a single array to allow a batched transform.
     # Regardless, we need to do a separate (t2,w2) transform.
     Nbatch, N = y.shape
+
+    if nthreads is None:
+        nthreads = max(1, Nbatch // 4) * max(1, Nf // (1 << 15))
+        nthreads = min(nthreads, MAX_THREADS)
+
+    if verbose:
+        print(
+            f'nifty-ls finufft: Using {nthreads} {"thread" if nthreads == 1 else "threads"}'
+        )
+
+    # could probably be more than finufft nthreads in many cases,
+    # but it's conceptually cleaner to keep them the same, and it
+    # will almost never matter in practice
+    nthreads_helpers = nthreads
+
     if fit_mean:
         yw_w_shape = (2 * Nbatch, N)
     else:
@@ -72,6 +138,7 @@ def lombscargle(
     yw = yw_w[:Nbatch]
     w = yw_w[Nbatch:]
 
+    t_helpers = -timer()
     if not _no_cpp_helpers:
         t1 = np.empty_like(t)
         t2 = np.empty_like(t)
@@ -94,6 +161,7 @@ def lombscargle(
             center_data,
             fit_mean,
             normalization.lower() == 'psd',
+            nthreads_helpers,
         )
     else:
         t1 = 2 * np.pi * df * t
@@ -129,6 +197,9 @@ def lombscargle(
         yw_w *= phase_shift1
         w2 *= phase_shift2
 
+    t_helpers += timer()
+
+    t_finufft = -timer()
     plan_solo = finufft.Plan(
         nufft_type=1,
         n_modes_or_dim=(Nf,),
@@ -165,6 +236,9 @@ def lombscargle(
     plan_solo.setpts(t2)
     f2 = plan_solo.execute(w2)
 
+    t_finufft += timer()
+
+    t_helpers -= timer()
     if not _no_cpp_helpers:
         norm_enum = dict(
             standard=cpu_helpers.NormKind.Standard,
@@ -175,7 +249,14 @@ def lombscargle(
 
         power = np.empty(f1.shape, dtype=dtype)
         cpu_helpers.process_finufft_outputs(
-            power, f1, fw, f2, norm, norm_enum, fit_mean
+            power,
+            f1,
+            fw,
+            f2,
+            norm,
+            norm_enum,
+            fit_mean,
+            nthreads_helpers,
         )
     else:
         if fit_mean:
@@ -210,6 +291,13 @@ def lombscargle(
             power *= 0.5 * (dy**-2.0).sum()
         else:
             raise ValueError(f'Unknown normalization: {normalization}')
+
+    t_helpers += timer()
+
+    if verbose:
+        print(
+            f'nifty-ls finufft: FINUFFT took {t_finufft:.4g} sec, pre-/post-processing took {t_helpers:.4g} sec'
+        )
 
     if squeeze_output:
         power = power.squeeze()

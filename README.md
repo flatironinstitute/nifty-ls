@@ -69,6 +69,18 @@ cmake.verbose = true
 install.strip = false
 ```
 
+## For best performance
+You may wish to compile and install finufft and cufinufft yourself so they will be
+built with optimizations for your hardware. To do so, first install nifty-ls, then
+follow the Python installation instructions for
+[finufft](https://finufft.readthedocs.io/en/latest/install.html#building-a-python-interface-to-a-locally-compiled-library)
+and
+[cufinufft](https://finufft.readthedocs.io/en/latest/install_gpu.html#python-interface).
+
+nifty-ls can likewise be built from source following the instructions above for
+best performance, but most of the heavy computations are offloaded to (cu)finufft,
+so the performance benefit is minimal.
+
 ## Usage
 ### From Astropy
 Importing `nifty_ls` makes nifty-ls available via `method="fastnifty"` in
@@ -166,61 +178,66 @@ $ pytest
 ```
 
 The tests are defined in the `tests/` directory, and include a mini-benchmark of
-nifty-ls and Astropy:
+nifty-ls and Astropy, shown below:
 
 ```
 $ pytest
-=================================================== test session starts ===================================================
-platform linux -- Python 3.10.13, pytest-8.0.2, pluggy-1.4.0
+======================================================== test session starts =========================================================
+platform linux -- Python 3.10.13, pytest-8.1.1, pluggy-1.4.0
 benchmark: 4.0.0 (defaults: timer=time.perf_counter disable_gc=True min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
 rootdir: /mnt/home/lgarrison/nifty-ls
 configfile: pyproject.toml
 plugins: benchmark-4.0.0, asdf-2.15.0, anyio-3.6.2, hypothesis-6.23.1
-collected 36 items                                                                                                        
+collected 36 items                                                                                                                   
 
-tests/test_ls.py ......................                                                                             [ 61%]
-tests/test_perf.py ..............                                                                                   [100%]
+tests/test_ls.py ......................                                                                                        [ 61%]
+tests/test_perf.py ..............                                                                                              [100%]
 
 
 ----------------------------------------- benchmark 'Nf=1000': 5 tests ----------------------------------------
 Name (time in ms)                       Min                Mean            StdDev            Rounds  Iterations
 ---------------------------------------------------------------------------------------------------------------
-test_batched[cufinufft-1000]        21.6041 (1.0)       23.6710 (1.0)      2.4283 (4.81)         32           1
-test_batched[finufft-1000]         123.0226 (5.69)     123.4696 (5.22)     0.5053 (1.0)           8           1
-test_unbatched[finufft-1000]       174.9419 (8.10)     175.4410 (7.41)     0.5325 (1.05)          6           1
-test_unbatched[astropy-1000]       442.6370 (20.49)    443.1872 (18.72)    0.5587 (1.11)          5           1
-test_unbatched[cufinufft-1000]     507.3561 (23.48)    517.5353 (21.86)    8.0330 (15.90)         5           1
+test_batched[finufft-1000]           6.8418 (1.0)        7.1821 (1.0)      0.1831 (1.32)         43           1
+test_batched[cufinufft-1000]         7.7027 (1.13)       8.6634 (1.21)     0.9555 (6.89)         74           1
+test_unbatched[finufft-1000]       110.7541 (16.19)    111.0603 (15.46)    0.1387 (1.0)          10           1
+test_unbatched[astropy-1000]       441.2313 (64.49)    441.9655 (61.54)    1.0732 (7.74)          5           1
+test_unbatched[cufinufft-1000]     488.2630 (71.36)    496.0788 (69.07)    6.1908 (44.63)         5           1
 ---------------------------------------------------------------------------------------------------------------
 
 --------------------------------- benchmark 'Nf=10000': 3 tests ----------------------------------
 Name (time in ms)            Min              Mean            StdDev            Rounds  Iterations
 --------------------------------------------------------------------------------------------------
-test[finufft-10000]       2.5704 (1.0)      2.5933 (1.0)      0.0697 (1.0)         360           1
-test[cufinufft-10000]     5.2686 (2.05)     5.3355 (2.06)     0.3733 (5.36)        154           1
-test[astropy-10000]       7.5168 (2.92)     7.6362 (2.94)     0.1090 (1.56)        121           1
+test[finufft-10000]       1.8481 (1.0)      1.8709 (1.0)      0.0347 (1.75)        507           1
+test[cufinufft-10000]     5.1269 (2.77)     5.2052 (2.78)     0.3313 (16.72)       117           1
+test[astropy-10000]       8.1725 (4.42)     8.2176 (4.39)     0.0198 (1.0)         113           1
 --------------------------------------------------------------------------------------------------
 
 ----------------------------------- benchmark 'Nf=100000': 3 tests ----------------------------------
 Name (time in ms)              Min               Mean            StdDev            Rounds  Iterations
 -----------------------------------------------------------------------------------------------------
-test[cufinufft-100000]      6.0493 (1.0)       6.1367 (1.0)      0.4577 (26.49)       160           1
-test[finufft-100000]       13.6574 (2.26)     13.6905 (2.23)     0.0173 (1.0)          71           1
-test[astropy-100000]       48.1205 (7.95)     48.7020 (7.94)     0.4037 (23.36)        20           1
+test[cufinufft-100000]      5.8566 (1.0)       6.0411 (1.0)      0.7407 (10.61)       159           1
+test[finufft-100000]        6.9766 (1.19)      7.1816 (1.19)     0.0748 (1.07)        132           1
+test[astropy-100000]       47.9246 (8.18)     48.0828 (7.96)     0.0698 (1.0)          19           1
 -----------------------------------------------------------------------------------------------------
 
 ------------------------------------- benchmark 'Nf=1000000': 3 tests --------------------------------------
 Name (time in ms)                  Min                  Mean            StdDev            Rounds  Iterations
 ------------------------------------------------------------------------------------------------------------
-test[cufinufft-1000000]         8.2061 (1.0)          8.6021 (1.0)      0.6529 (1.0)          97           1
-test[finufft-1000000]          87.3530 (10.64)       90.1813 (10.48)    1.8716 (2.87)         10           1
-test[astropy-1000000]       1,399.2794 (170.52)   1,402.8130 (163.08)   5.0011 (7.66)          5           1
+test[cufinufft-1000000]         8.0038 (1.0)          8.5193 (1.0)      1.3245 (1.62)         84           1
+test[finufft-1000000]          74.9239 (9.36)        76.5690 (8.99)     0.8196 (1.0)          10           1
+test[astropy-1000000]       1,430.4282 (178.72)   1,434.7986 (168.42)   5.5234 (6.74)          5           1
 ------------------------------------------------------------------------------------------------------------
 
 Legend:
   Outliers: 1 Standard Deviation from Mean; 1.5 IQR (InterQuartile Range) from 1st Quartile and 3rd Quartile.
   OPS: Operations Per Second, computed as 1 / Mean
-=================================================== 36 passed in 32.20s ===================================================
+======================================================== 36 passed in 30.81s =========================================================
 ```
+
+The results were obtained using 16 cores of an Intel Icelake CPU and 1 NVIDIA A100 GPU.
+The ratio of the runtime relative to the fastest are shown in parentheses. You may obtain
+very different performance on your platform! The slowest Astropy results in particular may
+depend on the Numpy distribution you have installed and its trig function performance.
 
 ## Authors
 nifty-ls was originally implemented by [Lehman Garrison](https://github.com/lgarrison)

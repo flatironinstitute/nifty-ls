@@ -5,11 +5,22 @@
 */
 
 #include <complex>
+#include <algorithm>
 #include <vector>
+
+#include <omp.h>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/complex.h>
+
+// Declare a reduction for std::vector<double> using std::transform
+#pragma omp declare reduction( \
+        vsum : \
+        std::vector<double> : \
+        std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<double>()) \
+    ) \
+    initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -48,7 +59,8 @@ void process_finufft_inputs(
     const size_t Nf,
     const bool center_data,
     const bool fit_mean,
-    const bool psd_norm
+    const bool psd_norm,
+    int nthreads
 ) {
     auto t1 = t1_.view();
     auto t2 = t2_.view();
@@ -64,9 +76,16 @@ void process_finufft_inputs(
     size_t N = y.shape(1);
     size_t Nshift = Nf / 2;
 
+    if (nthreads < 1){
+        nthreads = omp_get_max_threads();
+    }
+    omp_set_num_threads(nthreads);
+
     // w2 = dy**-2.
     std::vector<double> wsum(Nbatch, 0.);  // use double for stability
     std::vector<double> yoff(Nbatch, 0.);
+    
+    #pragma omp parallel for schedule(static) collapse(2) reduction(vsum:wsum) reduction(vsum:yoff)
     for (size_t i = 0; i < Nbatch; ++i) {
         for (size_t j = 0; j < N; ++j) {
             w2(i, j) = 1 / (dy(i, j) * dy(i, j));
@@ -80,6 +99,7 @@ void process_finufft_inputs(
     // norm = (w2 * y**2).sum(axis=-1, keepdims=True)
     // We're storing w2 as complex
     // but it's real at this point in the code, before the phase shift
+    // TODO: could try to taskify this loop
     for (size_t i = 0; i < Nbatch; ++i) {
         if (psd_norm) {
             norm(i) = wsum[i];
@@ -89,12 +109,15 @@ void process_finufft_inputs(
         if(center_data || fit_mean) {
             yoff[i] /= wsum[i];
         }
+        Scalar normi = norm(i);
+        #pragma omp parallel for schedule(static) reduction(+:normi)
         for (size_t j = 0; j < N; ++j) {
             w2(i, j).real( w2(i, j).real() / wsum[i] );  // w2 /= sum
             if (!psd_norm) {
-                norm(i) += w2(i, j).real() * (y(i, j) - yoff[i]) * (y(i, j) - yoff[i]);
+                normi += w2(i, j).real() * (y(i, j) - yoff[i]) * (y(i, j) - yoff[i]);
             }
         }
+        norm(i) = normi;
     }
 
     // if center_data or fit_mean:
@@ -102,6 +125,7 @@ void process_finufft_inputs(
 
     const std::complex<Scalar> phase_shift = std::complex<Scalar>(0, Nshift + fmin/df);
     const Scalar TWO_PI = 2 * static_cast<Scalar>(PI);
+    #pragma omp parallel for schedule(static)
     for(size_t j = 0; j < N; ++j) {
         t1(j) = TWO_PI * df * t(j);
         t2(j) = 2 * t1(j);
@@ -131,7 +155,8 @@ void process_finufft_outputs(
     nifty_arr_2d<const std::complex<Scalar>> f2_,
     nifty_arr_1d<const Scalar> norm_YY_,
     const NormKind norm_kind,
-    const bool fit_mean
+    const bool fit_mean,
+    int nthreads
 ){
     auto power = power_.view();
     auto f1 = f1_.view();  // read-only
@@ -144,6 +169,12 @@ void process_finufft_outputs(
 
     const Scalar SQRT_HALF = std::sqrt(0.5);
 
+    if (nthreads < 1){
+        nthreads = omp_get_max_threads();
+    }
+    omp_set_num_threads(nthreads);
+
+    #pragma omp parallel for schedule(static) collapse(2)
     for(size_t i = 0; i < Nbatch; ++i) {
         for(size_t j = 0; j < N; ++j) {
             Scalar tan_2omega_tau;
@@ -210,7 +241,8 @@ NB_MODULE(cpu_helpers, m) {
         "Nf"_a,
         "center_data"_a,
         "fit_mean"_a,
-        "psd_normalization"_a
+        "psd_normalization"_a,
+        "nthreads"_a
         );
 
     m.def("process_finufft_inputs", &process_finufft_inputs<float>,
@@ -228,7 +260,8 @@ NB_MODULE(cpu_helpers, m) {
         "Nf"_a,
         "center_data"_a,
         "fit_mean"_a,
-        "psd_normalization"_a
+        "psd_normalization"_a,
+        "nthreads"_a
         );
 
     m.def("process_finufft_outputs", &process_finufft_outputs<double>,
@@ -238,7 +271,8 @@ NB_MODULE(cpu_helpers, m) {
         "f2"_a.noconvert(),
         "norm_YY"_a.noconvert(),
         "norm_kind"_a,
-        "fit_mean"_a
+        "fit_mean"_a,
+        "nthreads"_a
         );
 
     m.def("process_finufft_outputs", &process_finufft_outputs<float>,
@@ -248,7 +282,8 @@ NB_MODULE(cpu_helpers, m) {
         "f2"_a.noconvert(),
         "norm_YY"_a.noconvert(),
         "norm_kind"_a,
-        "fit_mean"_a
+        "fit_mean"_a,
+        "nthreads"_a
         );
 
     nb::enum_<NormKind>(m, "NormKind")
