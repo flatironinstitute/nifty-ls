@@ -32,8 +32,8 @@ def lombscargle(
     """
     Compute the Lomb-Scargle periodogram using the FINUFFT backend.
 
-    Performance
-    -----------
+    Performance Tuning
+    ------------------
     The performance of this backend depends almost entirely on the performance of finufft,
     which can vary significantly depending on tuning parameters like the number of threads.
     Order-of-magnitude speedups or slowdowns are possible. Unfortunately, it's very difficult

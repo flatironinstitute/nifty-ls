@@ -47,3 +47,4 @@ addopts = [
 
 [tool.ruff.format]
 quote-style = "single"
+docstring-code-format = true

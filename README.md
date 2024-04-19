@@ -16,6 +16,25 @@ several orders of magnitude more accurate than
 [Astropy's Lomb Scargle](https://docs.astropy.org/en/stable/timeseries/lombscargle.html)
 with default settings for many regions of parameter space.
 
+## Background
+The [Press & Rybicki (1989) method](https://ui.adsabs.harvard.edu/abs/1989ApJ...338..277P/abstract) for Lomb-Scargle poses the computation as four weighted trigonometric sums that are solved with a pair of FFTs by extirpolation to an equi-spaced grid. Specifically, the sums are of the form:
+
+```math
+S_k = \sum_{j=1}^M h_j * \sin(2 \pi f_k t_j) \\
+C_k = \sum_{j=1}^M h_j * \cos(2 \pi f_k t_j),
+```
+
+where the $k$ subscript runs from 0 to $N$, the number of frequency bins, $f_k$ is the cyclic frequency of bin $k$, $t_j$ are the observation times (of which there are $M$), and $h_j$ are the weights.
+
+The key observation for our purposes is that this is exactly what a non-uniform FFT computes! Specifically, a "type-1" complex NUFFT (non-uniform to uniform) in the [finufft convention](https://finufft.readthedocs.io/en/latest/math.html) computes:
+
+```math
+g_k = \sum_{j=1}^M h_j e^{i k t_j}.
+```
+
+The complex and real parts of this transform are Press & Rybicki's $S_k$ and $C_k$, with some adjustment for cyclic/angular frequencies, domain of $k$, real vs.~complex transform, etc. finufft has a particularly fast and accurate spreading kernel ("exponential of semicircle") that it uses instead of Press & Rybicki's extirpolation.
+
+There is some pre- and post-processing of $S_k$ and $C_k$ to compute the periodogram, which can become the bottleneck because finufft is so fast. This package also optimizes and parallelizes those computations.
 
 ## Installation
 ### From PyPI
@@ -69,7 +88,7 @@ cmake.verbose = true
 install.strip = false
 ```
 
-## For best performance
+### For best performance
 You may wish to compile and install finufft and cufinufft yourself so they will be
 built with optimizations for your hardware. To do so, first install nifty-ls, then
 follow the Python installation instructions for
