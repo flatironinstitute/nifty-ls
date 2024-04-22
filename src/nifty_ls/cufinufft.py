@@ -32,7 +32,7 @@ def lombscargle(
     normalization='standard',
     copy_result_to_host=True,
     verbose=True,
-    **cufinufft_kwargs,
+    cufinufft_kwargs=None,
 ):
     """
     Compute the Lomb-Scargle periodogram using the cufinufft backend.
@@ -81,7 +81,7 @@ def lombscargle(
 
     default_cufinufft_kwargs = dict(eps='default', gpu_method=1)
 
-    cufinufft_kwargs = {**default_cufinufft_kwargs, **cufinufft_kwargs}
+    cufinufft_kwargs = {**default_cufinufft_kwargs, **(cufinufft_kwargs or {})}
 
     dtype = t.dtype
 

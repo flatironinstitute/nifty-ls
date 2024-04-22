@@ -28,7 +28,7 @@ def lombscargle(
     samples_per_peak: int = 5,
     nyquist_factor: int = 5,
     backend: BACKEND_TYPE = 'finufft',
-    backend_kwargs: Optional[dict] = None,
+    **backend_kwargs: Optional[dict],
 ) -> dict:
     """
     Compute a Lomb-Scargle periodogram, or a batch of periodograms if `y` and `dy` are 2D arrays.
@@ -108,7 +108,7 @@ def lombscargle(
         center_data=center_data,
         fit_mean=fit_mean,
         normalization=normalization,
-        **(backend_kwargs or {}),
+        **backend_kwargs,
     )
 
     fmax = fmin + df * (Nf - 1)

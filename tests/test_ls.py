@@ -129,26 +129,22 @@ def test_astropy_hook(data, backend, Nf=1000):
 def test_no_cpp_helpers(data, batched_data, Nf=1000):
     """Check that the _no_cpp_helpers flag works as expected for batched and unbatched"""
 
-    nifty_power = nifty_ls.lombscargle(
-        **data, Nf=Nf, backend_kwargs=dict(_no_cpp_helpers=False)
-    )['power']
+    nifty_power = nifty_ls.lombscargle(**data, Nf=Nf, _no_cpp_helpers=False)['power']
 
-    nocpp_power = nifty_ls.lombscargle(
-        **data, Nf=Nf, backend_kwargs=dict(_no_cpp_helpers=True)
-    )['power']
+    nocpp_power = nifty_ls.lombscargle(**data, Nf=Nf, _no_cpp_helpers=True)['power']
 
     np.testing.assert_allclose(nifty_power, nocpp_power)
 
     nifty_power_batched = nifty_ls.lombscargle(
         **batched_data,
         Nf=Nf,
-        backend_kwargs=dict(_no_cpp_helpers=False),
+        _no_cpp_helpers=False,
     )['power']
 
     nocpp_power_batched = nifty_ls.lombscargle(
         **batched_data,
         Nf=Nf,
-        backend_kwargs=dict(_no_cpp_helpers=True),
+        _no_cpp_helpers=True,
     )['power']
 
     np.testing.assert_allclose(nifty_power_batched, nocpp_power_batched)

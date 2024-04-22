@@ -27,7 +27,7 @@ def lombscargle(
     normalization='standard',
     _no_cpp_helpers=False,
     verbose=False,
-    **finufft_kwargs,
+    finufft_kwargs=None,
 ):
     """
     Compute the Lomb-Scargle periodogram using the FINUFFT backend.
@@ -89,7 +89,7 @@ def lombscargle(
         debug=int(verbose),
     )
 
-    finufft_kwargs = {**default_finufft_kwargs, **finufft_kwargs}
+    finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
 
     dtype = t.dtype
 
