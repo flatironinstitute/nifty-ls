@@ -8,6 +8,7 @@ def validate_frequency_grid(
 ):
     """
     Validate the frequency grid parameters and return them in a canonical form.
+    Follows the Astropy LombScargle conventions for samples_per_peak and nyquist_factor.
     """
 
     if fmin is None or fmax is None or Nf is None:

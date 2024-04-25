@@ -17,7 +17,7 @@ several orders of magnitude more accurate than
 with default settings for many regions of parameter space.
 
 ## Background
-The [Press & Rybicki (1989) method](https://ui.adsabs.harvard.edu/abs/1989ApJ...338..277P/abstract) for Lomb-Scargle poses the computation as four weighted trigonometric sums that are solved with a pair of FFTs by extirpolation to an equi-spaced grid. Specifically, the sums are of the form:
+The [Press & Rybicki (1989) method](https://ui.adsabs.harvard.edu/abs/1989ApJ...338..277P/abstract) for Lomb-Scargle poses the computation as four weighted trigonometric sums that are solved with a pair of FFTs by "extirpolation" to an equi-spaced grid. Specifically, the sums are of the form:
 
 ```math
 \begin{align}
@@ -29,7 +29,7 @@ C_k &= \sum_{j=1}^M h_j \cos(2 \pi f_k t_j),
 
 where the $k$ subscript runs from 0 to $N$, the number of frequency bins, $f_k$ is the cyclic frequency of bin $k$, $t_j$ are the observation times (of which there are $M$), and $h_j$ are the weights.
 
-The key observation for our purposes is that this is exactly what a non-uniform FFT computes! Specifically, a "type-1" complex NUFFT (non-uniform to uniform) in the [finufft convention](https://finufft.readthedocs.io/en/latest/math.html) computes:
+The key observation for our purposes is that this is exactly what a non-uniform FFT computes! Specifically, a "type-1" (non-uniform to uniform) complex NUFFT in the [finufft convention](https://finufft.readthedocs.io/en/latest/math.html) computes:
 
 ```math
 g_k = \sum_{j=1}^M h_j e^{i k t_j}.
@@ -97,7 +97,8 @@ built with optimizations for your hardware. To do so, first install nifty-ls, th
 follow the Python installation instructions for
 [finufft](https://finufft.readthedocs.io/en/latest/install.html#building-a-python-interface-to-a-locally-compiled-library)
 and
-[cufinufft](https://finufft.readthedocs.io/en/latest/install_gpu.html#python-interface).
+[cufinufft](https://finufft.readthedocs.io/en/latest/install_gpu.html#python-interface)
+as desired.
 
 nifty-ls can likewise be built from source following the instructions above for
 best performance, but most of the heavy computations are offloaded to (cu)finufft,
@@ -115,7 +116,7 @@ from astropy.timeseries import LombScargle
 frequency, power = LombScargle(t, y, method="fastnifty").autopower()
 ```
 
-To use the CUDA (cufinufft) backend, pass the appropriate arguments via `method_kws`:
+To use the CUDA (cufinufft) backend, pass the appropriate argument via `method_kws`:
 
 ```python
 frequency, power = LombScargle(t, y, method="fastnifty", method_kws=dict(backend="cufinufft")).autopower()
@@ -172,7 +173,7 @@ series with the same observation times.  This approach is particularly efficient
 for short time series, and/or when using the GPU.
 
 Support for batching multiple time series with distinct observation times is
-also planned.
+not currently implemented, but is planned.
 
 
 ### Limitations
@@ -182,7 +183,30 @@ frequency grids. It's not clear how useful this is, so it hasn't been implemente
 but please open a GitHub issue if this is of interest to you.
 
 ## Performance
-On the CPU, nifty-ls gain performance not only through its use of finufft, but also
+
+Using 16 cores of an Intel Icelake CPU and a NVIDIA A100 GPU, we obtain the following performance. First, we'll look at the performance on a single periodogram (i.e. unbatched):
+
+![benchmarks](bench.png)
+
+In this case, finufft is 5x faster (11x with threads) than Astropy for large transforms, and 2x faster for (very) small transforms.  Small transforms improve futher relative to Astropy with more frequency bins. (Dynamic multi-threaded dispatch of transforms is planned as a future feature which will especially benefit small $N$.)
+
+cufinufft is 200x faster than Astropy for large $N$! The performance plateaus towards small $N$, mostly due to the overhead of sending data to the GPU and fetching the result. (Concurrent job execution on the GPU is another planned feature, which will especially help small $N$.)
+
+The following demonstrates "batch mode", in which 10 periodograms are computed from 10 different time series with the same observation times:
+
+![batched benchmarks](bench_batch.png)
+
+Here, the finufft single-threaded advantage is consistently 6x across problem sizes, while the multi-threaded advantage is up to 30x for large transforms.
+
+The 200x advantage of the GPU extends to even smaller $N$ in this case, since we're sending and receiving more data at once.
+
+We see that both multi-threaded finufft and cufinufft particularly benefit from batched transforms, as this exposes more parallelism and amortizes fixed latencies.
+
+We use `FFTW_MEASURE` for finufft in these benchmarks, which improves performance a few tens of percents.
+
+Multi-threading hurts the performance of small problem sizes; the default behavior of nifty-ls is to use fewer threads in such cases. The "multi-threaded" line uses between 1 and 16 threads.
+
+On the CPU, nifty-ls gets its performance not only through its use of finufft, but also
 by offloading the pre- and post-processing steps to compiled extensions. The extensions
 enable us to do much more processing element-wise, rather than array-wise. In other words,
 they enable "kernel fusion" (to borrow a term from GPU computing), increasing the compute
@@ -190,6 +214,9 @@ density.
 
 
 ## Accuracy
+While we compared performance with Astropy's `fast` method, this isn't quite fair. nifty-ls is substantially more accurate than Astropy `fast`!
+
+
 
 
 ## Testing
@@ -267,5 +294,8 @@ based on work done by [Dan Foreman-Mackey](https://github.com/dfm) in the
 [dfm/nufft-ls](https://github.com/dfm/nufft-ls) repo, with consulting from
 [Alex Barnett](https://github.com/ahbarnett).
 
+## Acknowledgements
 nifty-ls builds directly on top of the excellent finufft package by Alex Barnett
 and others (see the [finufft Acknowledgements](https://finufft.readthedocs.io/en/latest/ackn.html)).
+
+Many parts of this package are an adaptation of [Astropy LombScargle](https://docs.astropy.org/en/stable/timeseries/lombscargle.html), in particular the Press & Rybicki (1989) method.

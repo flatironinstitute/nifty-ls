@@ -31,7 +31,7 @@ def lombscargle(
     fit_mean=True,
     normalization='standard',
     copy_result_to_host=True,
-    verbose=True,
+    verbose=False,
     cufinufft_kwargs=None,
 ):
     """

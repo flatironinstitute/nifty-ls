@@ -13,6 +13,8 @@ FFTW_ESTIMATE = 64
 
 MAX_THREADS = len(os.sched_getaffinity(0))
 
+__all__ = ['lombscargle', 'FFTW_MEASURE', 'FFTW_ESTIMATE', 'MAX_THREADS']
+
 
 def lombscargle(
     t,
