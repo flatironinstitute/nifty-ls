@@ -19,6 +19,8 @@ except ImportError as e:
 if not cp.is_available():
     raise ImportError('CUDA is not available, cannot use cufinufft backend.')
 
+__all__ = ['lombscargle']
+
 
 def lombscargle(
     t,

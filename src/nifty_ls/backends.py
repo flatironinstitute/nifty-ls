@@ -3,6 +3,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Literal, get_args
 
+__all__ = ['available_backends', 'BACKEND_TYPE', 'BACKEND_NAMES']
+
 BACKEND_TYPE = Literal['finufft', 'cufinufft']
 BACKEND_NAMES = list(get_args(BACKEND_TYPE))
 

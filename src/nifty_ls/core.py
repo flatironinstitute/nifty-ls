@@ -9,6 +9,13 @@ import numpy.typing as npt
 from . import utils
 from .backends import available_backends, BACKEND_TYPE
 
+__all__ = [
+    'lombscargle',
+    'lombscargle_freq',
+    'NORMALIZATION_TYPE',
+    'AVAILABLE_BACKENDS',
+]
+
 
 AVAILABLE_BACKENDS = available_backends()
 NORMALIZATION_TYPE = Literal['standard', 'model', 'log', 'psd']

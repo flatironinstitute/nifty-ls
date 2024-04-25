@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
+__all__ = ['validate_frequency_grid']
+
 
 def validate_frequency_grid(
     fmin, fmax, Nf, t, assume_sorted_t=True, samples_per_peak=5, nyquist_factor=5
