@@ -48,3 +48,9 @@ addopts = [
 [tool.ruff.format]
 quote-style = "single"
 docstring-code-format = true
+
+[tool.cibuildwheel]
+archs = "auto64"
+test-command = "pytest --benchmark-skip {project}/tests"
+test-extras = "test"
+skip = "pp* *-musllinux_*"
