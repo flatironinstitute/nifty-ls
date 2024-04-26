@@ -6,8 +6,6 @@ on:
     # Run weekly, Friday at 7:15 EST.
     - cron: '15 12 * * 5'
 
-# TODO: cibuildwheel and PyPI upload
-
 jobs:
   tests:
     name: Tests
