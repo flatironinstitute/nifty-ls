@@ -64,7 +64,10 @@ repair-wheel-command = [
 ]
 
 [tool.cibuildwheel.macos]
-before-all = "brew install libomp"
+before-all = ["brew install libomp",
+              "ls /usr/local/opt/libomp/include",
+              "echo $CPPFLAGS",
+              ]
 repair-wheel-command = [
   'delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}',
   'case "$(basename {wheel})" in *"-abi3-"*) pipx run abi3audit --strict --report {wheel};; esac',
