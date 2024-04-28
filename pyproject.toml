@@ -75,5 +75,3 @@ repair-wheel-command = [
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.14"  # for C++17
-LDFLAGS = "$LDFLAGS -L/usr/local/opt/libomp/lib"
-CPPFLAGS = "$CPPFLAGS -I/usr/local/opt/libomp/include"

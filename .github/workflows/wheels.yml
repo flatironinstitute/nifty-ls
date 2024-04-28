@@ -13,6 +13,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set LDFLAGS for macos-13
+        if: matrix.os == 'macos-13'
+        run: |
+          echo "LDFLAGS=$LDFLAGS -L/usr/local/opt/libomp/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=$CPPFLAGS -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
+
+      - name: Set LDFLAGS for macos-14
+        if: matrix.os == 'macos-14'
+        run: |
+          echo "LDFLAGS=$LDFLAGS -L/opt/homebrew/opt/libomp/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=$CPPFLAGS -I/opt/homebrew/opt/libomp/include" >> $GITHUB_ENV
+
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.17.0
 
