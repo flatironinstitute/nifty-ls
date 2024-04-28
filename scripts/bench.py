@@ -1,5 +1,4 @@
 from pathlib import Path
-import os
 
 import matplotlib
 
@@ -23,7 +22,7 @@ DEFAULT_N = 3554
 DEFAULT_NF = None  # 10**5
 DEFAULT_DTYPE = 'f8'
 DEFAULT_METHODS = ['cufinufft', 'finufft', 'astropy', 'finufft_par']
-NTHREAD_MAX = len(os.sched_getaffinity(0))
+NTHREAD_MAX = nifty_ls.utils.get_avail_cpus()
 DEFAULT_FFTW = nifty_ls.finufft.FFTW_MEASURE
 
 

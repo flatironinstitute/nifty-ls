@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import os
 from timeit import default_timer as timer
 
 import finufft
 import numpy as np
 
 from . import cpu_helpers
+from . import utils
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
 
-MAX_THREADS = len(os.sched_getaffinity(0))
+MAX_THREADS = utils.get_avail_cpus()
 
 __all__ = ['lombscargle', 'FFTW_MEASURE', 'FFTW_ESTIMATE', 'MAX_THREADS']
 

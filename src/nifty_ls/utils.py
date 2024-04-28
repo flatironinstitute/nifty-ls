@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 __all__ = ['validate_frequency_grid']
@@ -44,3 +46,14 @@ def validate_frequency_grid(
     df = (fmax - fmin) / (Nf - 1)  # fmax inclusive
 
     return fmin, df, Nf
+
+
+def get_avail_cpus():
+    """Determine the number of available CPUs by querying the affinity mask.
+    If the affinity mask isn't available (usually on Mac), return the number
+    of logical CPUs.
+    """
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count()
