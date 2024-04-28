@@ -65,7 +65,6 @@ repair-wheel-command = [
 
 [tool.cibuildwheel.macos]
 before-all = ["brew install libomp",
-              "ls /usr/local/*/libomp/include",
               "echo $CPPFLAGS",
               ]
 repair-wheel-command = [
