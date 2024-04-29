@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from timeit import default_timer as timer
 
-# import finufft
+import finufft
 import numpy as np
 
 from . import cpu_helpers
