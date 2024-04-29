@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }} with label ${{ matrix.label }}
+    name: Build ${{ matrix.label }} wheels
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -22,12 +22,17 @@ jobs:
             env:
               MACOSX_DEPLOYMENT_TARGET: "11"
               CIBW_ARCHS_MACOS: "arm64"
+              CC: "Clang"
+              CXX: "Clang++"
     
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
       CIBW_ARCHS_MACOS: ${{ matrix.env.CIBW_ARCHS_MACOS }}
+      CC: ${{ matrix.env.CC }}
+      CXX: ${{ matrix.env.CXX }}
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
       CIBW_BUILD_VERBOSITY: 1
+      
 
     steps:
       - uses: actions/checkout@v4
