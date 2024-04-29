@@ -83,6 +83,8 @@ def lombscargle(
         - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     """
 
+    _no_cpp_helpers = True  # TODO
+
     # TODO: better upsampfrac heuristics?
     default_finufft_kwargs = dict(
         eps='default',
