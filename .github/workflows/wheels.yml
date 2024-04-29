@@ -86,10 +86,20 @@ jobs:
   test_arm64_wheels:
     needs: [build_wheels]
     runs-on: macos-14
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
 
     - uses: actions/download-artifact@v4
       with:
@@ -99,6 +109,8 @@ jobs:
     - name: Install arm64 wheels
       run: |
         pip install -U pip
+        pip install -f wheelhouse/ nifty-ls[test]
+        # ensure that the previous install didn't resolve to PyPI
         pip install --no-index -f wheelhouse/ nifty-ls[test]
 
     - name: Run tests
