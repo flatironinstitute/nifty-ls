@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from timeit import default_timer as timer
 
-import finufft
+# import finufft
 import numpy as np
 
 from . import cpu_helpers
@@ -82,8 +82,6 @@ def lombscargle(
         - `upsampfac`: the upsampling factor [1.25]
         - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     """
-
-    _no_cpp_helpers = True  # TODO
 
     # TODO: better upsampfrac heuristics?
     default_finufft_kwargs = dict(
