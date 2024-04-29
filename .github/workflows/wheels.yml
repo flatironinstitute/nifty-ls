@@ -44,8 +44,8 @@ jobs:
           pkg=$(brew fetch --force --bottle-tag=arm64_ventura libomp | grep 'Downloaded to' | cut -d' ' -f3)
           brew install $pkg
           prefix=$(brew --prefix libomp)
-          echo "LDFLAGS=$LDFLAGS -L$prefix/lib" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -arch arm64 -target arm64-apple-macos11" >> $GITHUB_ENV
+          echo "LDFLAGS=$LDFLAGS -L$prefix/lib -lomp" >> $GITHUB_ENV
+          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -arch arm64 -target arm64-apple-macos11 -Xpreprocessor -fopenmp" >> $GITHUB_ENV
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.17.0
