@@ -18,6 +18,9 @@ jobs:
           - os: macos-13
             label: "macos-target-arm64"
             env: MACOSX_DEPLOYMENT_TARGET=11
+    
+    env:
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
 
     steps:
       - uses: actions/checkout@v4
