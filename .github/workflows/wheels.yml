@@ -4,33 +4,39 @@ on: [push, pull_request]
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheels on ${{ matrix.os }} with label ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14]
+        - os: ubuntu-latest
+          label: "linux-target-x86_64"
+        - os: macos-13
+          label: "macos-target-x86_64"
+          env: MACOSX_DEPLOYMENT_TARGET=10.15
+        - os: macos-13
+          label: "macos-target-arm64"
+          env: MACOSX_DEPLOYMENT_TARGET=11
       fail-fast: false
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set OpenMP env for macos-13
-        if: matrix.os == 'macos-13'
+      - name: Set OpenMP env for macos x86_64
+        if: matrix.label == 'macos-target-x86_64'
         run: |
-          echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
           brew install libomp
-          echo "LDFLAGS=$LDFLAGS -L/usr/local/opt/libomp/lib" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
+          prefix=$(brew --prefix libomp)
+          echo "LDFLAGS=$LDFLAGS -L$prefix/lib" >> $GITHUB_ENV
+          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include" >> $GITHUB_ENV
 
-      - name: Set OpenMP env for macos-14
-        if: matrix.os == 'macos-14'
+      - name: Set OpenMP env for macos arm64
+        if: matrix.label == 'macos-target-arm64'
         run: |
-          echo "MACOSX_DEPLOYMENT_TARGET=11" >> $GITHUB_ENV
           pkg=$(brew fetch --force --bottle-tag=arm64_ventura libomp | grep 'Downloaded to' | cut -d' ' -f3)
           brew install $pkg
-          echo $(brew --prefix libomp)
-          echo "LDFLAGS=$LDFLAGS -L/opt/homebrew/opt/libomp/lib" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS -I/opt/homebrew/opt/libomp/include" >> $GITHUB_ENV
+          prefix=$(brew --prefix libomp)
+          echo "LDFLAGS=$LDFLAGS -L$prefix/lib" >> $GITHUB_ENV
+          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include" >> $GITHUB_ENV
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.17.0
