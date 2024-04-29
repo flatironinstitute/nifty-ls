@@ -17,6 +17,7 @@ jobs:
       - name: Set OpenMP env for macos-13
         if: matrix.os == 'macos-13'
         run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
           brew install libomp
           echo "LDFLAGS=$LDFLAGS -L/usr/local/opt/libomp/lib" >> $GITHUB_ENV
           echo "CXXFLAGS=$CXXFLAGS -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
@@ -24,6 +25,7 @@ jobs:
       - name: Set OpenMP env for macos-14
         if: matrix.os == 'macos-14'
         run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=11" >> $GITHUB_ENV
           pkg=$(brew fetch --force --bottle-tag=arm64_ventura libomp | grep 'Downloaded to' | cut -d' ' -f3)
           brew install $pkg
           echo $(brew --prefix libomp)
@@ -38,11 +40,11 @@ jobs:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
-      - name: Setup tmate session
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
+      # - name: Setup tmate session
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true
 
   make_sdist:
     name: Make SDist

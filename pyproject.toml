@@ -72,4 +72,4 @@ repair-wheel-command = [
 ]
 
 [tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "10.14"  # for C++17
+# MACOSX_DEPLOYMENT_TARGET = "10.14"  # for C++17
