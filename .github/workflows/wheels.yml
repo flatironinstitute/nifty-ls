@@ -56,7 +56,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          name: cibw-wheels-${{ matrix.label }}
           path: ./wheelhouse/*.whl
 
       # - name: Setup tmate session
@@ -83,8 +83,30 @@ jobs:
         name: cibw-sdist
         path: dist/*.tar.gz
 
+  test_arm64_wheels:
+    needs: [build_wheels]
+    runs-on: macos-14
+    steps:
+    - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: cibw-wheels-macos-target-arm64
+        path: wheelhouse/
+
+    - name: Install arm64 wheels
+      run: |
+        pip install -U pip
+        pip install --no-index -f wheelhouse/ nifty-ls[test]
+
+    - name: Run tests
+      run: |
+        pytest --benchmark-skip tests/
+
   upload_all:
-    needs: [build_wheels, make_sdist]
+    needs: [build_wheels, make_sdist, test_arm64_wheels]
     environment: pypi
     
     permissions:

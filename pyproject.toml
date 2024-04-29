@@ -54,7 +54,7 @@ docstring-code-format = true
 archs = "auto64"
 test-command = "pytest --benchmark-skip {project}/tests"
 test-extras = "test"
-test-skip = "cp38-macosx_*:arm64"  # GH runner limitation
+test-skip = "*-macosx_arm64"  # cross-compilation
 skip = "pp* *-musllinux_*"
 
 [tool.cibuildwheel.linux]
