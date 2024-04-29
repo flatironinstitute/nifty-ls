@@ -141,8 +141,7 @@ def lombscargle(
     w = yw_w[Nbatch:]
 
     t_helpers = -timer()
-    # if not _no_cpp_helpers:
-    if False:
+    if not _no_cpp_helpers:
         t1 = np.empty_like(t)
         t2 = np.empty_like(t)
 
