@@ -14,10 +14,12 @@ jobs:
             label: "linux-target-x86_64"
           - os: macos-13
             label: "macos-target-x86_64"
-            env: MACOSX_DEPLOYMENT_TARGET=10.15
+            env:
+              MACOSX_DEPLOYMENT_TARGET: "10.15"
           - os: macos-13
             label: "macos-target-arm64"
-            env: MACOSX_DEPLOYMENT_TARGET=11
+            env:
+              MACOSX_DEPLOYMENT_TARGET: "11"
     
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
@@ -25,6 +27,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set OpenMP env for macos x86_64
         if: matrix.label == 'macos-target-x86_64'
@@ -64,7 +68,6 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        submodules: true
 
     - name: Build SDist
       run: |
