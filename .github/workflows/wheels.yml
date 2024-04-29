@@ -7,16 +7,17 @@ jobs:
     name: Build wheels on ${{ matrix.os }} with label ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        - os: ubuntu-latest
-          label: "linux-target-x86_64"
-        - os: macos-13
-          label: "macos-target-x86_64"
-          env: MACOSX_DEPLOYMENT_TARGET=10.15
-        - os: macos-13
-          label: "macos-target-arm64"
-          env: MACOSX_DEPLOYMENT_TARGET=11
       fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: "linux-target-x86_64"
+          - os: macos-13
+            label: "macos-target-x86_64"
+            env: MACOSX_DEPLOYMENT_TARGET=10.15
+          - os: macos-13
+            label: "macos-target-arm64"
+            env: MACOSX_DEPLOYMENT_TARGET=11
 
     steps:
       - uses: actions/checkout@v4
