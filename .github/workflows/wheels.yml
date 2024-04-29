@@ -21,6 +21,7 @@ jobs:
     
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
+      CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
 
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +41,7 @@ jobs:
           brew install $pkg
           prefix=$(brew --prefix libomp)
           echo "LDFLAGS=$LDFLAGS -L$prefix/lib" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include" >> $GITHUB_ENV
+          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -arch arm64 -target arm64-apple-macos11" >> $GITHUB_ENV
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.17.0
