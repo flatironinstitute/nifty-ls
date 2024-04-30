@@ -58,7 +58,7 @@ jobs:
           prefix=$(brew --prefix libomp)
           echo "LDFLAGS=$LDFLAGS -L$prefix/lib -lomp" >> $GITHUB_ENV
           # echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -target arm64-apple-macos11 -Xpreprocessor -fopenmp" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS -target arm64-apple-macos11" >> $GITHUB_ENV
+          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -target arm64-apple-macos11" >> $GITHUB_ENV
           echo "CMAKE_ARGS=$CMAKE_ARGS -DOpenMP_CXX_INCLUDE_DIR=$prefix/include" >> $GITHUB_ENV
 
       - name: Build wheels
