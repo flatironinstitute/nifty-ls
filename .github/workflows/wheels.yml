@@ -33,6 +33,7 @@ jobs:
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
       CIBW_BUILD_VERBOSITY: 1
       OMP_DISPLAY_ENV: "true"
+      KMP_DUPLICATE_LIB_OK: "TRUE"
       
 
     steps:
