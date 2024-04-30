@@ -67,11 +67,11 @@ jobs:
           name: cibw-wheels-${{ matrix.label }}
           path: ./wheelhouse/*.whl
 
-      # - name: Setup tmate session
-      #   if: ${{ failure() }}
-      #   uses: mxschmitt/action-tmate@v3
-      #   with:
-      #     limit-access-to-actor: true
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
 
   make_sdist:
     name: Make SDist
