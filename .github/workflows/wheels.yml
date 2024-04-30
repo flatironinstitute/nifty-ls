@@ -32,6 +32,7 @@ jobs:
       CXX: ${{ matrix.env.CXX }}
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
       CIBW_BUILD_VERBOSITY: 1
+      OMP_DISPLAY_ENV: "true"
       
 
     steps:
