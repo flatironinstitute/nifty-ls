@@ -33,7 +33,6 @@ jobs:
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
       CIBW_BUILD_VERBOSITY: 1
       OMP_DISPLAY_ENV: "true"
-      KMP_DUPLICATE_LIB_OK: "TRUE"
       
 
     steps:
@@ -52,7 +51,7 @@ jobs:
       - name: Set OpenMP env for macos arm64
         if: matrix.label == 'macos-target-arm64'
         run: |
-          pkg=$(brew fetch --force --bottle-tag=arm64_ventura libomp | grep 'Downloaded to' | cut -d' ' -f3)
+          pkg=$(brew fetch --force --bottle-tag=arm64_ventura libomp@17.0.6 | grep 'Downloaded to' | cut -d' ' -f3)
           brew install $pkg
           prefix=$(brew --prefix libomp)
           echo "LDFLAGS=$LDFLAGS -L$prefix/lib -lomp" >> $GITHUB_ENV
