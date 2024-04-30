@@ -124,7 +124,7 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest --benchmark-skip tests/
+        pytest -s --benchmark-skip tests/
 
   upload_all:
     needs: [build_wheels, make_sdist, test_arm64_wheels]
