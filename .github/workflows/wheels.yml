@@ -20,7 +20,7 @@ jobs:
           - os: macos-13
             label: "macos-target-arm64"
             env:
-              MACOSX_DEPLOYMENT_TARGET: "11"
+              MACOSX_DEPLOYMENT_TARGET: "11.0"
               CIBW_ARCHS_MACOS: "arm64"
               CC: "Clang"
               CXX: "Clang++"
