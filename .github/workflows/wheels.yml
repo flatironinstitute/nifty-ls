@@ -53,9 +53,9 @@ jobs:
         run: |
           # pkg=$(brew fetch --force --bottle-tag=arm64_ventura libomp@17.0.6 | grep 'Downloaded to' | cut -d' ' -f3)
           # brew install $pkg
-          # prefix=$(brew --prefix libomp)
           wget https://raw.githubusercontent.com/Homebrew/homebrew-core/4da6acd9348624f2957d841a2d8a75018021778e/Formula/lib/libomp.rb
           brew install -s ./libomp.rb
+          prefix=$(brew --prefix libomp)
           echo "LDFLAGS=$LDFLAGS -L$prefix/lib -lomp" >> $GITHUB_ENV
           # echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -target arm64-apple-macos11 -Xpreprocessor -fopenmp" >> $GITHUB_ENV
           echo "CXXFLAGS=$CXXFLAGS -target arm64-apple-macos11" >> $GITHUB_ENV
