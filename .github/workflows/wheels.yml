@@ -92,6 +92,8 @@ jobs:
   test_arm64_wheels:
     needs: [build_wheels]
     runs-on: macos-14
+    env:
+      OMP_DISPLAY_ENV: "true"
     strategy:
       fail-fast: false
       matrix:
