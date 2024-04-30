@@ -5,10 +5,6 @@ find_package(Python 3.8 COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(nanobind CONFIG REQUIRED)
 find_package(OpenMP)
 
-message(OpenMP_CXX_FLAGS="${OpenMP_CXX_FLAGS}")
-message(OpenMP_CXX_INCLUDE_DIRS="${OpenMP_CXX_INCLUDE_DIRS}")
-message(OpenMP_CXX_LIB_NAMES="${OpenMP_CXX_LIB_NAMES}")
-
 nanobind_add_module(cpu_helpers src/nifty_ls/cpu_helpers.cpp NOMINSIZE)
 
 target_compile_options(cpu_helpers PRIVATE
