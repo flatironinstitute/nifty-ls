@@ -4,9 +4,7 @@ project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 find_package(Python 3.8 COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(nanobind CONFIG REQUIRED)
 
-set(CMAKE_FIND_DEBUG_MODE TRUE)
 find_package(OpenMP REQUIRED)
-set(CMAKE_FIND_DEBUG_MODE FALSE)
 
 nanobind_add_module(cpu_helpers src/nifty_ls/cpu_helpers.cpp NOMINSIZE)
 

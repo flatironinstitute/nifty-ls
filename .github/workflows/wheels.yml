@@ -24,7 +24,7 @@ jobs:
               CIBW_ARCHS_MACOS: "arm64"
               CC: "Clang"
               CXX: "Clang++"
-    
+
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
       CIBW_ARCHS_MACOS: ${{ matrix.env.CIBW_ARCHS_MACOS }}
@@ -33,7 +33,7 @@ jobs:
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
       CIBW_BUILD_VERBOSITY: 1
       OMP_DISPLAY_ENV: "true"
-      
+
 
     steps:
       - uses: actions/checkout@v4
@@ -69,11 +69,11 @@ jobs:
           name: cibw-wheels-${{ matrix.label }}
           path: ./wheelhouse/*.whl
 
-      - name: Setup tmate session
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
+      # - name: Setup tmate session
+      #   if: ${{ failure() }}
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true
 
   make_sdist:
     name: Make SDist
@@ -133,7 +133,7 @@ jobs:
   upload_all:
     needs: [build_wheels, make_sdist, test_arm64_wheels]
     environment: pypi
-    
+
     permissions:
       id-token: write
     runs-on: ubuntu-latest
