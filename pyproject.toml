@@ -52,6 +52,8 @@ docstring-code-format = true
 
 [tool.cibuildwheel]
 archs = "auto64"
+# fix warning about space in PIPX_HOME on MacOS
+before-build = "pip install -U pipx"
 test-command = "pytest -s --benchmark-skip {project}/tests"
 test-extras = "test"
 skip = "pp* *-musllinux_*"
