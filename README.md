@@ -184,7 +184,7 @@ but please open a GitHub issue if this is of interest to you.
 
 ## Performance
 
-Using 16 cores of an Intel Icelake CPU and a NVIDIA A100 GPU, we obtain the following performance. First, we'll look at the performance on a single periodogram (i.e. unbatched):
+Using 16 cores of an Intel Icelake CPU and a NVIDIA A100 GPU, we obtain the following performance. First, we'll look at results from a single periodogram (i.e. unbatched):
 
 ![benchmarks](bench.png)
 
@@ -214,10 +214,25 @@ density.
 
 
 ## Accuracy
-While we compared performance with Astropy's `fast` method, this isn't quite fair. nifty-ls is substantially more accurate than Astropy `fast`!
+While we compared performance with Astropy's `fast` method, this isn't quite fair. nifty-ls is much more accurate than Astropy `fast`!  Astropy `fast` uses Press & Rybicki's extirpolation approximation, trading accuracy for speed, but thanks to finufft, nifty-ls can have both.
+
+In the figure below, we plot the median periodogram error in circles and the 99th percentile error in triangles for astropy, finufft, and cufinufft for a range of $N$ (and default $N_F \approx 12N$).
+
+The astropy result is presented for two cases: a nominal case and a "worst case". Internally, astropy uses an FFT grid whose size is the next power of 2 above the target oversampling rate. Each jump to a new power of 2 typically yields an increase in accuracy. The "worst case", therefore, is the highest frequency that does not yield such a jump.
+
+![](accuracy.png)
+
+Errors of $\mathcal{O}(10\%)$ or greater are not uncommon with worst-case evaluations. Errors of $\mathcal{O}(1\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
+
+The reference result in the above figure comes from the "phase winding" method, which uses trigonometric identities to avoid expensive sin and cos evaluations. One can also use astropy's `fast` method as a reference with exact evaluation enabled via `use_fft=False`.  One finds the same result, but the phase winding is a few orders of magnitude faster (but still not competitive with finufft).
+
+To summarize, we see that nifty-ls is highly accurate while also giving high performance.
 
 
+### float32 vs float64
+While 32-bit floats provide a substantial speedup for finufft and cufinufft, we generally don't recommend their use for Lomb-Scargle. The reason is the challenging [condition number](https://en.wikipedia.org/wiki/Condition_number) of the problem.  The condition number is the response in the output to a small perturbation in the input—in other words, the derivative. [It can easily be shown](https://finufft.readthedocs.io/en/latest/trouble.html) that the derivative of a NUFFT with respect to the non-uniform points is proportional to $N$, the transform length (i.e. the number of modes). In other words, errors in the observation times are amplified by $\mathcal{O}(N)$.  Since float32 has a relative error of $\mathcal{O}(10^{-7})$, transforms of length $10^5$ already suffer $\mathcal{O}(1\%)$ error. Therefore, we focus on float64 in nifty-ls, but float32 is also natively supported by all backends for adventurous users.
 
+The condition number is also a likely contributor to the mild upward trend in error versus $N$ in the above figure, at least for finufft/cufinufft. With a relative error of $\mathcal{O}(10^{-16})$ for float64 and a transform length of $\mathcal{O}(10^{6})$, the minimum error is $\mathcal{O}(10^{-10})$.
 
 ## Testing
 First, install from source (`pip install .[test]`). Then, from the repo root, run:

@@ -4,3 +4,4 @@ __pycache__/
 /src/nifty_ls/version.py
 /scripts/*.ecsv
 /scripts/*.png
+/scripts/*.asdf

@@ -43,7 +43,7 @@ def lombscargle(
     This function can dispatch to multiple backends, including 'finufft' and 'cufinufft'. The latter
     uses CUDA and requires that nifty-ls was installed with the 'cuda' extra.
 
-    The result is a dictionary containing the computed periodograms, as well as the frequency grid parameters.
+    The result is a dictionary containing the computed periodogram(s), as well as the frequency grid parameters.
     The actual frequency grid can be obtained by passing the result dict to `lombscargle_freq()`.
 
     The meanings of these parameters conform to the Lomb-Scargle implementation in Astropy:
