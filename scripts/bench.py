@@ -25,23 +25,38 @@ DEFAULT_DTYPE = 'f8'
 DEFAULT_METHODS = ['cufinufft', 'finufft', 'astropy', 'finufft_par']
 NTHREAD_MAX = len(os.sched_getaffinity(0))
 DEFAULT_FFTW = nifty_ls.finufft.FFTW_MEASURE
+DEFAULT_EPS = 1e-9
 
 
 def do_nifty_finufft(*args, **kwargs):
-    return nifty_ls.finufft.lombscargle(*args, **kwargs, finufft_kwargs=DEFAULT_FFTW)
+    return nifty_ls.finufft.lombscargle(
+        *args, **kwargs, finufft_kwargs={'fftw': DEFAULT_FFTW, 'eps': DEFAULT_EPS}
+    )
 
 
 def do_nifty_cufinufft(*args, **kwargs):
-    return nifty_ls.cufinufft.lombscargle(*args, **kwargs)
+    return nifty_ls.cufinufft.lombscargle(
+        *args, **kwargs, cufinufft_kwargs={'eps': DEFAULT_EPS}
+    )
 
 
-def do_astropy(t, y, dy, fmin, df, Nf):
+def do_astropy(t, y, dy, fmin, df, Nf, **astropy_kwargs):
     f0 = fmin
     y = np.atleast_2d(y)
     dy = np.atleast_2d(dy)
     for i in range(y.shape[0]):
-        power = astropy_impl.lombscargle_fast(t, y[i], dy=dy[i], f0=f0, df=df, Nf=Nf)
+        power = astropy_impl.lombscargle_fast(
+            t, y[i], dy=dy[i], f0=f0, df=df, Nf=Nf, **astropy_kwargs
+        )
     return power  # just last power for now
+
+
+def do_winding(t, y, dy, fmin, df, Nf, center_data=True, fit_mean=True, **kwargs):
+    power = np.empty(Nf, dtype=np.float64)
+    nifty_ls.cpu_helpers.compute_winding(
+        power, t, y, dy, fmin, df, center_data, fit_mean, **kwargs
+    )
+    return power
 
 
 METHODS = {
@@ -49,7 +64,61 @@ METHODS = {
     'finufft': lambda *args, **kwargs: do_nifty_finufft(*args, **kwargs, nthreads=1),
     'cufinufft': do_nifty_cufinufft,
     'astropy': do_astropy,
+    'astropy_brute': lambda *args, **kwargs: do_astropy(*args, **kwargs, use_fft=False),
+    'winding': do_winding,
 }
+
+
+def run_one(
+    method,
+    N,
+    Nf,
+    dtype,
+    batch_size=1,
+    seed=5043,
+    squeeze=False,
+    fmax=None,
+    time=True,
+    **kwargs,
+):
+    dtype = np.dtype(dtype).type
+    rng = np.random.default_rng(seed)
+
+    # Generate fake data
+    t = np.sort(rng.uniform(0, 2 * np.pi, N).astype(dtype)) * 1000
+    y = np.sin(t * rng.uniform(0.1, 10, batch_size).reshape(-1, 1)).astype(dtype)
+    dy = rng.normal(size=(batch_size, N)).astype(dtype)
+
+    if squeeze and batch_size == 1:
+        y = y[0]
+        dy = dy[0]
+
+    f0, df, Nf = nifty_ls.utils.validate_frequency_grid(None, fmax, Nf, t)
+
+    def func():
+        return METHODS[method](t, y, dy, f0, df, Nf, **kwargs)
+
+    res = {
+        'method': method,
+        'Nf': Nf,
+        'dtype': dtype.__name__,
+        'f0': f0,
+        'df': df,
+        'N': N,
+    }
+
+    # warmup, and get result
+    t1 = -timeit.default_timer()
+    res['power'] = func()
+    t1 += timeit.default_timer()
+    res['firsttime'] = t1
+
+    if time:
+        nrep, tot_time = timeit.Timer(func).autorange()
+        t = tot_time / nrep
+        res['time'] = t
+
+    return res
 
 
 def get_plot_kwargs(method, nthread_max=NTHREAD_MAX):
@@ -73,6 +142,10 @@ def get_plot_kwargs(method, nthread_max=NTHREAD_MAX):
         label = r'astropy (${\tt fast}$ method)'
         color = 'C0'
         ls = '-'
+    elif method == 'astropy_worst':
+        label = r'astropy (worst case)'
+        color = 'C0'
+        ls = '--'
     else:
         label = method
         color = 'C3'
@@ -146,37 +219,9 @@ def bench(
                 N = V
                 Nf = DEFAULT_NF
 
-            rng = np.random.default_rng(5043)
+            res = run_one(method, N, Nf, dtype, batch_size=batch_size)
 
-            # Generate fake data
-            t = np.sort(rng.uniform(0, 2 * np.pi, N).astype(dtype)) * 1000
-            y = np.sin(t * rng.uniform(0.1, 10, batch_size).reshape(-1, 1)).astype(
-                dtype
-            )
-            dy = rng.normal(size=(batch_size, N)).astype(dtype)
-
-            f0, df, Nf = nifty_ls.utils.validate_frequency_grid(None, None, Nf, t)
-
-            res = {
-                'method': method,
-                'Nf': Nf,
-                'dtype': dtype.__name__,
-                'f0': f0,
-                'df': df,
-                'N': N,
-            }
-
-            # warmup, and get result
-            def func():
-                return METHODS[method](t, y, dy, f0, df, Nf)
-
-            res['power'] = func()
-
-            nrep, tot_time = timeit.Timer(func).autorange()
-            time = tot_time / nrep
-            res['time'] = time
-
-            print(f'{method} took {time:.4g} sec ({Nf=})')
+            print(f'{method} took {res["time"]:.4g} sec ({Nf=})')
             all_res.append(res)
 
     all_res = Table(
