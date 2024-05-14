@@ -4,7 +4,11 @@ project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 find_package(Python 3.8 COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(nanobind CONFIG REQUIRED)
 
-find_package(OpenMP REQUIRED)
+option(NIFTY_LS_OPENMP "Enable OpenMP support in the compiled extensions" ON)
+
+if(NIFTY_LS_OPENMP)
+    find_package(OpenMP REQUIRED)
+endif()
 
 nanobind_add_module(cpu_helpers src/nifty_ls/cpu_helpers.cpp NOMINSIZE)
 

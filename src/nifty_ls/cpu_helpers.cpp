@@ -8,11 +8,12 @@
 #include <algorithm>
 #include <vector>
 
-#include <omp.h>
-
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/complex.h>
+
+#ifdef _OPENMP
+#include <omp.h>
 
 // Declare a reduction for std::vector<double> using std::transform
 #pragma omp declare reduction( \
@@ -21,6 +22,10 @@
         std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<double>()) \
     ) \
     initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
+
+#else
+int omp_get_max_threads() { return 1; }
+#endif
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -76,16 +81,22 @@ void process_finufft_inputs(
     size_t N = y.shape(1);
     size_t Nshift = Nf / 2;
 
+#ifdef _OPENMP
     if (nthreads < 1){
         nthreads = omp_get_max_threads();
     }
     omp_set_num_threads(nthreads);
+#else
+    (void) nthreads;  // suppress unused variable warning
+#endif
 
     // w2 = dy**-2.
     std::vector<double> wsum(Nbatch, 0.);  // use double for stability
     std::vector<double> yoff(Nbatch, 0.);
     
+#ifdef _OPENMP
     #pragma omp parallel for schedule(static) collapse(2) reduction(vsum:wsum) reduction(vsum:yoff)
+#endif
     for (size_t i = 0; i < Nbatch; ++i) {
         for (size_t j = 0; j < N; ++j) {
             w2(i, j) = 1 / (dy(i, j) * dy(i, j));
@@ -110,7 +121,9 @@ void process_finufft_inputs(
             yoff[i] /= wsum[i];
         }
         Scalar normi = norm(i);
+#ifdef _OPENMP
         #pragma omp parallel for schedule(static) reduction(+:normi)
+#endif
         for (size_t j = 0; j < N; ++j) {
             w2(i, j).real( w2(i, j).real() / wsum[i] );  // w2 /= sum
             if (!psd_norm) {
@@ -125,7 +138,9 @@ void process_finufft_inputs(
 
     const std::complex<Scalar> phase_shift = std::complex<Scalar>(0, Nshift + fmin/df);
     const Scalar TWO_PI = 2 * static_cast<Scalar>(PI);
+#ifdef _OPENMP
     #pragma omp parallel for schedule(static)
+#endif
     for(size_t j = 0; j < N; ++j) {
         t1(j) = TWO_PI * df * t(j);
         t2(j) = 2 * t1(j);
@@ -169,12 +184,18 @@ void process_finufft_outputs(
 
     const Scalar SQRT_HALF = std::sqrt(0.5);
 
+#ifdef _OPENMP
     if (nthreads < 1){
         nthreads = omp_get_max_threads();
     }
     omp_set_num_threads(nthreads);
+#else
+    (void) nthreads;  // suppress unused variable warning
+#endif
 
+#ifdef _OPENMP
     #pragma omp parallel for schedule(static) collapse(2)
+#endif
     for(size_t i = 0; i < Nbatch; ++i) {
         for(size_t j = 0; j < N; ++j) {
             Scalar tan_2omega_tau;
@@ -439,6 +460,8 @@ NB_MODULE(cpu_helpers, m) {
         "center_data"_a,
         "fit_mean"_a
         );
+
+    m.def("omp_get_max_threads", &omp_get_max_threads);
 
     nb::enum_<NormKind>(m, "NormKind")
         .value("Standard", NormKind::Standard)

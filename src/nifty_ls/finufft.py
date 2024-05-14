@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from timeit import default_timer as timer
+import warnings
 
 import finufft
 import numpy as np
 
 from . import cpu_helpers
-from . import utils
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
 
-MAX_THREADS = utils.get_avail_cpus()
+MAX_THREADS = cpu_helpers.omp_get_max_threads()
 
 __all__ = ['lombscargle', 'FFTW_MEASURE', 'FFTW_ESTIMATE', 'MAX_THREADS']
 
@@ -63,7 +63,7 @@ def lombscargle(
         The number of frequency bins.
     nthreads : int, optional
         The number of threads to use. The default behavior is to use (N_t / 4) * (Nf / 2^15) threads,
-        capped to the number of available CPUs. This is a heuristic that may not work well in all cases.
+        capped to the maximum number of OpenMP threads. This is a heuristic that may not work well in all cases.
     center_data : bool, optional
         Whether to center the data before computing the periodogram. Default is True.
     fit_mean : bool, optional
@@ -116,8 +116,15 @@ def lombscargle(
     Nbatch, N = y.shape
 
     if nthreads is None:
+        # This heuristic feels fragile, it would be much better if finufft could do this upstream!
         nthreads = max(1, Nbatch // 4) * max(1, Nf // (1 << 15))
         nthreads = min(nthreads, MAX_THREADS)
+
+    if nthreads > MAX_THREADS:
+        warnings.warn(
+            f'nifty-ls finufft: Requested {nthreads=}, but {MAX_THREADS=}. '
+            'Performance may be very poor.'
+        )
 
     if verbose:
         print(
