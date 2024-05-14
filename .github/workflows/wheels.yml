@@ -1,6 +1,6 @@
 name: Build
 
-on: [push, pull_request]
+on: [pull_request]  # TODO: only on tags
 
 jobs:
   build_wheels:
@@ -10,30 +10,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            label: "linux-target-x86_64"
-          - os: macos-13
-            label: "macos-target-x86_64"
+          - label: "linux-target-x86_64"
+            os: ubuntu-latest
+          - label: "macos-target-x86_64"
+            os: macos-13
             env:
               MACOSX_DEPLOYMENT_TARGET: "10.15"
               CIBW_ARCHS_MACOS: "x86_64"
-          - os: macos-13
+          - os: macos-14
             label: "macos-target-arm64"
             env:
               MACOSX_DEPLOYMENT_TARGET: "11.0"
               CIBW_ARCHS_MACOS: "arm64"
-              CC: "Clang"
-              CXX: "Clang++"
+              CMAKE_ARGS: "-DNIFTY_LS_OPENMP=OFF"
 
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
       CIBW_ARCHS_MACOS: ${{ matrix.env.CIBW_ARCHS_MACOS }}
-      CC: ${{ matrix.env.CC }}
-      CXX: ${{ matrix.env.CXX }}
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
       CIBW_BUILD_VERBOSITY: 1
-      OMP_DISPLAY_ENV: "true"
-
+      CMAKE_ARGS: ${{ matrix.env.CMAKE_ARGS }}
 
     steps:
       - uses: actions/checkout@v4
@@ -47,19 +43,6 @@ jobs:
           prefix=$(brew --prefix libomp)
           echo "LDFLAGS=$LDFLAGS -L$prefix/lib" >> $GITHUB_ENV
           echo "CXXFLAGS=$CXXFLAGS -I$prefix/include" >> $GITHUB_ENV
-
-      - name: Set OpenMP env for macos arm64
-        if: matrix.label == 'macos-target-arm64'
-        run: |
-          # pkg=$(brew fetch --force --bottle-tag=arm64_ventura libomp@17.0.6 | grep 'Downloaded to' | cut -d' ' -f3)
-          # brew install $pkg
-          wget https://raw.githubusercontent.com/Homebrew/homebrew-core/4da6acd9348624f2957d841a2d8a75018021778e/Formula/lib/libomp.rb
-          brew install -s ./libomp.rb
-          prefix=$(brew --prefix libomp)
-          echo "LDFLAGS=$LDFLAGS -L$prefix/lib -lomp" >> $GITHUB_ENV
-          # echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -target arm64-apple-macos11 -Xpreprocessor -fopenmp" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include -target arm64-apple-macos11" >> $GITHUB_ENV
-          echo "CMAKE_ARGS=$CMAKE_ARGS -DOpenMP_CXX_INCLUDE_DIR=$prefix/include" >> $GITHUB_ENV
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.17.0
@@ -93,45 +76,8 @@ jobs:
         name: cibw-sdist
         path: dist/*.tar.gz
 
-  test_arm64_wheels:
-    needs: [build_wheels]
-    runs-on: macos-14
-    env:
-      OMP_DISPLAY_ENV: "true"
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-
-    - uses: actions/download-artifact@v4
-      with:
-        name: cibw-wheels-macos-target-arm64
-        path: wheelhouse/
-
-    - name: Install arm64 wheels
-      run: |
-        pip install -U pip
-        pip install -f wheelhouse/ nifty-ls[test]
-        # ensure that the previous install didn't resolve to PyPI
-        pip install --no-index -f wheelhouse/ nifty-ls[test]
-
-    - name: Run tests
-      run: |
-        pytest -s --benchmark-skip tests/
-
   upload_all:
-    needs: [build_wheels, make_sdist, test_arm64_wheels]
+    needs: [build_wheels, make_sdist]
     environment: pypi
 
     permissions:
