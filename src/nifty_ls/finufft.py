@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import os
+__all__ = ['lombscargle', 'FFTW_MEASURE', 'FFTW_ESTIMATE']
+
 from timeit import default_timer as timer
 
 import finufft
@@ -10,10 +11,6 @@ from . import cpu_helpers
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
-
-MAX_THREADS = len(os.sched_getaffinity(0))
-
-__all__ = ['lombscargle', 'FFTW_MEASURE', 'FFTW_ESTIMATE', 'MAX_THREADS']
 
 
 def lombscargle(
@@ -63,7 +60,7 @@ def lombscargle(
         The number of frequency bins.
     nthreads : int, optional
         The number of threads to use. The default behavior is to use (N_t / 4) * (Nf / 2^15) threads,
-        capped to the number of available CPUs. This is a heuristic that may not work well in all cases.
+        capped to the maximum number of OpenMP threads. This is a heuristic that may not work well in all cases.
     center_data : bool, optional
         Whether to center the data before computing the periodogram. Default is True.
     fit_mean : bool, optional
@@ -116,17 +113,22 @@ def lombscargle(
     Nbatch, N = y.shape
 
     if nthreads is None:
+        # This heuristic feels fragile, it would be much better if finufft could do this upstream!
         nthreads = max(1, Nbatch // 4) * max(1, Nf // (1 << 15))
-        nthreads = min(nthreads, MAX_THREADS)
+        # Using get_finufft_max_threads() is safe because finufft never calls omp_set_num_threads()
+        nthreads = min(nthreads, get_finufft_max_threads())
+        # finufft (and cpu_helpers) will warn if the user exceeds omp_get_max_threads()
 
     if verbose:
         print(
-            f'nifty-ls finufft: Using {nthreads} {"thread" if nthreads == 1 else "threads"}'
+            f'[nifty-ls finufft] Using {nthreads} {"thread" if nthreads == 1 else "threads"}'
         )
 
-    # could probably be more than finufft nthreads in many cases,
+    # Could probably be more than finufft nthreads in many cases,
     # but it's conceptually cleaner to keep them the same, and it
-    # will almost never matter in practice
+    # will almost never matter in practice.
+    # Technically, this is also suboptimal in the rare case of a finufft
+    # library without OpenMP and a nifty-ls with OpenMP
     nthreads_helpers = nthreads
 
     if fit_mean:
@@ -298,9 +300,16 @@ def lombscargle(
 
     if verbose:
         print(
-            f'nifty-ls finufft: FINUFFT took {t_finufft:.4g} sec, pre-/post-processing took {t_helpers:.4g} sec'
+            f'[nifty-ls finufft] FINUFFT took {t_finufft:.4g} sec, pre-/post-processing took {t_helpers:.4g} sec'
         )
 
     if squeeze_output:
         power = power.squeeze()
     return power
+
+
+def get_finufft_max_threads():
+    try:
+        return finufft._finufft.lib.omp_get_max_threads()
+    except AttributeError:
+        return 1

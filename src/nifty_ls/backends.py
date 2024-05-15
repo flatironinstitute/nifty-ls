@@ -19,7 +19,7 @@ def available_backends(verbose: bool = False) -> list[str]:
             import_module(f'.{backend}', __package__)
         except ImportError as e:
             if verbose:
-                print(f'Backend {backend} is unavailable: {e}')
+                print(f'[nifty-ls] Backend {backend} is unavailable: {e}')
         else:
             backends.append(backend)
 

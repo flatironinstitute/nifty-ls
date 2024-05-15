@@ -52,7 +52,7 @@ docstring-code-format = true
 
 [tool.cibuildwheel]
 archs = "auto64"
-test-command = "pytest --benchmark-skip {project}/tests"
+test-command = "pytest -s --benchmark-skip {project}/tests"
 test-extras = "test"
 skip = "pp* *-musllinux_*"
 
@@ -60,5 +60,11 @@ skip = "pp* *-musllinux_*"
 repair-wheel-command = [
   "auditwheel repair -w {dest_dir} {wheel}",
   # run abi3audit on wheels tagged with abi3
-  'case "$(basename {wheel})" in *"-abi3-"*) pipx run abi3audit --strict --report {wheel};; esac',
+  'case "$(basename {wheel})" in *"-abi3-"*) pip install -U abi3audit && abi3audit --strict --report {wheel};; esac',
+]
+
+[tool.cibuildwheel.macos]
+repair-wheel-command = [
+  'delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}',
+  'case "$(basename {wheel})" in *"-abi3-"*) pip install -U abi3audit && abi3audit --strict --report {wheel};; esac',
 ]

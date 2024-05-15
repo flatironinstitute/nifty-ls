@@ -97,12 +97,18 @@ built with optimizations for your hardware. To do so, first install nifty-ls, th
 follow the Python installation instructions for
 [finufft](https://finufft.readthedocs.io/en/latest/install.html#building-a-python-interface-to-a-locally-compiled-library)
 and
-[cufinufft](https://finufft.readthedocs.io/en/latest/install_gpu.html#python-interface)
-as desired.
+[cufinufft](https://finufft.readthedocs.io/en/latest/install_gpu.html#python-interface),
+configuring the libraries as desired.
 
 nifty-ls can likewise be built from source following the instructions above for
 best performance, but most of the heavy computations are offloaded to (cu)finufft,
 so the performance benefit is minimal.
+
+**⚠️ MacOS ARM users (M1/M2/etc)**: due to an OpenMP library incompatibility, the
+nifty-ls "C++ helpers" are not parallelized in the Mac ARM builds on PyPI. This is not
+expected to have a big impact on performance,as the core finufft computation will still
+be parallelized. Building both finufft and nifty-ls from source is a possible
+workaround.
 
 ## Usage
 ### From Astropy

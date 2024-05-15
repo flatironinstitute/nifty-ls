@@ -249,8 +249,8 @@ def lombscargle(
         t_copy += timer()
 
     if verbose:
-        print(f'nifty-ls cufinufft: HtoD + DtoH = {t_copy:.4g} sec')
-        print(f'nifty-ls cufinufft: pre/post = {t_prepost:.4g} sec')
-        print(f'nifty-ls cufinufft: cufinufft = {t_cufinufft:.4g} sec')
+        print(f'[nifty-ls cufinufft] HtoD + DtoH = {t_copy:.4g} sec')
+        print(f'[nifty-ls cufinufft] pre/post = {t_prepost:.4g} sec')
+        print(f'[nifty-ls cufinufft] cufinufft = {t_cufinufft:.4g} sec')
 
     return power
