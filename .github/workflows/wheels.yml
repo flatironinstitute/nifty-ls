@@ -1,6 +1,14 @@
 name: Build
 
-on: [pull_request]  # TODO: only on tags
+# Build, test, and upload wheels for every version tag. Note that PyPI will
+# automatically label versions with modifiers like 1.0.0a1 or 1.0.0rc1 as pre-releases.
+# For a real release, tag the version, check that this action succeeded, then make a
+# GitHub release.
+
+on:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build_wheels:
@@ -83,9 +91,6 @@ jobs:
     permissions:
       id-token: write
     runs-on: ubuntu-latest
-    # TODO: only run on release
-    # if: github.event_name == 'release' && github.event.action == 'published'
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
     - uses: actions/download-artifact@v4
       with:
