@@ -23,8 +23,6 @@
     ) \
     initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
 
-#else
-int omp_get_max_threads() { return 1; }
 #endif
 
 namespace nb = nanobind;
@@ -85,7 +83,12 @@ void process_finufft_inputs(
     if (nthreads < 1){
         nthreads = omp_get_max_threads();
     }
-    omp_set_num_threads(nthreads);
+    if (nthreads > omp_get_max_threads()){
+        fprintf(stderr,
+            "[nifty-ls finufft] Warning: nthreads (%d) > omp_get_max_threads() (%d). Performance may be suboptimal.\n",
+            nthreads, omp_get_max_threads()
+        );
+    }
 #else
     (void) nthreads;  // suppress unused variable warning
 #endif
@@ -95,7 +98,7 @@ void process_finufft_inputs(
     std::vector<double> yoff(Nbatch, 0.);
     
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) collapse(2) reduction(vsum:wsum) reduction(vsum:yoff)
+    #pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2) reduction(vsum:wsum) reduction(vsum:yoff)
 #endif
     for (size_t i = 0; i < Nbatch; ++i) {
         for (size_t j = 0; j < N; ++j) {
@@ -122,7 +125,7 @@ void process_finufft_inputs(
         }
         Scalar normi = norm(i);
 #ifdef _OPENMP
-        #pragma omp parallel for schedule(static) reduction(+:normi)
+        #pragma omp parallel for schedule(static) num_threads(nthreads) reduction(+:normi)
 #endif
         for (size_t j = 0; j < N; ++j) {
             w2(i, j).real( w2(i, j).real() / wsum[i] );  // w2 /= sum
@@ -139,7 +142,7 @@ void process_finufft_inputs(
     const std::complex<Scalar> phase_shift = std::complex<Scalar>(0, Nshift + fmin/df);
     const Scalar TWO_PI = 2 * static_cast<Scalar>(PI);
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
     for(size_t j = 0; j < N; ++j) {
         t1(j) = TWO_PI * df * t(j);
@@ -188,13 +191,12 @@ void process_finufft_outputs(
     if (nthreads < 1){
         nthreads = omp_get_max_threads();
     }
-    omp_set_num_threads(nthreads);
 #else
     (void) nthreads;  // suppress unused variable warning
 #endif
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) collapse(2)
+    #pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2)
 #endif
     for(size_t i = 0; i < Nbatch; ++i) {
         for(size_t j = 0; j < N; ++j) {
@@ -460,8 +462,6 @@ NB_MODULE(cpu_helpers, m) {
         "center_data"_a,
         "fit_mean"_a
         );
-
-    m.def("omp_get_max_threads", &omp_get_max_threads);
 
     nb::enum_<NormKind>(m, "NormKind")
         .value("Standard", NormKind::Standard)
