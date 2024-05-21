@@ -52,7 +52,7 @@ def nifty_backend(request):
 def test_lombscargle(data, Nf, nifty_backend):
     """Check that the basic implementation agrees with the brute-force Astropy answer"""
 
-    nifty_res = nifty_backend(**data, Nf=Nf)['power']
+    nifty_res = nifty_backend(**data, Nf=Nf).power
     brute_res = astropy_ls(**data, Nf=Nf, use_fft=False)
 
     dtype = data['t'].dtype
@@ -68,7 +68,7 @@ def test_lombscargle(data, Nf, nifty_backend):
 def test_batched(batched_data, nifty_backend, Nf=1000):
     """Check various batching modes"""
 
-    nifty_res = nifty_backend(**batched_data, Nf=Nf)['power']
+    nifty_res = nifty_backend(**batched_data, Nf=Nf).power
 
     t = batched_data['t']
     y_batch = batched_data['y']
@@ -102,7 +102,7 @@ def test_normalization(data, nifty_backend, Nf=1000):
             **data,
             Nf=Nf,
             normalization=norm,
-        )['power']
+        ).power
         astropy_res = astropy_ls(
             **data,
             Nf=Nf,
@@ -134,7 +134,7 @@ def test_astropy_hook(data, backend, Nf=1000):
 
     nifty_power = nifty_ls.lombscargle(
         **data, Nf=Nf, fit_mean=True, center_data=True, backend=backend
-    )['power']
+    ).power
 
     # same backend, ought to match very closely
     np.testing.assert_allclose(astropy_power, nifty_power)
@@ -143,9 +143,9 @@ def test_astropy_hook(data, backend, Nf=1000):
 def test_no_cpp_helpers(data, batched_data, Nf=1000):
     """Check that the _no_cpp_helpers flag works as expected for batched and unbatched"""
 
-    nifty_power = nifty_ls.lombscargle(**data, Nf=Nf, _no_cpp_helpers=False)['power']
+    nifty_power = nifty_ls.lombscargle(**data, Nf=Nf, _no_cpp_helpers=False).power
 
-    nocpp_power = nifty_ls.lombscargle(**data, Nf=Nf, _no_cpp_helpers=True)['power']
+    nocpp_power = nifty_ls.lombscargle(**data, Nf=Nf, _no_cpp_helpers=True).power
 
     np.testing.assert_allclose(nifty_power, nocpp_power)
 
@@ -153,13 +153,13 @@ def test_no_cpp_helpers(data, batched_data, Nf=1000):
         **batched_data,
         Nf=Nf,
         _no_cpp_helpers=False,
-    )['power']
+    ).power
 
     nocpp_power_batched = nifty_ls.lombscargle(
         **batched_data,
         Nf=Nf,
         _no_cpp_helpers=True,
-    )['power']
+    ).power
 
     np.testing.assert_allclose(nifty_power_batched, nocpp_power_batched)
 
@@ -170,13 +170,13 @@ def test_no_cpp_helpers(data, batched_data, Nf=1000):
         **batched_data,
         Nf=Nf,
         _no_cpp_helpers=False,
-    )['power']
+    ).power
 
     nocpp_power_batched = nifty_ls.lombscargle(
         **batched_data,
         Nf=Nf,
         _no_cpp_helpers=True,
-    )['power']
+    ).power
 
     np.testing.assert_allclose(nifty_power_batched, nocpp_power_batched)
 
@@ -184,7 +184,7 @@ def test_no_cpp_helpers(data, batched_data, Nf=1000):
 @pytest.mark.parametrize('center_data', [True, False])
 @pytest.mark.parametrize('nifty_backend', ['finufft', 'cufinufft'], indirect=True)
 def test_center_data(data, center_data, nifty_backend, Nf=1000):
-    center_nifty = nifty_backend(**data, Nf=Nf, center_data=center_data)['power']
+    center_nifty = nifty_backend(**data, Nf=Nf, center_data=center_data).power
 
     center_astropy = astropy_ls(**data, Nf=Nf, center_data=center_data, use_fft=False)
 
@@ -196,7 +196,7 @@ def test_center_data(data, center_data, nifty_backend, Nf=1000):
 @pytest.mark.parametrize('fit_mean', [True, False])
 @pytest.mark.parametrize('nifty_backend', ['finufft', 'cufinufft'], indirect=True)
 def test_fit_mean(data, fit_mean, nifty_backend, Nf=1000):
-    fitmean_nifty = nifty_backend(**data, Nf=Nf, fit_mean=fit_mean)['power']
+    fitmean_nifty = nifty_backend(**data, Nf=Nf, fit_mean=fit_mean).power
 
     fitmean_astropy = astropy_ls(
         **data,
@@ -215,7 +215,7 @@ def test_dy_none(data, batched_data, nifty_backend, Nf=1000):
     """Test that `dy = None` works properly"""
     data = data.copy()
     data['dy'] = None
-    nifty_res = nifty_backend(**data, Nf=Nf)['power']
+    nifty_res = nifty_backend(**data, Nf=Nf).power
 
     astropy_res = astropy_ls(**data, Nf=Nf, use_fft=False)
 
@@ -227,7 +227,7 @@ def test_dy_none(data, batched_data, nifty_backend, Nf=1000):
     batched_data = batched_data.copy()
     batched_data['dy'] = None
 
-    nifty_res = nifty_backend(**batched_data, Nf=Nf)['power']
+    nifty_res = nifty_backend(**batched_data, Nf=Nf).power
 
     astropy_res = np.empty((len(batched_data['y']), Nf), dtype=batched_data['y'].dtype)
     for i in range(len(batched_data['y'])):
@@ -256,7 +256,7 @@ def test_backends(data, Nf=1000):
         pytest.skip('Need more than one backend to compare')
 
     powers = {
-        backend: nifty_ls.lombscargle(**data, Nf=Nf, backend=backend)['power']
+        backend: nifty_ls.lombscargle(**data, Nf=Nf, backend=backend).power
         for backend in backends
     }
 

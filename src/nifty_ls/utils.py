@@ -20,6 +20,12 @@ def validate_frequency_grid(
         else:
             baseline = np.ptp(t)
 
+        if baseline <= 0.0:
+            raise ValueError(
+                'The input time array must be non-degenerate, '
+                'and sorted if assume_sorted_t=True.'
+            )
+
         target_df = 1 / (samples_per_peak * baseline)
 
         if fmax is None:

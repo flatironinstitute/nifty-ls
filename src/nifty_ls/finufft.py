@@ -80,7 +80,6 @@ def lombscargle(
         - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     """
 
-    # TODO: better upsampfrac heuristics?
     default_finufft_kwargs = dict(
         eps='default',
         upsampfac=1.25,

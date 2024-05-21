@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import importlib
 from typing import Optional, Literal
 
@@ -11,7 +12,7 @@ from .backends import available_backends, BACKEND_TYPE
 
 __all__ = [
     'lombscargle',
-    'lombscargle_freq',
+    'NiftyResult',
     'NORMALIZATION_TYPE',
     'AVAILABLE_BACKENDS',
 ]
@@ -36,15 +37,15 @@ def lombscargle(
     nyquist_factor: int = 5,
     backend: BACKEND_TYPE = 'finufft',
     **backend_kwargs: Optional[dict],
-) -> dict:
+) -> NiftyResult:
     """
     Compute a Lomb-Scargle periodogram, or a batch of periodograms if `y` and `dy` are 2D arrays.
 
     This function can dispatch to multiple backends, including 'finufft' and 'cufinufft'. The latter
     uses CUDA and requires that nifty-ls was installed with the 'cuda' extra.
 
-    The result is a dictionary containing the computed periodogram(s), as well as the frequency grid parameters.
-    The actual frequency grid can be obtained by passing the result dict to `lombscargle_freq()`.
+    The result is a `NiftyResult` dataclass containing the computed periodogram(s), frequency grid parameters,
+    and other metadata. The actual frequency grid can be obtained by calling `freq()` on the result.
 
     The meanings of these parameters conform to the Lomb-Scargle implementation in Astropy:
     https://docs.astropy.org/en/stable/timeseries/lombscargle.html
@@ -83,10 +84,10 @@ def lombscargle(
 
     Returns
     -------
-    nifty_result : dict
-        A dictionary containing the computed periodogram(s), as well as the frequency grid parameters.
-        The keys are 'power', 'fmin', 'df', 'Nf', and 'fmax'.
-        nifty_result['power'] will be an ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
+    nifty_result : NiftyResult
+        A dataclass containing the computed periodogram(s), frequency grid parameters, and other.
+        The fields are 'power', 'fmin', 'df', 'Nf', and 'fmax'.
+        `nifty_result.power` will be an ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
     """
     fmin, df, Nf = utils.validate_frequency_grid(
         fmin,
@@ -119,24 +120,34 @@ def lombscargle(
     )
 
     fmax = fmin + df * (Nf - 1)
-    nifty_result = dict(power=power, fmin=fmin, df=df, Nf=Nf, fmax=fmax)
+    nifty_result = NiftyResult(
+        power=power,
+        fmin=fmin,
+        df=df,
+        Nf=Nf,
+        fmax=fmax,
+        center_data=center_data,
+        fit_mean=fit_mean,
+        normalization=normalization,
+        backend=backend,
+        backend_kwargs=backend_kwargs,
+    )
 
     return nifty_result
 
 
-def lombscargle_freq(nifty_result):
-    """
-    Return the frequency grid corresponding to the result of `lombscargle()`.
+@dataclass
+class NiftyResult:
+    power: npt.NDArray[np.floating]
+    fmin: float
+    df: float
+    Nf: int
+    fmax: float
+    center_data: bool
+    fit_mean: bool
+    normalization: NORMALIZATION_TYPE
+    backend: BACKEND_TYPE
+    backend_kwargs: Optional[dict]
 
-    Parameters
-    ----------
-    nifty_result : dict
-        The result of a call to `lombscargle`, containing the keys 'fmin', 'df', and 'Nf'.
-
-    Returns
-    -------
-    freq : ndarray
-        The frequency grid.
-    """
-
-    return nifty_result['fmin'] + nifty_result['df'] * np.arange(nifty_result['Nf'])
+    def freq(self) -> npt.NDArray[np.floating]:
+        return self.fmin + self.df * np.arange(self.Nf)
