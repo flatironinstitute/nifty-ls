@@ -106,7 +106,7 @@ so the performance benefit is minimal.
 
 **⚠️ MacOS ARM users (M1/M2/etc)**: due to an OpenMP library incompatibility, the
 nifty-ls "C++ helpers" are not parallelized in the Mac ARM builds on PyPI. This is not
-expected to have a big impact on performance,as the core finufft computation will still
+expected to have a big impact on performance, as the core finufft computation will still
 be parallelized. Building both finufft and nifty-ls from source is a possible
 workaround.
 
@@ -228,7 +228,7 @@ The astropy result is presented for two cases: a nominal case and a "worst case"
 
 ![](accuracy.png)
 
-Errors of $\mathcal{O}(10\\%)$ or greater are not uncommon with worst-case evaluations. Errors of $\mathcal{O}(1\\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
+Errors of $\mathcal{O}(10\\%)$ or greater are common with worst-case evaluations. Errors of $\mathcal{O}(1\\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
 
 The reference result in the above figure comes from the "phase winding" method, which uses trigonometric identities to avoid expensive sin and cos evaluations. One can also use astropy's `fast` method as a reference with exact evaluation enabled via `use_fft=False`.  One finds the same result, but the phase winding is a few orders of magnitude faster (but still not competitive with finufft).
 
