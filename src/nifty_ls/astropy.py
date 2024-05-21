@@ -36,4 +36,4 @@ def lombscargle_fastnifty(
         fit_mean=fit_mean,
         normalization=normalization,
         **lombscargle_kwargs,
-    )['power']
+    ).power

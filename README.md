@@ -165,13 +165,13 @@ N_obj = 10
 Nf = 200
 
 rng = np.random.default_rng()
-t = rng.random(N_t)
+t = np.sort(rng.random(N_t))
 freqs = rng.random(N_obj).reshape(-1,1)
 y_batch = np.sin(freqs * t)
-dy_batch = rng.random(y.shape)
+dy_batch = rng.random(y_batch.shape)
 
 batched = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf)
-print(batched['power'].shape)  # (10, 200)
+print(batched.power.shape)  # (10, 200)
 ```
 
 Note that this computes multiple periodograms simultaneously on a set of time

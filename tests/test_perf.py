@@ -53,7 +53,7 @@ class TestPerf:
     #     import nifty_ls
 
     #     benchmark(nifty_ls.lombscargle, **bench_data, fmin=0.1, fmax=10.0, Nf=Nf,
-    #               _no_cpp_helpers=True)['power']
+    #               _no_cpp_helpers=True).power
 
 
 @pytest.mark.parametrize('Nf', [1_000])

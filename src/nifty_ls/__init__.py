@@ -1,9 +1,9 @@
 import logging
 
 from .core import lombscargle
-from .core import lombscargle_freq
+from .core import NiftyResult
 
-__all__ = ['lombscargle', 'lombscargle_freq']
+__all__ = ['lombscargle', 'NiftyResult']
 
 # Make "fastnifty" available as a method for astropy's Lomb Scargle
 try:
