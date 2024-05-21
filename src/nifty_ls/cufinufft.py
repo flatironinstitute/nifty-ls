@@ -131,6 +131,7 @@ def lombscargle(
     # begin preprocessing
     # We could fuse these kernels like we do on the CPU,
     # but so far the performance is excellent without it.
+    # TODO: actually pre-/post-processing is a significant fraction of the time for small transforms
     t1 = 2 * cp.pi * df * t
     t2 = 2 * t1
 

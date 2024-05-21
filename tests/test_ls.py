@@ -12,7 +12,19 @@ import pytest
 
 import nifty_ls
 import nifty_ls.backends
+import nifty_ls.utils
 from nifty_ls.test_helpers.utils import gen_data, astropy_ls
+
+
+def rtol(dtype, Nf):
+    """Use a relative tolerance that accounts for the condition number of the problem"""
+    if dtype == np.float32:
+        # NB we don't test float32
+        return max(1e-3, 1e-7 * Nf)
+    elif dtype == np.float64:
+        return max(1e-5, 1e-9 * Nf)
+    else:
+        raise ValueError(f'Unknown dtype {dtype}')
 
 
 @pytest.fixture(scope='module')
@@ -48,7 +60,7 @@ def test_lombscargle(data, Nf, nifty_backend):
     np.testing.assert_allclose(
         nifty_res,
         brute_res,
-        rtol=1e-6 if dtype == np.float64 else 1e-3,
+        rtol=rtol(dtype, Nf),
     )
 
 
@@ -73,7 +85,11 @@ def test_batched(batched_data, nifty_backend, Nf=1000):
     dtype = t.dtype
 
     np.testing.assert_allclose(
-        nifty_res, brute_res, rtol=1e-6 if dtype == np.float64 else 1e-3
+        nifty_res,
+        brute_res,
+        # the batched case runs 100 examples
+        # and is more likely to probe the tails of the error distribution
+        rtol=rtol(dtype, Nf) * 10,
     )
 
 
@@ -94,9 +110,7 @@ def test_normalization(data, nifty_backend, Nf=1000):
             normalization=norm,
         )
         dtype = data['t'].dtype
-        np.testing.assert_allclose(
-            nifty_res, astropy_res, rtol=1e-6 if dtype == np.float64 else 1e-3
-        )
+        np.testing.assert_allclose(nifty_res, astropy_res, rtol=rtol(dtype, Nf))
 
 
 @pytest.mark.parametrize('backend', nifty_ls.backends.BACKEND_NAMES)
@@ -109,7 +123,7 @@ def test_astropy_hook(data, backend, Nf=1000):
 
     ls = LombScargle(data['t'], data['y'], data['dy'], fit_mean=True, center_data=True)
 
-    freq = np.linspace(0.1, 10.0, Nf, endpoint=True)
+    freq = np.linspace(data['fmin'], data['fmax'], Nf, endpoint=True)
 
     astropy_power = ls.power(
         freq,
@@ -149,6 +163,23 @@ def test_no_cpp_helpers(data, batched_data, Nf=1000):
 
     np.testing.assert_allclose(nifty_power_batched, nocpp_power_batched)
 
+    batched_data = batched_data.copy()
+    batched_data['dy'] = None
+
+    nifty_power_batched = nifty_ls.lombscargle(
+        **batched_data,
+        Nf=Nf,
+        _no_cpp_helpers=False,
+    )['power']
+
+    nocpp_power_batched = nifty_ls.lombscargle(
+        **batched_data,
+        Nf=Nf,
+        _no_cpp_helpers=True,
+    )['power']
+
+    np.testing.assert_allclose(nifty_power_batched, nocpp_power_batched)
+
 
 @pytest.mark.parametrize('center_data', [True, False])
 @pytest.mark.parametrize('nifty_backend', ['finufft', 'cufinufft'], indirect=True)
@@ -159,9 +190,7 @@ def test_center_data(data, center_data, nifty_backend, Nf=1000):
 
     dtype = data['t'].dtype
 
-    np.testing.assert_allclose(
-        center_nifty, center_astropy, rtol=1e-6 if dtype == np.float64 else 1e-3
-    )
+    np.testing.assert_allclose(center_nifty, center_astropy, rtol=rtol(dtype, Nf))
 
 
 @pytest.mark.parametrize('fit_mean', [True, False])
@@ -178,13 +207,49 @@ def test_fit_mean(data, fit_mean, nifty_backend, Nf=1000):
 
     dtype = data['t'].dtype
 
-    np.testing.assert_allclose(
-        fitmean_nifty, fitmean_astropy, rtol=1e-6 if dtype == np.float64 else 1e-3
-    )
+    np.testing.assert_allclose(fitmean_nifty, fitmean_astropy, rtol=rtol(dtype, Nf))
+
+
+@pytest.mark.parametrize('nifty_backend', ['finufft', 'cufinufft'], indirect=True)
+def test_dy_none(data, batched_data, nifty_backend, Nf=1000):
+    """Test that `dy = None` works properly"""
+    data = data.copy()
+    data['dy'] = None
+    nifty_res = nifty_backend(**data, Nf=Nf)['power']
+
+    astropy_res = astropy_ls(**data, Nf=Nf, use_fft=False)
+
+    dtype = data['t'].dtype
+
+    np.testing.assert_allclose(nifty_res, astropy_res, rtol=rtol(dtype, Nf))
+
+    # the dy = None case involves broadcasting; better test batched mode too
+    batched_data = batched_data.copy()
+    batched_data['dy'] = None
+
+    nifty_res = nifty_backend(**batched_data, Nf=Nf)['power']
+
+    astropy_res = np.empty((len(batched_data['y']), Nf), dtype=batched_data['y'].dtype)
+    for i in range(len(batched_data['y'])):
+        astropy_res[i] = astropy_ls(
+            batched_data['t'],
+            batched_data['y'][i],
+            None,
+            batched_data['fmin'],
+            batched_data['fmax'],
+            Nf,
+            use_fft=False,
+        )
+
+    dtype = batched_data['t'].dtype
+
+    np.testing.assert_allclose(nifty_res, astropy_res, rtol=rtol(dtype, Nf))
 
 
 def test_backends(data, Nf=1000):
-    """Test that all the backends give the same answer"""
+    """Test that all the backends give the same answer,
+    without reference to astropy
+    """
 
     backends = nifty_ls.core.AVAILABLE_BACKENDS
     if len(backends) < 2:
@@ -195,8 +260,9 @@ def test_backends(data, Nf=1000):
         for backend in backends
     }
 
+    dtype = data['t'].dtype
     for backend1, power1 in powers.items():
         for backend2, power2 in powers.items():
             if backend1 == backend2:
                 continue
-            np.testing.assert_allclose(power1, power2, rtol=1e-6)
+            np.testing.assert_allclose(power1, power2, rtol=rtol(dtype, Nf))
