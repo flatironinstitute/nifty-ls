@@ -5,3 +5,4 @@ __pycache__/
 /scripts/*.ecsv
 /scripts/*.png
 /scripts/*.asdf
+/compile_commands.json

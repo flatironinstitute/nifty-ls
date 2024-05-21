@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.15...3.27)
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
+# put a symlink to the compile_commands.json in the build dir
+# so the LSP can find it in a known directory without the platform tag
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json
+        ${CMAKE_CURRENT_BINARY_DIR}/../compile_commands.json
+)
+
 find_package(Python 3.8 COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(nanobind CONFIG REQUIRED)
 
