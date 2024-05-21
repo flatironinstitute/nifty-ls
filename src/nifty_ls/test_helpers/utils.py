@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..utils import validate_frequency_grid
+
 
 def gen_data(N=100, Nbatch=None, seed=5043, dtype=np.float64):
     rng = np.random.default_rng(seed)
@@ -12,8 +14,10 @@ def gen_data(N=100, Nbatch=None, seed=5043, dtype=np.float64):
     freqs = rng.random((Nbatch, 1) if Nbatch else 1, dtype=dtype) * 10 + 1
     y = np.sin(freqs * t) + 1.23
     dy = rng.random(y.shape, dtype=dtype) * 0.1 + 0.01
+    y += rng.normal(0, dy, y.shape)
 
-    fmin, fmax = 0.1, 10.0
+    fmin, df, Nf = validate_frequency_grid(None, None, None, t)
+    fmax = fmin + df * (Nf - 1)
 
     t.setflags(write=False)
     y.setflags(write=False)

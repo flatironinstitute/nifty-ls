@@ -79,6 +79,8 @@ void process_finufft_inputs(
     size_t N = y.shape(1);
     size_t Nshift = Nf / 2;
 
+    bool broadcast_dy = dy.shape(1) == 1;
+
 #ifdef _OPENMP
     if (nthreads < 1){
         nthreads = omp_get_max_threads();
@@ -97,16 +99,30 @@ void process_finufft_inputs(
     std::vector<double> wsum(Nbatch, 0.);  // use double for stability
     std::vector<double> yoff(Nbatch, 0.);
     
+    if(!broadcast_dy){
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2) reduction(vsum:wsum) reduction(vsum:yoff)
+        #pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2) reduction(vsum:wsum) reduction(vsum:yoff)
 #endif
-    for (size_t i = 0; i < Nbatch; ++i) {
-        for (size_t j = 0; j < N; ++j) {
-            w2(i, j) = 1 / (dy(i, j) * dy(i, j));
-            if (center_data || fit_mean){
-                yoff[i] += w2(i, j).real() * y(i, j);
+        for (size_t i = 0; i < Nbatch; ++i) {
+            for (size_t j = 0; j < N; ++j) {
+                w2(i, j) = 1 / (dy(i, j) * dy(i, j));
+                if (center_data || fit_mean){
+                    yoff[i] += w2(i, j).real() * y(i, j);
+                }
+                wsum[i] += w2(i, j).real();
             }
-            wsum[i] += w2(i, j).real();
+        }
+    } else {
+#ifdef _OPENMP
+        #pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2) reduction(vsum:yoff)
+#endif
+        for (size_t i = 0; i < Nbatch; ++i) {
+            for (size_t j = 0; j < N; ++j) {
+                w2(i, j) = 1.;
+                if (center_data || fit_mean){
+                    yoff[i] += y(i, j);
+                }
+            }
         }
     }
 
@@ -115,6 +131,9 @@ void process_finufft_inputs(
     // but it's real at this point in the code, before the phase shift
     // TODO: could try to taskify this loop
     for (size_t i = 0; i < Nbatch; ++i) {
+        if(broadcast_dy){
+            wsum[i] = N;
+        }
         if (psd_norm) {
             norm(i) = wsum[i];
         } else {

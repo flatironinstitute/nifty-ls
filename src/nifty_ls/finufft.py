@@ -16,10 +16,10 @@ FFTW_ESTIMATE = 64
 def lombscargle(
     t,
     y,
-    dy,
     fmin,
     df,
     Nf,
+    dy=None,
     nthreads=None,
     center_data=True,
     fit_mean=True,
@@ -50,14 +50,14 @@ def lombscargle(
         The time values, shape (N_t,)
     y : array-like
         The data values, shape (N_t,) or (N_y, N_t)
-    dy : array-like
-        The uncertainties of the data values, broadcastable to `y`
     fmin : float
         The minimum frequency of the periodogram.
     df : float
         The frequency bin width.
     Nf : int
         The number of frequency bins.
+    dy : array-like, optional
+        The uncertainties of the data values, broadcastable to `y`
     nthreads : int, optional
         The number of threads to use. The default behavior is to use (N_t / 4) * (Nf / 2^15) threads,
         capped to the maximum number of OpenMP threads. This is a heuristic that may not work well in all cases.
@@ -102,6 +102,9 @@ def lombscargle(
 
     cdtype = np.complex128 if dtype == np.float64 else np.complex64
 
+    if dy is None:
+        dy = dtype.type(1.0)
+
     # treat 1D arrays as a batch of size 1
     squeeze_output = y.ndim == 1
     y = np.atleast_2d(y)
@@ -137,7 +140,6 @@ def lombscargle(
         yw_w_shape = (Nbatch, N)
 
     yw_w = np.empty(yw_w_shape, dtype=cdtype)
-    w2 = np.empty(dy.shape, dtype=cdtype)
 
     yw = yw_w[:Nbatch]
     w = yw_w[Nbatch:]
@@ -146,7 +148,7 @@ def lombscargle(
     if not _no_cpp_helpers:
         t1 = np.empty_like(t)
         t2 = np.empty_like(t)
-
+        w2 = np.empty(y.shape, dtype=cdtype)
         norm = np.empty(Nbatch, dtype=dtype)
 
         cpu_helpers.process_finufft_inputs(
@@ -176,8 +178,13 @@ def lombscargle(
         y = y.astype(dtype, copy=False)
         dy = dy.astype(dtype, copy=False)
 
-        w2[:] = dy**-2.0
-        w2.real /= w2.real.sum(axis=-1, keepdims=True)
+        # dy may be a scalar; we'll keep it as such until we need to fill w & w2
+        if dy.shape[-1] == 1:
+            w2 = dy**-2.0  # real
+        else:
+            w2 = np.empty(dy.shape, dtype=cdtype)  # complex
+            w2[:] = dy**-2.0
+        w2.real /= w2.real.mean(axis=-1, keepdims=True) * N
 
         if center_data or fit_mean:
             y = y - (w2.real * y).sum(axis=-1, keepdims=True)
@@ -199,7 +206,12 @@ def lombscargle(
             w[:] = w2
 
         yw_w *= phase_shift1
-        w2 *= phase_shift2
+
+        # do an in-place multiplication if possible
+        if dy.shape[-1] == 1:
+            w2 = np.broadcast_to(w2, (Nbatch, N)) * phase_shift2
+        else:
+            w2 *= phase_shift2
 
     t_helpers += timer()
 
