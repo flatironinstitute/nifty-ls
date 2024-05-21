@@ -232,7 +232,7 @@ Errors of $\mathcal{O}(10\\%)$ or greater are not uncommon with worst-case evalu
 
 The reference result in the above figure comes from the "phase winding" method, which uses trigonometric identities to avoid expensive sin and cos evaluations. One can also use astropy's `fast` method as a reference with exact evaluation enabled via `use_fft=False`.  One finds the same result, but the phase winding is a few orders of magnitude faster (but still not competitive with finufft).
 
-To summarize, we see that nifty-ls is highly accurate while also giving high performance.
+In summary, nifty-ls is highly accurate while also giving high performance.
 
 
 ### float32 vs float64

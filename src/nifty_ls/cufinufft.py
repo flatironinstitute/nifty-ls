@@ -25,10 +25,10 @@ __all__ = ['lombscargle']
 def lombscargle(
     t,
     y,
-    dy,
     fmin,
     df,
     Nf,
+    dy=None,
     center_data=True,
     fit_mean=True,
     normalization='standard',
@@ -55,14 +55,14 @@ def lombscargle(
         The time values, shape (N_t,)
     y : array-like
         The data values, shape (N_t,) or (N_y, N_t)
-    dy : array-like
-        The uncertainties of the data values, broadcastable to `y`
     fmin : float
         The minimum frequency of the periodogram.
     df : float
         The frequency bin width.
     Nf : int
         The number of frequency bins.
+    dy : array-like, optional
+        The uncertainties of the data values, broadcastable to `y`
     center_data : bool, optional
         Whether to center the data before computing the periodogram. Default is True.
     fit_mean : bool, optional
@@ -95,6 +95,9 @@ def lombscargle(
 
     cdtype = cp.complex128 if dtype == cp.float64 else cp.complex64
 
+    if dy is None:
+        dy = dtype.type(1.0)
+
     t_copy = -timer()
 
     # transfer arrays to GPU if not already there
@@ -121,7 +124,6 @@ def lombscargle(
         yw_w_shape = (Nbatch, N)
 
     yw_w = cp.empty(yw_w_shape, dtype=cdtype)
-    w2 = cp.empty(dy.shape, dtype=cdtype)
 
     yw = yw_w[:Nbatch]
     w = yw_w[Nbatch:]
@@ -137,8 +139,13 @@ def lombscargle(
     y = y.astype(dtype, copy=False)
     dy = dy.astype(dtype, copy=False)
 
-    w2[:] = dy**-2.0
-    w2.real /= w2.real.sum(axis=-1, keepdims=True)
+    # dy may be a scalar; we'll keep it as such until we need to fill w & w2
+    if dy.shape[-1] == 1:
+        w2 = dy**-2.0  # real
+    else:
+        w2 = cp.empty(dy.shape, dtype=cdtype)  # complex
+        w2[:] = dy**-2.0
+    w2.real /= w2.real.mean(axis=-1, keepdims=True) * N
 
     if center_data or fit_mean:
         y = y - (w2.real * y).sum(axis=-1, keepdims=True)
@@ -160,7 +167,12 @@ def lombscargle(
         w[:] = w2
 
     yw_w *= phase_shift1
-    w2 *= phase_shift2
+
+    # do an in-place multiplication if possible
+    if dy.shape[-1] == 1:
+        w2 = cp.broadcast_to(w2, (Nbatch, N)) * phase_shift2
+    else:
+        w2 *= phase_shift2
 
     t_prepost += timer()
 

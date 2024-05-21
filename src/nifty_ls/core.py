@@ -24,7 +24,7 @@ NORMALIZATION_TYPE = Literal['standard', 'model', 'log', 'psd']
 def lombscargle(
     t: npt.NDArray[np.floating],
     y: npt.NDArray[np.floating],
-    dy: npt.NDArray[np.floating],
+    dy: Optional[npt.NDArray[np.floating]],
     fmin: Optional[float] = None,
     fmax: Optional[float] = None,
     Nf: Optional[int] = None,
@@ -55,7 +55,7 @@ def lombscargle(
         The time values, shape (N_t,)
     y : array-like
         The data values, shape (N_t,) or (N_y, N_t)
-    dy : array-like
+    dy : array-like, optional
         The uncertainties of the data values, broadcastable to `y`
     fmin : float, optional
         The minimum frequency of the periodogram. If not provided, it will be chosen automatically.
