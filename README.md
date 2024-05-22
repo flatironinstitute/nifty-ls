@@ -3,9 +3,6 @@ A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT!
 
 [![PyPI](https://img.shields.io/pypi/v/nifty-ls)](https://pypi.org/project/nifty-ls/) [![Tests](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml/badge.svg)](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/flatironinstitute/nifty-ls/main.svg)](https://results.pre-commit.ci/latest/github/flatironinstitute/nifty-ls/main) [![Jenkins Tests](https://jenkins.flatironinstitute.org/buildStatus/icon?job=nifty-ls%2Fmain&subject=Jenkins%20Tests)](https://jenkins.flatironinstitute.org/job/nifty-ls/job/main/)
 
-> [!WARNING]
-> This project is in a pre-release stage and will likely undergo breaking changes during development. Some of the instructions in the README are aspirational.
-
 ## Overview
 The Lomb-Scargle periodogram, used for identifying periodicity in irregularly-spaced
 observations, is useful but computationally expensive. However, it can be
@@ -14,7 +11,7 @@ leverage Flatiron Institute's [finufft](https://github.com/flatironinstitute/fin
 package, which is really fast! It also enables GPU (CUDA) support and is
 several orders of magnitude more accurate than
 [Astropy's Lomb Scargle](https://docs.astropy.org/en/stable/timeseries/lombscargle.html)
-with default settings for many regions of parameter space.
+with default settings.
 
 ## Background
 The [Press & Rybicki (1989) method](https://ui.adsabs.harvard.edu/abs/1989ApJ...338..277P/abstract) for Lomb-Scargle poses the computation as four weighted trigonometric sums that are solved with a pair of FFTs by "extirpolation" to an equi-spaced grid. Specifically, the sums are of the form:
