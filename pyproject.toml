@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 name = "nifty-ls"
 description = "A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT."
 readme = "README.md"
-authors = [{ name = "Lehman Garrison", email = "lgarrison@flatironinstitute.org" },
+authors = [{ name = "Lehman Garrison" },
            { name = "Dan Foreman-Mackey" },
            ]
 requires-python = ">=3.8"
