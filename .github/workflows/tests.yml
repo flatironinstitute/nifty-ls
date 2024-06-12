@@ -2,6 +2,9 @@ name: Tests
 
 on:
   push:
+    branches:
+      - main
+  pull_request:
   schedule:
     # Run weekly, Friday at 7:15 EST.
     - cron: '15 12 * * 5'
