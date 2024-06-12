@@ -24,7 +24,7 @@ test = ["pytest", "pytest-benchmark", "astropy"]
 
 [tool.scikit-build]
 metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
-# sdist.include = ["src/nifty_ls/version.py"]
+sdist.include = ["src/nifty_ls/version.py"]
 minimum-version = "0.8"
 build-dir = "build/{wheel_tag}"
 # editable.rebuild = true  # use with --no-build-isolation
