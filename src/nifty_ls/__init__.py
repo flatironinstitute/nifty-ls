@@ -5,6 +5,8 @@ from .core import NiftyResult
 
 __all__ = ['lombscargle', 'NiftyResult']
 
+from .version import __version__ as __version__
+
 # Make "fastnifty" available as a method for astropy's Lomb Scargle
 try:
     import astropy.timeseries.periodograms.lombscargle.implementations.main as astropy_ls
