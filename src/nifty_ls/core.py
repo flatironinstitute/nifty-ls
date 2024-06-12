@@ -25,7 +25,7 @@ NORMALIZATION_TYPE = Literal['standard', 'model', 'log', 'psd']
 def lombscargle(
     t: npt.NDArray[np.floating],
     y: npt.NDArray[np.floating],
-    dy: Optional[npt.NDArray[np.floating]],
+    dy: Optional[npt.NDArray[np.floating]] = None,
     fmin: Optional[float] = None,
     fmax: Optional[float] = None,
     Nf: Optional[int] = None,
