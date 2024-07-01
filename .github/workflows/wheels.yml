@@ -53,7 +53,7 @@ jobs:
           echo "CXXFLAGS=$CXXFLAGS -I$prefix/include" >> $GITHUB_ENV
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.18.1
+        uses: pypa/cibuildwheel@v2.19.1
 
       - uses: actions/upload-artifact@v4
         with:
