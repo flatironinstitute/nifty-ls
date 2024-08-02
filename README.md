@@ -116,13 +116,34 @@ of the fast family of methods that assume a regularly-spaced frequency grid.
 ```python
 import nifty_ls
 from astropy.timeseries import LombScargle
-frequency, power = LombScargle(t, y, method="fastnifty").autopower()
+frequency, power = LombScargle(t, y).autopower(method="fastnifty")
 ```
+
+<details>
+<summary>Full example</summary>
+
+```python
+import matplotlib.pyplot as plt
+import nifty_ls
+import numpy as np
+from astropy.timeseries import LombScargle
+
+rng = np.random.default_rng(seed=123)
+N = 1000
+t = rng.uniform(0, 100, size=N)
+y = np.sin(50 * t) + 1 + rng.poisson(size=N)
+
+frequency, power = LombScargle(t, y).autopower(method='fastnifty')
+plt.plot(frequency, power)
+plt.xlabel('Frequency (cycles per unit time)')
+plt.ylabel('Power')
+```  
+</details>
 
 To use the CUDA (cufinufft) backend, pass the appropriate argument via `method_kws`:
 
 ```python
-frequency, power = LombScargle(t, y, method="fastnifty", method_kws=dict(backend="cufinufft")).autopower()
+frequency, power = LombScargle(t, y).autopower(method="fastnifty", method_kws=dict(backend="cufinufft"))
 ```
 
 In many cases, accelerating your periodogram is as simple as setting the `method`
@@ -148,6 +169,30 @@ nifty_res = nifty_ls.lombscargle(t, y, dy)
 nifty_res = nifty_ls.lombscargle(t, y, dy, fmin=0.1, fmax=10, Nf=10**6)
 ```
 
+<details>
+<summary>Full example</summary>
+
+```python
+import nifty_ls
+import numpy as np
+
+rng = np.random.default_rng(seed=123)
+N = 1000
+t = np.sort(rng.uniform(0, 100, size=N))
+y = np.sin(50 * t) + 1 + rng.poisson(size=N)
+
+# with automatic frequency grid:
+nifty_res = nifty_ls.lombscargle(t, y)
+
+# with user-specified frequency grid:
+nifty_res = nifty_ls.lombscargle(t, y, fmin=0.1, fmax=10, Nf=10**6)
+
+plt.plot(nifty_res.freq(), nifty_res.power)
+plt.xlabel('Frequency (cycles per unit time)')
+plt.ylabel('Power')
+```
+</details>
+
 #### Batched Periodograms
 
 Batched periodograms (multiple objects with the same observation times) can be
@@ -163,8 +208,8 @@ Nf = 200
 
 rng = np.random.default_rng()
 t = np.sort(rng.random(N_t))
-freqs = rng.random(N_obj).reshape(-1,1)
-y_batch = np.sin(freqs * t)
+obj_freqs = rng.random(N_obj).reshape(-1,1)
+y_batch = np.sin(obj_freqs * t)
 dy_batch = rng.random(y_batch.shape)
 
 batched = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf)
