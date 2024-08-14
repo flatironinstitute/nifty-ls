@@ -195,9 +195,6 @@ def lombscargle(
         phase_shift1 = np.exp(1j * (Nshift + fmin / df) * t1)
         phase_shift2 = np.exp(1j * (Nshift + fmin / df) * t2)
 
-        t1 %= 2 * np.pi
-        t2 %= 2 * np.pi
-
         yw[:] = y * w2.real
         if fit_mean:
             # Up to now, w and w2 are identical
