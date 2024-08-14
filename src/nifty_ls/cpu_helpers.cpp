@@ -174,12 +174,6 @@ void process_finufft_inputs(
             }
             w2(i, j) *= std::exp(phase_shift * t2(j));
         }
-
-        // TODO: if fmin/df is an integer, we may be able to do
-        //   t = ((df * t) % 1) * 2 * np.pi
-        // Could help a lot with range-reduction performance.
-        t1(j) = std::fmod(t1(j), TWO_PI);
-        t2(j) = std::fmod(t2(j), TWO_PI);
     }
 }
 
