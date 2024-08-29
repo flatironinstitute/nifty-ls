@@ -81,14 +81,15 @@ def run(dtype, methods, ref, output_file):
 
 @cli.command()
 @click.argument('results_file')
-def analyze(results_file):
+@click.option('--paper', is_flag=True, help='Generate plots for paper')
+def analyze(results_file, paper=False):
     with asdf.open(results_file, lazy_load=False, copy_arrays=True) as af:
         tables = af['data']
     plot_fname = Path(results_file).with_suffix('.png')
-    _analyze(tables, fname=plot_fname)
+    _analyze(tables, fname=plot_fname, paper=paper)
 
 
-def _analyze(all_tables, fname, plot=True):
+def _analyze(all_tables, fname, plot=True, paper=False):
     # dtype = all_tables[0]['dtype'][0]
 
     # each table is one N/Nf value
@@ -145,12 +146,13 @@ def _analyze(all_tables, fname, plot=True):
 
     if plot:
         # _plot_box(all_info, fname)
-        _plot_99(all_info, fname)
+        _plot_99(all_info, fname, paper=paper)
 
 
-def _plot_99(all_info, fname):
+def _plot_99(all_info, fname, paper=False):
     """Plot the median and 99th percentile error"""
-    fig, ax = plt.subplots()
+    figsize = (w := 3.8, w / 1.3) if paper else (6, 4)
+    fig, ax = plt.subplots(figsize=figsize, layout='constrained')
     ax: plt.Axes
     ax.set_yscale('log')
     ax.set_xscale('log')
@@ -163,7 +165,7 @@ def _plot_99(all_info, fname):
 
     lo = [info['bxp_stats']['med'] for info in all_info]
     hi = [info['bxp_stats']['whishi'] for info in all_info]
-    o = 0.1
+    o = 0.125
     offsets = {
         'cufinufft': 1.0,
         'finufft': 1.0 - o,
@@ -181,7 +183,7 @@ def _plot_99(all_info, fname):
         ax.plot(x, lo[i], 'o', **plot_kwargs)
         ax.plot(x, hi[i], 'v', **plot_kwargs)
 
-    ax.set_ylim(1e-15)
+    ax.set_ylim(1e-17)
 
     # Make dummy entries for the v and o symbols
     cap1 = ax.plot([], [], 'o', color='black', label='Median')
@@ -197,23 +199,35 @@ def _plot_99(all_info, fname):
             lines['cufinufft'],
         ],
         [
-            'Median & 99th percentile',
-            'astropy',
-            'astropy (worst case)',
+            '50th & 99th percentile',
+            'Astropy',
+            'Astropy (worst case)',
             'finufft',
             'cufinufft',
         ],
-        ncol=1,
+        ncol=2 if paper else 1,
         loc='lower right',
         handler_map={tuple: HandlerTuple(ndivide=None)},
         fontsize='small',
     )
 
-    ax.set_xlabel('Number of data points $N$')
+    ax.set_xlabel('$N_d$')
     ax.set_ylabel('Fractional error')
+    ax.tick_params(right=True, top=True, which='both')
+    logymaxtick = int(np.log10(ax.get_ylim()[1]))
+    logymintick = int(np.ceil(np.log10(ax.get_ylim()[0])))
+    numyticks = logymaxtick - logymintick
+    ticks = np.logspace(logymintick, logymaxtick, numyticks + 1)
+    ax.set_yticks(
+        ticks,
+        labels=[
+            f'$10^{{{np.log10(t):.0f}}}$' if i % 3 == 0 else ''
+            for i, t in enumerate(ticks)
+        ],
+    )
 
-    fig.tight_layout()
     fig.savefig(fname)
+    fig.savefig(Path(fname).with_suffix('.pdf'))
 
 
 def _plot_box(all_info, fname):
@@ -236,7 +250,6 @@ def _plot_box(all_info, fname):
     # ax.set_xticklabels([f'{method}\nN={N}, Nf={Nf}' for method, N, Nf in zip(methods, Ns, Nfs)], rotation=45)
     ax.set_ylabel('Fractional error')
 
-    fig.tight_layout()
     fig.savefig(fname)
 
 
