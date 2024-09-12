@@ -31,7 +31,6 @@ jobs:
             label: "macos-target-arm64"
             env:
               CIBW_ARCHS_MACOS: "arm64"
-              CMAKE_ARGS: "-DNIFTY_LS_OPENMP=OFF"
             bottle-tag: "arm64_monterey"
 
     env:
@@ -43,13 +42,12 @@ jobs:
       CIBW_ARCHS_MACOS: ${{ matrix.env.CIBW_ARCHS_MACOS }}
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true cmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON"
       CIBW_BUILD_VERBOSITY: 1
-      CMAKE_ARGS: ${{ matrix.env.CMAKE_ARGS }}
       CIBW_BEFORE_ALL_MACOS: |
         brew uninstall gcc
-        pkg=$(brew fetch --force --bottle-tag=${{ matrix.env.bottle-tag }} gcc | grep 'Downloaded to' | cut -d' ' -f3)
+        pkg=$(brew fetch --force --bottle-tag=${{ matrix.bottle-tag }} gcc | grep 'Downloaded to' | cut -d' ' -f3)
         brew install $pkg
 
-        pkg=$(brew fetch --force --bottle-tag=${{ matrix.env.bottle-tag }} fftw | grep 'Downloaded to' | cut -d' ' -f3)
+        pkg=$(brew fetch --force --bottle-tag=${{ matrix.bottle-tag }} fftw | grep 'Downloaded to' | cut -d' ' -f3)
         brew install $pkg
 
     steps:
