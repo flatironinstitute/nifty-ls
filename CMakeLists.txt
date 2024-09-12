@@ -22,7 +22,7 @@ endif()
 nanobind_add_module(cpu_helpers src/nifty_ls/cpu_helpers.cpp NOMINSIZE STABLE_ABI)
 
 target_compile_options(cpu_helpers PRIVATE
-    -Wall -Wextra -Werror -std=c++17
+    -Wall -Wextra -std=c++17
 )
 
 if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
