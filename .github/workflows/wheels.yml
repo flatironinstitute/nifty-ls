@@ -23,34 +23,37 @@ jobs:
           - label: "macos-target-x86_64"
             os: macos-13
             env:
-              MACOSX_DEPLOYMENT_TARGET: "10.15"
               CIBW_ARCHS_MACOS: "x86_64"
+            bottle-tag: "monterey"
           - os: macos-14
             label: "macos-target-arm64"
             env:
-              MACOSX_DEPLOYMENT_TARGET: "11.0"
               CIBW_ARCHS_MACOS: "arm64"
               CMAKE_ARGS: "-DNIFTY_LS_OPENMP=OFF"
+            bottle-tag: "arm64_monterey"
 
     env:
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.env.MACOSX_DEPLOYMENT_TARGET }}
+      # All the MacOS logic is adapted directly from finufft
+      CIBW_ENVIRONMENT_MACOS: >
+        CC=gcc-14
+        CXX=g++-14
+        MACOSX_DEPLOYMENT_TARGET=12
       CIBW_ARCHS_MACOS: ${{ matrix.env.CIBW_ARCHS_MACOS }}
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
       CIBW_BUILD_VERBOSITY: 1
       CMAKE_ARGS: ${{ matrix.env.CMAKE_ARGS }}
+      CIBW_BEFORE_ALL_MACOS: |
+        brew uninstall gcc
+        pkg=$(brew fetch --force --bottle-tag=${{ matrix.env.bottle-tag }} gcc | grep 'Downloaded to' | cut -d' ' -f3)
+        brew install $pkg
+
+        pkg=$(brew fetch --force --bottle-tag=${{ matrix.env.bottle-tag }} fftw | grep 'Downloaded to' | cut -d' ' -f3)
+        brew install $pkg
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set OpenMP env for macos x86_64
-        if: matrix.label == 'macos-target-x86_64'
-        run: |
-          brew install libomp
-          prefix=$(brew --prefix libomp)
-          echo "LDFLAGS=$LDFLAGS -L$prefix/lib" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS -I$prefix/include" >> $GITHUB_ENV
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.20.0
