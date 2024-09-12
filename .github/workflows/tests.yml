@@ -30,7 +30,10 @@ jobs:
     - name: Install from source
       run: |
         pip install -U pip
-        pip install -U .[test]
+        pip install -vU \
+          -Ccmake.verbose=true \
+          -Ccmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON \
+          .[test]
 
     - name: Run tests
       run: |

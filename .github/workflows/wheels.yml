@@ -41,7 +41,7 @@ jobs:
         CXX=g++-14
         MACOSX_DEPLOYMENT_TARGET=12
       CIBW_ARCHS_MACOS: ${{ matrix.env.CIBW_ARCHS_MACOS }}
-      CIBW_CONFIG_SETTINGS: "cmake.verbose=true"
+      CIBW_CONFIG_SETTINGS: "cmake.verbose=true cmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON"
       CIBW_BUILD_VERBOSITY: 1
       CMAKE_ARGS: ${{ matrix.env.CMAKE_ARGS }}
       CIBW_BEFORE_ALL_MACOS: |
@@ -81,7 +81,7 @@ jobs:
 
     - name: Build SDist
       run: |
-        pip install -U build
+        pip install -vU build
         python -m build --sdist
 
     - uses: actions/upload-artifact@v4
