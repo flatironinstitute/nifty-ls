@@ -5,12 +5,10 @@ name: Build
 # For a real release, tag the version, check that this action succeeded, then make a
 # GitHub release.
 
-# on:
-#   push:
-#     tags:
-#       - 'v*'
 on:
-  pull_request:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build_wheels:
@@ -87,18 +85,18 @@ jobs:
         name: cibw-sdist
         path: dist/*.tar.gz
 
-  # upload_all:
-  #   needs: [build_wheels, make_sdist]
-  #   environment: pypi
+  upload_all:
+    needs: [build_wheels, make_sdist]
+    environment: pypi
 
-  #   permissions:
-  #     id-token: write
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/download-artifact@v4
-  #     with:
-  #       pattern: cibw-*
-  #       path: dist
-  #       merge-multiple: true
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: cibw-*
+        path: dist
+        merge-multiple: true
 
-  #   - uses: pypa/gh-action-pypi-publish@release/v1
+    - uses: pypa/gh-action-pypi-publish@release/v1
