@@ -119,11 +119,23 @@ def run_one(
     res['firsttime'] = t1
 
     if time:
-        nrep, tot_time = timeit.Timer(func).autorange()
+        nrep, tot_time = autorange(timeit.Timer(func))
         t = tot_time / nrep
         res['time'] = t
 
     return res
+
+
+def autorange(timer: timeit.Timer, min_time=2.0):
+    """Adapted from timeit.Timer.autorange"""
+    i = 1
+    while True:
+        for j in 1, 2, 5:
+            number = i * j
+            time_taken = timer.timeit(number)
+            if time_taken >= min_time:
+                return (number, time_taken)
+        i *= 10
 
 
 def get_plot_kwargs(method, nthread_max=NTHREAD_MAX):
@@ -231,7 +243,7 @@ def bench(
 
             res = run_one(method, N, Nf, dtype, batch_size=batch_size)
 
-            print(f'{method} took {res["time"]:.4g} sec ({Nf=})')
+            print(f'{method} took {res["time"]:8.4g} sec ({sweep}={eval(sweep):d})')
             all_res.append(res)
 
     for res in all_res:
