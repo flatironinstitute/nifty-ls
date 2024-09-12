@@ -101,12 +101,6 @@ nifty-ls can likewise be built from source following the instructions above for
 best performance, but most of the heavy computations are offloaded to (cu)finufft,
 so the performance benefit is minimal.
 
-**⚠️ MacOS ARM users (M1/M2/etc)**: due to an OpenMP library incompatibility, the
-nifty-ls "C++ helpers" are not parallelized in the Mac ARM builds on PyPI. This is not
-expected to have a big impact on performance, as the core finufft computation will still
-be parallelized. Building both finufft and nifty-ls from source is a possible
-workaround.
-
 ## Usage
 ### From Astropy
 Importing `nifty_ls` makes nifty-ls available via `method="fastnifty"` in
