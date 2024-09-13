@@ -1,7 +1,7 @@
 # nifty-ls
 A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT!
 
-[![PyPI](https://img.shields.io/pypi/v/nifty-ls)](https://pypi.org/project/nifty-ls/) [![Tests](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml/badge.svg)](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/flatironinstitute/nifty-ls/main.svg)](https://results.pre-commit.ci/latest/github/flatironinstitute/nifty-ls/main) [![Jenkins Tests](https://jenkins.flatironinstitute.org/buildStatus/icon?job=nifty-ls%2Fmain&subject=Jenkins%20Tests)](https://jenkins.flatironinstitute.org/job/nifty-ls/job/main/)
+[![PyPI](https://img.shields.io/pypi/v/nifty-ls)](https://pypi.org/project/nifty-ls/) [![Tests](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml/badge.svg)](https://github.com/flatironinstitute/nifty-ls/actions/workflows/tests.yml) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/flatironinstitute/nifty-ls/main.svg)](https://results.pre-commit.ci/latest/github/flatironinstitute/nifty-ls/main) [![Jenkins Tests](https://jenkins.flatironinstitute.org/buildStatus/icon?job=nifty-ls%2Fmain&subject=Jenkins%20Tests)](https://jenkins.flatironinstitute.org/job/nifty-ls/job/main/) [![arXiv](https://img.shields.io/badge/arXiv-2409.08090-b31b1b.svg)](https://arxiv.org/abs/2409.08090)
 
 ## Overview
 The Lomb-Scargle periodogram, used for identifying periodicity in irregularly-spaced
