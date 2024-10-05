@@ -351,6 +351,28 @@ based on work done by [Dan Foreman-Mackey](https://github.com/dfm) in the
 [dfm/nufft-ls](https://github.com/dfm/nufft-ls) repo, with consulting from
 [Alex Barnett](https://github.com/ahbarnett).
 
+## Citation
+If you use nifty-ls in an academic work, please cite our RNAAS research note:
+
+```bibtex
+@article{Garrison_2024,
+  doi = {10.3847/2515-5172/ad82cd},
+  url = {https://dx.doi.org/10.3847/2515-5172/ad82cd},
+  year = {2024},
+  month = {oct},
+  publisher = {The American Astronomical Society},
+  volume = {8},
+  number = {10},
+  pages = {250},
+  author = {Lehman H. Garrison and Dan Foreman-Mackey and Yu-hsuan Shih and Alex Barnett},
+  title = {nifty-ls: Fast and Accurate Lomb–Scargle Periodograms Using a Non-uniform FFT},
+  journal = {Research Notes of the AAS},
+  abstract = {We present nifty-ls, a software package for fast and accurate evaluation of the Lomb–Scargle periodogram. nifty-ls leverages the fact that Lomb–Scargle can be computed using a non-uniform fast Fourier transform (NUFFT), which we evaluate with the Flatiron Institute NUFFT package (finufft). This approach achieves a many-fold speedup over the Press &amp; Rybicki method as implemented in Astropy and is simultaneously many orders of magnitude more accurate. nifty-ls also supports fast evaluation on GPUs via CUDA and integrates with the Astropy Lomb–Scargle interface. nifty-ls is publicly available at https://github.com/flatironinstitute/nifty-ls/.}
+}
+```
+
+A pre-print of the article is available on arXiv: https://arxiv.org/abs/2409.08090
+
 ## Acknowledgements
 nifty-ls builds directly on top of the excellent finufft package by Alex Barnett
 and others (see the [finufft Acknowledgements](https://finufft.readthedocs.io/en/latest/ackn.html)).
