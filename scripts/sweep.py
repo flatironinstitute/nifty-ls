@@ -140,9 +140,9 @@ def _analyze(all_tables, fname, plot=True, paper=False):
 
             print(f'{method} vs {ref}, N={table.meta["N"]}, Nf={table.meta["Nf"]}')
             # pretty-print stats with :.4g
-            print(f'\t99% err {bxp_stats["whishi"]*100:.4g}%')
-            print(f'\t90% err {bxp_stats["q3"]*100:.4g}%')
-            print(f'\tmed err {bxp_stats["med"]*100:.4g}%')
+            print(f'\t99% err {bxp_stats["whishi"] * 100:.4g}%')
+            print(f'\t90% err {bxp_stats["q3"] * 100:.4g}%')
+            print(f'\tmed err {bxp_stats["med"] * 100:.4g}%')
 
     if plot:
         # _plot_box(all_info, fname)

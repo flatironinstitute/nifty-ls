@@ -98,12 +98,12 @@ def _analyze(all_res, fname, plot=True):
         nz = denom != 0
         frac = np.abs(p1 - p2) / denom
         frac = frac[nz]
-        print(f'\tmax err {np.nanmax(frac)*100:.4g}%')
-        print(f'\t99% err {np.sort(frac)[int(len(frac)*.99)]*100:.4g}%')
-        print(f'\t90% err {np.sort(frac)[int(len(frac)*.9)]*100:.4g}%')
-        print(f'\t75% err {np.sort(frac)[int(len(frac)*.75)]*100:.4g}%')
-        print(f'\t50% err {np.sort(frac)[int(len(frac)*.50)]*100:.4g}%')
-        print(f'\trms err / mean {rms_err/rms_mean * 100:.4g}%')
+        print(f'\tmax err {np.nanmax(frac) * 100:.4g}%')
+        print(f'\t99% err {np.sort(frac)[int(len(frac) * 0.99)] * 100:.4g}%')
+        print(f'\t90% err {np.sort(frac)[int(len(frac) * 0.9)] * 100:.4g}%')
+        print(f'\t75% err {np.sort(frac)[int(len(frac) * 0.75)] * 100:.4g}%')
+        print(f'\t50% err {np.sort(frac)[int(len(frac) * 0.50)] * 100:.4g}%')
+        print(f'\trms err / mean {rms_err / rms_mean * 100:.4g}%')
 
     if plot:
         freq = f0 + df * np.arange(Nf)

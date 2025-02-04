@@ -307,7 +307,7 @@ def _plot(all_res: Table, sort=True, fname='bench_results.png', paper=False):
                 lines.append(f'{const_desc} $\\approx 12{var}$')
             else:
                 lines.append(
-                    f'{const_desc}: {eval(const+"_const")}',
+                    f'{const_desc}: {eval(const + "_const")}',
                 )
             lines = '\n'.join(lines)
             ax.annotate(
