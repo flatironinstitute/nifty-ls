@@ -75,7 +75,7 @@ or `.[cuda11]` for CUDA 11.
 
 For development (with automatic rebuilds enabled by default in `pyproject.toml`):
 ```console
-$ pip install nanobind scikit-build-core
+$ pip install nanobind scikit-build-core setuptools_scm
 $ pip install -e .[test] --no-build-isolation
 ```
 
