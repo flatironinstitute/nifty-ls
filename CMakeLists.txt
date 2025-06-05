@@ -19,18 +19,22 @@ if(NIFTY_LS_OPENMP)
     find_package(OpenMP REQUIRED)
 endif()
 
-nanobind_add_module(cpu_helpers src/nifty_ls/cpu_helpers.cpp NOMINSIZE STABLE_ABI)
+set(NIFTY_LS_MODULES cpu_helpers nterms_helpers)
 
-target_compile_options(cpu_helpers PRIVATE
-    -Wall -Wextra -std=c++17
-)
+foreach(MODULE_NAME ${NIFTY_LS_MODULES})
+    nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI)
 
-if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_options(cpu_helpers PRIVATE -Ofast)
-endif()
+    target_compile_options(${MODULE_NAME} PRIVATE
+        -Wall -Wextra -std=c++17
+    )
 
-if (OpenMP_CXX_FOUND)
-    target_link_libraries(cpu_helpers PRIVATE OpenMP::OpenMP_CXX)
-endif()
+    if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
+        target_compile_options(${MODULE_NAME} PRIVATE -Ofast)
+    endif()
 
-install(TARGETS cpu_helpers LIBRARY DESTINATION nifty_ls)
+    if (OpenMP_CXX_FOUND)
+        target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+
+    install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION nifty_ls)
+endforeach()
