@@ -19,7 +19,7 @@ if(NIFTY_LS_OPENMP)
     find_package(OpenMP REQUIRED)
 endif()
 
-set(NIFTY_LS_MODULES cpu_helpers nterms_helpers)
+set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
 
 foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI)
