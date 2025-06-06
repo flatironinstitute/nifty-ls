@@ -35,7 +35,8 @@ def lombscargle(
     assume_sorted_t: bool = True,
     samples_per_peak: int = 5,
     nyquist_factor: int = 5,
-    backend: BACKEND_TYPE = 'finufft',
+    backend: BACKEND_TYPE = 'auto',
+    nterms: int = 1,
     **backend_kwargs: Optional[dict],
 ) -> NiftyResult:
     """
@@ -78,8 +79,11 @@ def lombscargle(
     nyquist_factor : int, optional
         The factor by which to multiply the Nyquist frequency when determining the frequency grid. Default is 5.
     backend : str, optional
-        The backend to use for the computation. Default is 'finufft'.
-    backend_kwargs : dict, optional
+        The backend to use for the computation. Default is 'auto' which selects the best available backend.
+    nterms : int, optional
+        The number of terms to use in the Lomb-Scargle computation. Must be at least 1.
+        If greater than 1, the 'cufinufft_chi2' or 'finufft_chi2' should be used for backend.
+    backend_kwargs : dict, optional  
         Additional keyword arguments to pass to the backend.
 
     Returns
@@ -98,12 +102,44 @@ def lombscargle(
         samples_per_peak=samples_per_peak,
         nyquist_factor=nyquist_factor,
     )
+    # Nterm verification
+    if nterms is None:
+        nterms = 1
+    if nterms < 1:
+        raise ValueError(f'nterms must be at least 1, got {nterms}.')
 
+    # Backend selection
+    if backend == 'auto':
+        if nterms > 1:
+            if 'cufinufft_chi2' in AVAILABLE_BACKENDS:
+                backend = 'cufinufft_chi2'
+            elif 'finufft_chi2' in AVAILABLE_BACKENDS:
+                backend = 'finufft_chi2'
+            else:
+                raise ValueError(
+                    'Please install and select the "cufinufft_chi2" or "finufft_chi2" backend when nterms > 1.'
+                )
+        elif 'cufinufft' in AVAILABLE_BACKENDS:
+            backend = 'cufinufft'
+        elif 'finufft' in AVAILABLE_BACKENDS:
+            backend = 'finufft'
+        else:
+            raise ValueError(
+                f'No valid backends available. AVAILABLE_BACKENDS = {AVAILABLE_BACKENDS}'
+            )
     if backend not in AVAILABLE_BACKENDS:
         raise ValueError(
             f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_BACKENDS}'
         )
-
+    if backend in ('finufft', 'cufinufft') and nterms > 1:
+        raise ValueError(
+            f'Backend "{backend}" only supports nterms == 1. '
+            'Use "cufinufft_chi2" or "finufft_chi2" for nterms > 1.'
+        )
+    if backend == 'cufinufft_chi2' or backend == 'finufft_chi2':
+        # Add nterms to backend_kwargs and pass it to the backend
+        backend_kwargs.setdefault('nterms', nterms)
+    
     backend_module = importlib.import_module(f'.{backend}', __package__)
 
     power = backend_module.lombscargle(

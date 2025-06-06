@@ -12,6 +12,7 @@ execute_process(
 
 find_package(Python 3.8 COMPONENTS Interpreter Development.Module REQUIRED ${SKBUILD_SABI_COMPONENT})
 find_package(nanobind CONFIG REQUIRED)
+find_package(BLAS REQUIRED)
 
 option(NIFTY_LS_OPENMP "Enable OpenMP support in the compiled extensions" ON)
 
@@ -35,6 +36,8 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     if (OpenMP_CXX_FOUND)
         target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
     endif()
+    
+    target_link_libraries(${MODULE_NAME} PRIVATE ${BLAS_LIBRARIES})
 
     install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION nifty_ls)
 endforeach()

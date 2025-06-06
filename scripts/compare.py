@@ -11,7 +11,7 @@ from bench import get_plot_kwargs
 
 DEFAULT_DTYPE = 'f8'
 DEFAULT_LOGN = 3
-DEFAULT_METHODS = ['cufinufft', 'finufft', 'astropy']
+DEFAULT_METHODS = ['cufinufft', 'cufinufft_chi2', 'finufft', 'astropy', 'finufft_chi2', 'astropy_fastchi2']
 
 
 @click.group()

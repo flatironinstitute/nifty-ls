@@ -15,6 +15,9 @@
 #ifdef _OPENMP
 #include <omp.h>
 
+#include "cpu_helpers.hpp"
+using cpu_helpers::NormKind;
+
 // Declare a reduction for std::vector<double> using std::transform
 #pragma omp declare reduction( \
         vsum : \
@@ -38,13 +41,6 @@ using nifty_arr_2d = nb::ndarray<Scalar, nb::ndim<2>, nb::device::cpu>;
 
 template <typename Scalar>
 using Complex = std::complex<Scalar>;
-
-enum class NormKind {
-    Standard,
-    Model,
-    Log,
-    PSD
-};
 
 template <typename Scalar>
 void process_finufft_inputs(
