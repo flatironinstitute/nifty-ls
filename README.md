@@ -244,7 +244,15 @@ The 200x advantage of the GPU extends to even smaller $N$ in this case, since we
 
 We see that both multi-threaded finufft and cufinufft particularly benefit from batched transforms, as this exposes more parallelism and amortizes fixed latencies.
 
-We use `FFTW_MEASURE` for finufft in these benchmarks, which improves performance a few tens of percents.
+The performance of NUFFT transforms in nifty-ls—particularly when using the finufft backend—can be influenced by the FFT planning mode. Because plan creation time can be a notable portion of total runtime, we uses `FFTW_MEASURE` for finufft in these benchmarks. Compared to `FFTW_ESTIMATE`, FFTW_MEASURE improves performance a few tens of percents.
+
+The choice of FFT implementation also affects both plan and transform time. nifty-ls supports both FFTW3 and DUCC0 via FINUFFT:
+- FFTW3 + FFTW_MEASURE provides the best transform performance for large or repeated workloads.
+- DUCC0 avoids plan creation altogether and generally performs better than FFTW3 + FFTW_ESTIMATE for small to moderate problem sizes.
+- However, DUCC0 may scale less efficiently for larger N, as it only supports radix passes for a limited set of factors (2, 3, 4, 5, 7, 8, 11, 13), whereas FFTW3 supports a wider range, reducing the number of required passes.
+
+The following benchmark results compare the performance between two FFT libraries of FFTW3 and DUCC0. You may wish to switch out the default FFT library (FFTW) for DUCC0. To do so, follow the Python installation instructions with the [DUCC0 config flag](https://finufft.readthedocs.io/en/latest/python.html#:~:text=pip%20install%20%2D%2Dno%2Dbinary%20finufft%20finufft%20%2D%2Dconfig%2Dsettings%3Dcmake.define.FINUFFT_USE_DUCC0%3DON%20finufft)
+![FFT benchmarks](FFT_bench.png)
 
 Multi-threading hurts the performance of small problem sizes; the default behavior of nifty-ls is to use fewer threads in such cases. The "multi-threaded" line uses between 1 and 16 threads.
 
