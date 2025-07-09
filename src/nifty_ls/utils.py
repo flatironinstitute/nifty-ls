@@ -51,3 +51,18 @@ def validate_frequency_grid(
     df = (fmax - fmin) / (Nf - 1)  # fmax inclusive
 
     return fmin, df, Nf
+
+
+def same_dtype_or_raise(**arrays):
+    """
+    Check if all arrays have the same dtype, raise ValueError if not.
+    """
+    dtypes = {n: a.dtype for (n, a) in arrays.items() if a is not None}
+    names = list(dtypes.keys())
+
+    for n in names[1:]:
+        if dtypes[n] != dtypes[names[0]]:
+            raise ValueError(
+                f'Arrays {names[0]} and {n} have different dtypes: '
+                f'{dtypes[names[0]]} and {dtypes[n]}'
+            )

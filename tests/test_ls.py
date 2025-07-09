@@ -266,3 +266,23 @@ def test_backends(data, Nf=1000):
             if backend1 == backend2:
                 continue
             np.testing.assert_allclose(power1, power2, rtol=rtol(dtype, Nf))
+
+
+# GH #58
+def test_mixed_dtypes(data):
+    """Test that calling lombscargle with mixed dtypes raises an exception."""
+    data_mixed = data.copy()
+    data_mixed['t'] = data_mixed['t'].astype(np.float32)
+    data_mixed['y'] = data_mixed['y'].astype(np.float64)
+    data_mixed['dy'] = data_mixed['dy'].astype(np.float64)
+
+    with pytest.raises(ValueError, match='dtype'):
+        nifty_ls.lombscargle(**data_mixed)
+
+    data_mixed = data.copy()
+    data_mixed['t'] = data_mixed['t'].astype(np.float32)
+    data_mixed['y'] = data_mixed['y'].astype(np.float32)
+    data_mixed['dy'] = data_mixed['dy'].astype(np.float64)
+
+    with pytest.raises(ValueError, match='dtype'):
+        nifty_ls.lombscargle(**data_mixed)
