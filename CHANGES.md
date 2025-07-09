@@ -1,5 +1,10 @@
 # Changelog
 
+## Upcoming
+
+### Enhancements
+- lombscargle: check that all inputs have the same dtype (#59)
+
 ## v1.0.1 (2024-09-12)
 Minor optimizations and fixes that make use of finufft v2.3. This version was used in the submitted research note.
 
