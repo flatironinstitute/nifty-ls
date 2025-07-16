@@ -16,7 +16,6 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/complex.h>
 #include <nanobind/stl/vector.h>
-#include <cblas.h>
 
 #include "cpu_helpers.hpp"
 using cpu_helpers::NormKind;
@@ -332,6 +331,18 @@ void small_matrixs_solver(std::vector<Scalar> &A, std::vector<Scalar> &B, size_t
     }
 }
 
+// Single thread dot product for small vector
+template <typename Scalar>
+Scalar small_matrixs_dot(int n, const Scalar *x, const Scalar *y)
+{
+    Scalar result = 0.0;
+    for (int i = 0; i < n; ++i)
+    {
+        result += x[i] * y[i];
+    }
+    return result;
+}
+
 template <typename Scalar>
 void process_chi2_outputs(
     nifty_arr_2d<Scalar> power_,
@@ -450,15 +461,7 @@ void process_chi2_outputs(
                 }
 
                 // Dot product (XTy, bvec)
-                Scalar pw;
-                if constexpr (std::is_same_v<Scalar, double>)
-                {
-                    pw = cblas_ddot(n, bvec.data(), 1, XTy.data(), 1);
-                }
-                else
-                {
-                    pw = cblas_sdot(n, bvec.data(), 1, XTy.data(), 1);
-                }
+                Scalar pw = small_matrixs_dot(n, bvec.data(), XTy.data());
 
                 power(b, f) = pw;
                 Scalar &p = power(b, f);

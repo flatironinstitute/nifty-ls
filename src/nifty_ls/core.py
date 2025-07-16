@@ -83,7 +83,7 @@ def lombscargle(
     nterms : int, optional
         The number of terms to use in the Lomb-Scargle computation. Must be at least 1.
         If greater than 1, the 'cufinufft_chi2' or 'finufft_chi2' should be used for backend.
-    backend_kwargs : dict, optional  
+    backend_kwargs : dict, optional
         Additional keyword arguments to pass to the backend.
 
     Returns
@@ -139,7 +139,7 @@ def lombscargle(
     if backend == 'cufinufft_chi2' or backend == 'finufft_chi2':
         # Add nterms to backend_kwargs and pass it to the backend
         backend_kwargs.setdefault('nterms', nterms)
-    
+
     backend_module = importlib.import_module(f'.{backend}', __package__)
 
     power = backend_module.lombscargle(

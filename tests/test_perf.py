@@ -25,12 +25,14 @@ def bench_data():
     return gen_data(N=3_000)
 
 
-@pytest.fixture(params=nifty_ls.backends.BACKEND_NAMES + ['astropy', 'astropy_fastchi2'])
+@pytest.fixture(
+    params=nifty_ls.backends.BACKEND_NAMES + ['astropy', 'astropy_fastchi2']
+)
 def backend(request):
     """Parametrize over all nifty-ls backends, and astropy."""
-    if (
-        request.param not in nifty_ls.core.AVAILABLE_BACKENDS \
-        and request.param not in ('astropy', 'astropy_fastchi2')
+    if request.param not in nifty_ls.core.AVAILABLE_BACKENDS and request.param not in (
+        'astropy',
+        'astropy_fastchi2',
     ):
         pytest.skip(f'Backend {request.param} is not available')
     return request.param
@@ -41,11 +43,11 @@ class TestPerf:
     """Benchmark nifty-ls versus astropy's FFT-based implementation."""
 
     def test(self, bench_data, Nf, benchmark, backend):
-        if (Nf == 1_000_000 and 'chi2' in backend):
-            pytest.skip(f'Skip Chi2 for large Nf to save time')
+        if Nf == 1_000_000 and 'chi2' in backend:
+            pytest.skip('Skip Chi2 for large Nf to save time')
         if backend == 'astropy':
             benchmark(astropy_ls, **bench_data, Nf=Nf, use_fft=True)
-        elif backend == 'astropy_fastchi2': # Nterms == 1 by default
+        elif backend == 'astropy_fastchi2':  # Nterms == 1 by default
             benchmark(astropy_ls_fastchi2, **bench_data, Nf=Nf, use_fft=True)
         else:
             benchmark(nifty_ls.lombscargle, **bench_data, Nf=Nf, backend=backend)

@@ -17,6 +17,7 @@ from contextlib import ExitStack
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
 
+
 def _lombscargle_compute(
     t,
     y,
@@ -45,13 +46,15 @@ def _lombscargle_compute(
 
     yw = yw_w[:Nbatch]
     w = yw_w[Nbatch:]
-    
+
     # Pre‐allocate memory for trig matrix in dtype, since it not store complex numbers
     # 2*nterms + 1 terms for w, nterms + 1 terms for yw. Fetching the Plan
     nSW = 2 * nterms + 1
     nSY = nterms + 1
-    Sw  = np.empty((Nbatch, nSW, Nf), dtype=dtype) # Shape(Nbatch, nSW, Nf) and initialize to 0
-    Cw  = np.empty((Nbatch, nSW, Nf), dtype=dtype)
+    Sw = np.empty(
+        (Nbatch, nSW, Nf), dtype=dtype
+    )  # Shape(Nbatch, nSW, Nf) and initialize to 0
+    Cw = np.empty((Nbatch, nSW, Nf), dtype=dtype)
     Syw = np.empty((Nbatch, nSY, Nf), dtype=dtype)
     Cyw = np.empty((Nbatch, nSY, Nf), dtype=dtype)
 
@@ -61,15 +64,18 @@ def _lombscargle_compute(
         w2s = np.empty((Nbatch, 1), dtype=dtype)  # Changed to 2D to match keepdims=True
         norm = np.empty((Nbatch, 1), dtype=dtype)
         yws = np.empty((Nbatch, 1), dtype=dtype)
-        
+
         chi2_helpers.process_chi2_inputs(
             t1,  # output
             yw,  # output
             w,  # output, refer to yw_w[Nbatch:]
             w2s,  # output
             norm,  # output
-            yws, # output
-            Sw, Cw, Syw, Cyw, # output, use for initial trig matrix
+            yws,  # output
+            Sw,
+            Cw,
+            Syw,
+            Cyw,  # output, use for initial trig matrix
             t,  # input
             y,  # input
             dy_broadcasted,  # input
@@ -86,31 +92,36 @@ def _lombscargle_compute(
         dy_broadcasted = dy_broadcasted.astype(dtype, copy=False)
 
         # w_base equivalent to w2 in fastfinufft
-        w_base = (dy_broadcasted ** -2.0).astype(dtype)
-        w2s = np.sum(w_base.real, axis=-1, keepdims=True)  # sum over N, shape: (Nbatch, 1)
-       
+        w_base = (dy_broadcasted**-2.0).astype(dtype)
+        w2s = np.sum(
+            w_base.real, axis=-1, keepdims=True
+        )  # sum over N, shape: (Nbatch, 1)
+
         if center_data or fit_mean:
             y = y - ((w_base * y).sum(axis=-1, keepdims=True) / w2s)
             yws = np.zeros((Nbatch, 1), dtype=dtype)  # shape: (Nbatch, 1)
         else:
-            yws = (y * w_base).sum(axis=-1, keepdims=True)  # shape: (Nbatch, 1) to match w2s
+            yws = (y * w_base).sum(
+                axis=-1, keepdims=True
+            )  # shape: (Nbatch, 1) to match w2s
 
         norm = (w_base * y**2).sum(axis=-1, keepdims=True)
 
         yw[:] = y * w_base
-        w[:]  = w_base
-        
+        w[:] = w_base
+
         # SCw = [(np.zeros(Nf), ws * np.ones(Nf))]
         # SCyw = [(np.zeros(Nf), yws * np.ones(Nf))]
-        Sw[:,0,:] = 0
-        Cw[:,0,:] = w2s  # broadcasting w2s from (Nbatch, 1) to (Nbatch, Nf)
-        Syw[:,0,:] = 0
-        Cyw[:,0,:] = yws  # broadcasting yws from (Nbatch, 1) to (Nbatch, Nf)
-    
+        Sw[:, 0, :] = 0
+        Cw[:, 0, :] = w2s  # broadcasting w2s from (Nbatch, 1) to (Nbatch, Nf)
+        Syw[:, 0, :] = 0
+        Cyw[:, 0, :] = yws  # broadcasting yws from (Nbatch, 1) to (Nbatch, Nf)
+
     t_processing_input += timer()
-    
+
     # Initialize timing variables
     t_compute_t = 0.0
+
     # This function applies a time shift to the reference time t1 and computes
     # the corresponding phase shifts. It then creates a new batch of weights
     # by multiplying the input weights with the phase shifts.
@@ -119,11 +130,11 @@ def _lombscargle_compute(
         tn = tn.astype(dtype, copy=False)
         phase_shiftn = np.exp(1j * ((Nf // 2) + fmin / df) * tn)  # shape = (N,)
 
-        yw_w_s = (yw_w * phase_shiftn).astype(cdtype) # broadcasting explicit
+        yw_w_s = (yw_w * phase_shiftn).astype(cdtype)  # broadcasting explicit
         return tn, yw_w_s
 
     t_finufft = -timer()
-    
+
     # Loop over harmonics from i = 0 to nterms (inclusive)
     # For each frequency term pass yw_w as input:
     #   - Weighted data: y_i × w  at time points t
@@ -133,36 +144,38 @@ def _lombscargle_compute(
     plan_yw = finufft.Plan(
         nufft_type=1,
         n_modes_or_dim=(Nf,),
-        n_trans= 2 * Nbatch, # paired processing of y * w and w
+        n_trans=2 * Nbatch,  # paired processing of y * w and w
         dtype=cdtype,
         nthreads=nthreads_finufft,
         **finufft_kwargs,
     )
-    
+
     # Pre-allocate arrays for compute_t to avoid repeated allocations
     tj = np.empty_like(t1)
     yw_w_j = np.empty_like(yw_w)
-    
+
     for j in range(1, nterms + 1):
         # Time the compute_t operation
         t_compute_t_start = timer()
-        if not _no_cpp_helpers: # Using C++ helpers
-            chi2_helpers.compute_t(t1, yw_w, j, fmin, df, Nf, tj, yw_w_j, nthreads_helpers)
+        if not _no_cpp_helpers:  # Using C++ helpers
+            chi2_helpers.compute_t(
+                t1, yw_w, j, fmin, df, Nf, tj, yw_w_j, nthreads_helpers
+            )
         else:
             tj, yw_w_j = compute_t(j, yw_w)
         t_compute_t += timer() - t_compute_t_start
-        
+
         plan_yw.setpts(tj)
         f1_fw = plan_yw.execute(yw_w_j)
-        # TODO: use out parameter in finufft.Plan.execute() to 
+        # TODO: use out parameter in finufft.Plan.execute() to
         # write directly to Sw/Cw/Syw/Cyw arrays and avoid copying
-        Sw[:,j,:] = f1_fw[Nbatch:].imag# yw
-        Cw[:,j,:] = f1_fw[Nbatch:].real
-        Syw[:,j,:] = f1_fw[:Nbatch].imag
-        Cyw[:,j,:] = f1_fw[:Nbatch].real
+        Sw[:, j, :] = f1_fw[Nbatch:].imag  # yw
+        Cw[:, j, :] = f1_fw[Nbatch:].real
+        Syw[:, j, :] = f1_fw[:Nbatch].imag
+        Cyw[:, j, :] = f1_fw[:Nbatch].real
 
-    # Since in fastchi2, the freq_factor of w includes terms 
-    # from 1 to 2*nterms, we need one more loop to handle 
+    # Since in fastchi2, the freq_factor of w includes terms
+    # from 1 to 2*nterms, we need one more loop to handle
     # the result of the transform for indices nterms + 1 to 2*nterms(inclusive).
     plan_w = finufft.Plan(
         nufft_type=1,
@@ -172,31 +185,33 @@ def _lombscargle_compute(
         nthreads=nthreads_finufft,
         **finufft_kwargs,
     )
-    
+
     # Pre-allocate arrays for the second loop
     ti = np.empty_like(t1)
     yw_w_i = np.empty_like(yw_w)
-    
+
     for i in range(nterms + 1, 2 * nterms + 1):
         # Time the compute_t operation
         t_compute_t_start = timer()
         if not _no_cpp_helpers:
-            chi2_helpers.compute_t(t1, yw_w, i, fmin, df, Nf, ti, yw_w_i, nthreads_helpers)
+            chi2_helpers.compute_t(
+                t1, yw_w, i, fmin, df, Nf, ti, yw_w_i, nthreads_helpers
+            )
         else:
             ti, yw_w_i = compute_t(i, yw_w)
         t_compute_t += timer() - t_compute_t_start
-        
-        plan_w.setpts(ti)     
-        f2_all = plan_w.execute(yw_w_i[Nbatch:]) # w only
-        Sw[:,i,:] = f2_all.imag
-        Cw[:,i,:] = f2_all.real
+
+        plan_w.setpts(ti)
+        f2_all = plan_w.execute(yw_w_i[Nbatch:])  # w only
+        Sw[:, i, :] = f2_all.imag
+        Cw[:, i, :] = f2_all.real
     t_finufft += timer()
 
     t_processing_output = -timer()
     # Build the "order" list once (same for all batches):
-    order = [("C", 0)] if fit_mean else []
-    order.extend(chain(*([("S", i), ("C", i)] for i in range(1, nterms + 1))))
-    
+    order = [('C', 0)] if fit_mean else []
+    order.extend(chain(*([('S', i), ('C', i)] for i in range(1, nterms + 1))))
+
     if not _no_cpp_helpers:
         norm_enum = dict(
             standard=cpu_helpers.NormKind.Standard,
@@ -206,12 +221,18 @@ def _lombscargle_compute(
         )[normalization.lower()]
 
         power = np.zeros((Nbatch, Nf), dtype=dtype)
-        
-        order_types = [chi2_helpers.TermType.Cosine if t == "C" else chi2_helpers.TermType.Sine for t, _ in order]
+
+        order_types = [
+            chi2_helpers.TermType.Cosine if t == 'C' else chi2_helpers.TermType.Sine
+            for t, _ in order
+        ]
         order_indices = [item[1] for item in order]
         chi2_helpers.process_chi2_outputs(
             power,
-            Sw, Cw, Syw, Cyw,
+            Sw,
+            Cw,
+            Syw,
+            Cyw,
             norm,
             order_types,
             order_indices,
@@ -222,28 +243,30 @@ def _lombscargle_compute(
     else:
         # Build-up matrices at each frequency
         power = np.zeros((Nbatch, Nf), dtype=dtype)
-        
-        # Returns a dictionary of lambda functions that provide access to precomputed 
+
+        # Returns a dictionary of lambda functions that provide access to precomputed
         # sine and cosine basis terms and their weighted versions.
         def create_funcs(Sw_b, Cw_b, Syw_b, Cyw_b):
             return {
-            'S': lambda m, i: Syw_b[m, i],
-            'C': lambda m, i: Cyw_b[m, i],
-            'SS': lambda m, n, i: 0.5 * (Cw_b[abs(m - n), i] - Cw_b[m + n, i]),
-            'CC': lambda m, n, i: 0.5 * (Cw_b[abs(m - n), i] + Cw_b[m + n, i]),
-            'SC': lambda m, n, i: 0.5 * (np.sign(m - n) * Sw_b[abs(m - n), i] + Sw_b[m + n, i]),
-            'CS': lambda m, n, i: 0.5 * (np.sign(n - m) * Sw_b[abs(n - m), i] + Sw_b[n + m, i]),
+                'S': lambda m, i: Syw_b[m, i],
+                'C': lambda m, i: Cyw_b[m, i],
+                'SS': lambda m, n, i: 0.5 * (Cw_b[abs(m - n), i] - Cw_b[m + n, i]),
+                'CC': lambda m, n, i: 0.5 * (Cw_b[abs(m - n), i] + Cw_b[m + n, i]),
+                'SC': lambda m, n, i: 0.5
+                * (np.sign(m - n) * Sw_b[abs(m - n), i] + Sw_b[m + n, i]),
+                'CS': lambda m, n, i: 0.5
+                * (np.sign(n - m) * Sw_b[abs(n - m), i] + Sw_b[n + m, i]),
             }
-        
+
         def compute_power_single(funcs, order, i, norm_value, normalization):
             # Build XTX and XTy for the current frequency i
             XTX = np.array(
-            [[ funcs[A[0] + B[0]](A[1], B[1], i) for A in order] for B in order]
+                [[funcs[A[0] + B[0]](A[1], B[1], i) for A in order] for B in order]
             )
-            XTy = np.array([ funcs[A[0]](A[1], i) for A in order])
-            
+            XTy = np.array([funcs[A[0]](A[1], i) for A in order])
+
             raw_power = np.dot(XTy.T, np.linalg.solve(XTX, XTy))
-            
+
             # Apply normalization per batch
             if normalization == 'standard':
                 return raw_power / norm_value
@@ -267,13 +290,15 @@ def _lombscargle_compute(
 
             # Get the normalization value for this batch
             norm_value = norm[batch_idx, 0]
-            
+
             # Compute power and normalization for all frequencies for this batch:
             batch_power = np.zeros(Nf, dtype=dtype)
             for i in range(Nf):
-                batch_power[i] = compute_power_single(batch_funcs, order, i, norm_value, normalization)
+                batch_power[i] = compute_power_single(
+                    batch_funcs, order, i, norm_value, normalization
+                )
             return batch_power
-        
+
         for batch_idx in range(Nbatch):
             # Collect results back into the power array
             power[batch_idx] = process_batch(batch_idx)
@@ -281,7 +306,7 @@ def _lombscargle_compute(
     # If only one batch and squeeze requested, drop batch axis
     if squeeze_output:
         power = power.squeeze()
-    
+
     t_processing_output += timer()
 
     if verbose:
@@ -290,6 +315,7 @@ def _lombscargle_compute(
         )
 
     return power
+
 
 def lombscargle(
     t,
@@ -313,7 +339,7 @@ def lombscargle(
     Compute the Lomb-Scargle periodogram using the FINUFFT backend.
 
     Performance Tuning:
-    The performance depends primarily on finufft, which can vary significantly based on 
+    The performance depends primarily on finufft, which can vary significantly based on
     parameters like thread count. Order-of-magnitude speedups or slowdowns are possible.
     For nthreads, start with 1 and increase until performance stops improving.
     See finufft docs: https://finufft.readthedocs.io/en/latest/opts.html
@@ -343,8 +369,8 @@ def lombscargle(
     nthreads : int, optional
         Number of threads for OpenMP Parallelization in C++ helpers. It share same heuristic as nthreads_finufft.
     nthreads_blas : int, optional
-        Number of threads used for linear algebra operations. 
-        Defaults to 1 since the matrix size is small (n x n, where n = nterms + 1), 
+        Number of threads used for linear algebra operations.
+        Defaults to 1 since the matrix size is small (n x n, where n = nterms + 1),
         and a single thread is sufficient for dot product operations.
         Set to -1 to let the BLAS library decide, but this may lead to thread over-subscription.
     center_data : bool, optional
@@ -367,14 +393,14 @@ def lombscargle(
     nterms : int, optional
         Number of Fourier terms in the fit
     """
-    
+
     if nterms == 0 and not fit_mean:
-        raise ValueError("Cannot have nterms = 0 without fitting bias")
+        raise ValueError('Cannot have nterms = 0 without fitting bias')
 
     default_finufft_kwargs = dict(
         eps='default',
-        upsampfac=1.25, # Default upsampling factor
-        fftw=FFTW_ESTIMATE, # FFTW_ESTIMATE
+        upsampfac=1.25,  # Default upsampling factor
+        fftw=FFTW_ESTIMATE,  # FFTW_ESTIMATE
         debug=int(verbose),
     )
 
@@ -394,9 +420,9 @@ def lombscargle(
 
     if dy is None:
         dy = dtype.type(1.0)
-    
+
     # treat 1D arrays as a batch of size 1
-    squeeze_output = (y.ndim == 1)
+    squeeze_output = y.ndim == 1
     y = np.atleast_2d(y)
     dy = np.atleast_2d(dy)
 
@@ -407,12 +433,12 @@ def lombscargle(
         dy_broadcasted = np.broadcast_to(dy, (Nbatch, N))
     else:
         dy_broadcasted = dy
-    
+
     # Could probably be more than finufft nthreads in many cases,
     # but it's conceptually cleaner to keep them the same, and it
     # will almost never matter in practice.
     # Technically, this is also suboptimal in the rare case of a finufft
-    # library without OpenMP and a nifty-ls with OpenMP 
+    # library without OpenMP and a nifty-ls with OpenMP
     if nthreads_finufft is None:
         # Compute optimal FINUFFT threads based on problem size
         nthreads_finufft = max(1, Nbatch // 4) * max(1, Nf // (1 << 14))
@@ -425,55 +451,61 @@ def lombscargle(
             # Optimal OpenMP threads based on problem size and batch size
             nthreads = nthreads_finufft
 
-        if nthreads_blas > 1 :
-            nthreads = min(1, nthreads // nthreads_blas) # Avoid thread over-subscription
+        if nthreads_blas > 1:
+            nthreads = min(
+                1, nthreads // nthreads_blas
+            )  # Avoid thread over-subscription
         elif nthreads_blas < -1 or nthreads_blas == 0:
-            raise ValueError('nthreads_blas must be either greater than 0 or -1') 
-
+            raise ValueError('nthreads_blas must be either greater than 0 or -1')
 
     # Use ExitStack to conditionally apply BLAS thread limits for C++ helpers
     with ExitStack() as stack:
         if not _no_cpp_helpers and nthreads_blas != -1:
-            stack.enter_context(threadpoolctl.threadpool_limits(limits=nthreads_blas, user_api='blas'))
-        
+            stack.enter_context(
+                threadpoolctl.threadpool_limits(limits=nthreads_blas, user_api='blas')
+            )
+
         power = _lombscargle_compute(
-                    t = t,
-                    y = y,
-                    fmin = fmin,
-                    df = df,
-                    Nf = Nf,
-                    dy_broadcasted = dy_broadcasted,
-                    Nbatch = Nbatch,
-                    N = N,
-                    nthreads_finufft = nthreads_finufft,
-                    nthreads_helpers = nthreads,
-                    center_data = center_data,
-                    fit_mean = fit_mean,
-                    normalization = normalization,
-                    _no_cpp_helpers = _no_cpp_helpers,
-                    verbose = verbose,
-                    finufft_kwargs = finufft_kwargs,
-                    nterms = nterms,
-                    cdtype = cdtype,
-                    dtype = dtype,
-                    squeeze_output = squeeze_output,
-                )
+            t=t,
+            y=y,
+            fmin=fmin,
+            df=df,
+            Nf=Nf,
+            dy_broadcasted=dy_broadcasted,
+            Nbatch=Nbatch,
+            N=N,
+            nthreads_finufft=nthreads_finufft,
+            nthreads_helpers=nthreads,
+            center_data=center_data,
+            fit_mean=fit_mean,
+            normalization=normalization,
+            _no_cpp_helpers=_no_cpp_helpers,
+            verbose=verbose,
+            finufft_kwargs=finufft_kwargs,
+            nterms=nterms,
+            cdtype=cdtype,
+            dtype=dtype,
+            squeeze_output=squeeze_output,
+        )
 
     if verbose:
         if not _no_cpp_helpers:
             if nthreads_blas == -1:
-                blas_msg = "default BLAS threading"
+                blas_msg = 'default BLAS threading'
             else:
-                blas_msg = f"{nthreads_blas} BLAS {'thread' if nthreads_blas == 1 else 'threads'}"
-            nthreads_msg = f"{nthreads} {'thread' if nthreads == 1 else 'threads'} for batch"
+                blas_msg = f'{nthreads_blas} BLAS {"thread" if nthreads_blas == 1 else "threads"}'
+            nthreads_msg = (
+                f'{nthreads} {"thread" if nthreads == 1 else "threads"} for batch'
+            )
         else:
-            blas_msg = "default BLAS threading"
-            nthreads_msg = f"single thread for batch"
+            blas_msg = 'default BLAS threading'
+            nthreads_msg = 'single thread for batch'
         print(
             f'[nifty-ls finufft] Using {nthreads_msg}, {nthreads_finufft} for FINUFFT, {blas_msg}'
         )
-    
+
     return power
+
 
 def get_finufft_max_threads():
     try:

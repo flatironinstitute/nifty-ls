@@ -7,7 +7,6 @@ matplotlib.use('Agg')
 
 import nifty_ls.finufft
 import nifty_ls.finufft_chi2
-from astropy.timeseries.periodograms import LombScargle
 
 from astropy.io import ascii
 from astropy.table import Table
@@ -26,8 +25,16 @@ import astropy.timeseries.periodograms.lombscargle.implementations.chi2_impl as 
 DEFAULT_N = 3554
 DEFAULT_NF = None  # 10**5
 DEFAULT_DTYPE = 'f8'
-DEFAULT_METHODS = ['cufinufft', 'cufinufft_chi2', 'finufft', 'astropy', 
-                   'finufft_par', 'finufft_chi2', 'finufft_chi2_par', 'astropy_fastchi2']
+DEFAULT_METHODS = [
+    'cufinufft',
+    'cufinufft_chi2',
+    'finufft',
+    'astropy',
+    'finufft_par',
+    'finufft_chi2',
+    'finufft_chi2_par',
+    'astropy_fastchi2',
+]
 NTHREAD_MAX = len(os.sched_getaffinity(0))
 DEFAULT_FFTW = nifty_ls.finufft.FFTW_MEASURE
 DEFAULT_EPS = 1e-9
@@ -43,6 +50,7 @@ def do_nifty_finufft(*args, **kwargs):
         finufft_kwargs={'fftw': DEFAULT_FFTW, 'eps': DEFAULT_EPS},
     )
 
+
 def do_nifty_finufft_chi2(*args, nterms=1, **kwargs):
     return nifty_ls.finufft_chi2.lombscargle(
         *args,
@@ -51,12 +59,10 @@ def do_nifty_finufft_chi2(*args, nterms=1, **kwargs):
         finufft_kwargs={'fftw': DEFAULT_FFTW, 'eps': DEFAULT_EPS},
     )
 
+
 def do_nifty_cufinufft_chi2(*args, nterms=1, **kwargs):
     return nifty_ls.cufinufft_chi2.lombscargle(
-        *args,
-        **kwargs,
-        nterms=nterms,
-        cufinufft_kwargs={'eps': DEFAULT_EPS}
+        *args, **kwargs, nterms=nterms, cufinufft_kwargs={'eps': DEFAULT_EPS}
     )
 
 
@@ -76,25 +82,43 @@ def do_astropy_fast(t, y, dy, fmin, df, Nf, **astropy_kwargs):
         )
     return power  # just last power for now
 
+
 def do_astropy_fastchi2(t, y, dy, fmin, df, Nf, nterms=1, **astropy_kwargs):
     f0 = fmin
     y = np.atleast_2d(y)
     dy = np.atleast_2d(dy)
-    
+
     for i in range(y.shape[0]):
         power = astropyfastchi2_impl.lombscargle_fastchi2(
-            t, y[i], dy=dy[i], f0=f0, df=df, Nf=Nf, fit_mean=True, center_data=True, nterms=nterms, **astropy_kwargs
+            t,
+            y[i],
+            dy=dy[i],
+            f0=f0,
+            df=df,
+            Nf=Nf,
+            fit_mean=True,
+            center_data=True,
+            nterms=nterms,
+            **astropy_kwargs,
         )
     return power
+
 
 def do_astropy_chi2(t, y, dy, fmin, df, Nf, nterms=1, **astropy_kwargs):
     y = np.atleast_2d(y)
     dy = np.atleast_2d(dy)
     frequency = fmin + df * np.arange(Nf)
-    
+
     for i in range(y.shape[0]):
         power = astropychi2_impl.lombscargle_chi2(
-            t, y[i], dy=dy[i], fit_mean=True, center_data=True, frequency=frequency, nterms=nterms, **astropy_kwargs
+            t,
+            y[i],
+            dy=dy[i],
+            fit_mean=True,
+            center_data=True,
+            frequency=frequency,
+            nterms=nterms,
+            **astropy_kwargs,
         )
     return power
 
@@ -111,14 +135,20 @@ METHODS = {
     'finufft_par': do_nifty_finufft,
     'finufft': lambda *args, **kwargs: do_nifty_finufft(*args, **kwargs, nthreads=1),
     'finufft_chi2_par': do_nifty_finufft_chi2,
-    'finufft_chi2': lambda *args, **kwargs: do_nifty_finufft_chi2(*args, **kwargs, nthreads=1),
+    'finufft_chi2': lambda *args, **kwargs: do_nifty_finufft_chi2(
+        *args, **kwargs, nthreads=1
+    ),
     'cufinufft': do_nifty_cufinufft,
     'cufinufft_chi2': do_nifty_cufinufft_chi2,
     'astropy': do_astropy_fast,
-    'astropy_brute': lambda *args, **kwargs: do_astropy_fast(*args, **kwargs, use_fft=False),
+    'astropy_brute': lambda *args, **kwargs: do_astropy_fast(
+        *args, **kwargs, use_fft=False
+    ),
     'astropy_fastchi2': do_astropy_fastchi2,
     'astropy_chi2': do_astropy_chi2,
-    'astropy_fastchi2_brute': lambda *args, **kwargs: do_astropy_fastchi2(*args, **kwargs, use_fft=False),
+    'astropy_fastchi2_brute': lambda *args, **kwargs: do_astropy_fastchi2(
+        *args, **kwargs, use_fft=False
+    ),
     'winding': do_winding,
 }
 
@@ -224,7 +254,9 @@ def get_plot_kwargs(method, nthread_max=NTHREAD_MAX):
     # Group 4: finufft_chi2 methods - same color, different shapes
     elif method == 'finufft_chi2_par':
         label = (
-            'nifty-ls (finufft chi2)' if nthread_max == 1 else 'nifty-ls (finufft chi2, parallel)'
+            'nifty-ls (finufft chi2)'
+            if nthread_max == 1
+            else 'nifty-ls (finufft chi2, parallel)'
         )
         color = 'C3'
         ls = '--'
