@@ -1,0 +1,31 @@
+---
+# Adapted from TRIQS .clang-format
+BasedOnStyle: LLVM
+
+AccessModifierOffset: 0
+AlignAfterOpenBracket: BlockIndent
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: LeftWithLastLine
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: true
+AllowShortEnumsOnASingleLine: false
+AllowShortLoopsOnASingleLine: true
+AlwaysBreakBeforeMultilineStrings: true
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: false
+BreakStringLiterals: false
+BreakTemplateDeclarations: Yes
+ColumnLimit: 88
+ConstructorInitializerIndentWidth: 3
+ContinuationIndentWidth: 3
+IndentCaseLabels: true
+IndentExternBlock: Indent
+IndentWidth: 4
+NamespaceIndentation : All
+SpaceAfterCStyleCast: true
+SpacesBeforeTrailingComments: 2
+Standard: c++17

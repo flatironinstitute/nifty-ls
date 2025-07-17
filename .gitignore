@@ -6,3 +6,4 @@ __pycache__/
 /scripts/*.png
 /scripts/*.asdf
 /compile_commands.json
+uv.lock
