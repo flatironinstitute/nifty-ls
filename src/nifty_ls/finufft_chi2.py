@@ -7,12 +7,9 @@ from timeit import default_timer as timer
 import finufft
 import numpy as np
 
-import threadpoolctl
-
 from . import cpu_helpers, chi2_helpers
 
 from itertools import chain
-from contextlib import ExitStack
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
@@ -324,9 +321,7 @@ def lombscargle(
     df,
     Nf,
     dy=None,
-    nthreads_finufft=None,
     nthreads=None,
-    nthreads_blas=1,
     center_data=True,
     fit_mean=True,
     normalization='standard',
@@ -343,11 +338,6 @@ def lombscargle(
     parameters like thread count. Order-of-magnitude speedups or slowdowns are possible.
     For nthreads, start with 1 and increase until performance stops improving.
     See finufft docs: https://finufft.readthedocs.io/en/latest/opts.html
-
-    Threading Model:
-    Uses a multi-level approach:
-    1. nthreads: Controls batch-level parallelization and FINUFFT computation threads
-    2. nthreads_blas: Controls BLAS/LAPACK threads for linear algebra operations
 
     Parameters
     ----------
@@ -368,11 +358,6 @@ def lombscargle(
         capped to the maximum number of OpenMP threads. This is a heuristic that may not work well in all cases.
     nthreads : int, optional
         Number of threads for OpenMP Parallelization in C++ helpers. It share same heuristic as nthreads_finufft.
-    nthreads_blas : int, optional
-        Number of threads used for linear algebra operations.
-        Defaults to 1 since the matrix size is small (n x n, where n = nterms + 1),
-        and a single thread is sufficient for dot product operations.
-        Set to -1 to let the BLAS library decide, but this may lead to thread over-subscription.
     center_data : bool, optional
         Whether to center the data before computing the periodogram. Default is True.
     fit_mean : bool, optional
@@ -434,74 +419,49 @@ def lombscargle(
     else:
         dy_broadcasted = dy
 
+    # Multithreading heuristics:
     # Could probably be more than finufft nthreads in many cases,
     # but it's conceptually cleaner to keep them the same, and it
     # will almost never matter in practice.
     # Technically, this is also suboptimal in the rare case of a finufft
     # library without OpenMP and a nifty-ls with OpenMP
-    if nthreads_finufft is None:
-        # Compute optimal FINUFFT threads based on problem size
-        nthreads_finufft = max(1, Nbatch // 4) * max(1, Nf // (1 << 14))
+    if nthreads is None:
+        # Optimal OpenMP threads based on problem size and batch size
+        nthreads = max(1, Nbatch // 4) * max(1, Nf // (1 << 14))
         # Allocate threads more than system limits
-        nthreads_finufft = min(nthreads_finufft, get_finufft_max_threads())
+        nthreads = min(nthreads, get_finufft_max_threads())
 
-    # Multithreading heuristics
-    if not _no_cpp_helpers:
-        if nthreads is None:
-            # Optimal OpenMP threads based on problem size and batch size
-            nthreads = nthreads_finufft
+    nthreads_finufft = nthreads
 
-        if nthreads_blas > 1:
-            nthreads = min(
-                1, nthreads // nthreads_blas
-            )  # Avoid thread over-subscription
-        elif nthreads_blas < -1 or nthreads_blas == 0:
-            raise ValueError('nthreads_blas must be either greater than 0 or -1')
-
-    # Use ExitStack to conditionally apply BLAS thread limits for C++ helpers
-    with ExitStack() as stack:
-        if not _no_cpp_helpers and nthreads_blas != -1:
-            stack.enter_context(
-                threadpoolctl.threadpool_limits(limits=nthreads_blas, user_api='blas')
-            )
-
-        power = _lombscargle_compute(
-            t=t,
-            y=y,
-            fmin=fmin,
-            df=df,
-            Nf=Nf,
-            dy_broadcasted=dy_broadcasted,
-            Nbatch=Nbatch,
-            N=N,
-            nthreads_finufft=nthreads_finufft,
-            nthreads_helpers=nthreads,
-            center_data=center_data,
-            fit_mean=fit_mean,
-            normalization=normalization,
-            _no_cpp_helpers=_no_cpp_helpers,
-            verbose=verbose,
-            finufft_kwargs=finufft_kwargs,
-            nterms=nterms,
-            cdtype=cdtype,
-            dtype=dtype,
-            squeeze_output=squeeze_output,
-        )
+    power = _lombscargle_compute(
+        t=t,
+        y=y,
+        fmin=fmin,
+        df=df,
+        Nf=Nf,
+        dy_broadcasted=dy_broadcasted,
+        Nbatch=Nbatch,
+        N=N,
+        nthreads_finufft=nthreads_finufft,
+        nthreads_helpers=nthreads,
+        center_data=center_data,
+        fit_mean=fit_mean,
+        normalization=normalization,
+        _no_cpp_helpers=_no_cpp_helpers,
+        verbose=verbose,
+        finufft_kwargs=finufft_kwargs,
+        nterms=nterms,
+        cdtype=cdtype,
+        dtype=dtype,
+        squeeze_output=squeeze_output,
+    )
 
     if verbose:
-        if not _no_cpp_helpers:
-            if nthreads_blas == -1:
-                blas_msg = 'default BLAS threading'
-            else:
-                blas_msg = f'{nthreads_blas} BLAS {"thread" if nthreads_blas == 1 else "threads"}'
-            nthreads_msg = (
-                f'{nthreads} {"thread" if nthreads == 1 else "threads"} for batch'
-            )
-        else:
-            blas_msg = 'default BLAS threading'
-            nthreads_msg = 'single thread for batch'
+        nthreads_msg = (
+            f'{nthreads} {"thread" if nthreads == 1 else "threads"} for batch'
+        )
         print(
-            f'[nifty-ls finufft] Using {nthreads_msg}, {nthreads_finufft} for FINUFFT, {blas_msg}'
+            f'[nifty-ls finufft] Using {nthreads_msg}, {nthreads_finufft} for FINUFFT'
         )
 
     return power
