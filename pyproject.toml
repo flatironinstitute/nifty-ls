@@ -10,7 +10,7 @@ authors = [{ name = "Lehman Garrison" },
            { name = "Dan Foreman-Mackey" },
            { name = "Yuwei (Peter) Sun" },
            ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 urls = { Homepage = "https://github.com/flatironinstitute.org/nifty-ls" }
 dependencies = [

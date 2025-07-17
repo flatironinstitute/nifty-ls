@@ -10,7 +10,7 @@ execute_process(
         ${CMAKE_CURRENT_BINARY_DIR}/../compile_commands.json
 )
 
-find_package(Python 3.8 COMPONENTS Interpreter Development.Module REQUIRED ${SKBUILD_SABI_COMPONENT})
+find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED ${SKBUILD_SABI_COMPONENT})
 find_package(nanobind CONFIG REQUIRED)
 
 option(NIFTY_LS_OPENMP "Enable OpenMP support in the compiled extensions" ON)
