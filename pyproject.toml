@@ -8,6 +8,7 @@ description = "A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT."
 readme = "README.md"
 authors = [{ name = "Lehman Garrison" },
            { name = "Dan Foreman-Mackey" },
+           { name = "Yuwei (Peter) Sun" },
            ]
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
