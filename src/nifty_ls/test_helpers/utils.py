@@ -17,7 +17,7 @@ def gen_data(N=100, Nbatch=None, seed=5043, dtype=np.float64):
     y += rng.normal(0, dy, y.shape)
 
     fmin, df, Nf = validate_frequency_grid(None, None, None, t)
-    # The frequency matrix becomes ill-conditioned at the lowest frequencies when nterms > 1, 
+    # The frequency matrix becomes ill-conditioned at the lowest frequencies when nterms > 1,
     # so we increase fmin to mitigate this.
     fmin = 2 * df
     fmax = fmin + df * (Nf - 1)

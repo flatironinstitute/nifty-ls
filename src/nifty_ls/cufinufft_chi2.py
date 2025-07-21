@@ -147,9 +147,7 @@ def lombscargle(
     # 2*nterms + 1 terms for w, nterms + 1 terms for yw. Fetching the Plan
     nSW = 2 * nterms + 1
     nSY = nterms + 1
-    Sw = cp.empty(
-        (Nbatch, nSW, Nf), dtype=dtype
-    )  # Shape(Nbatch, nSW, Nf) and initlize
+    Sw = cp.empty((Nbatch, nSW, Nf), dtype=dtype)  # Shape(Nbatch, nSW, Nf) and initlize
     Cw = cp.empty((Nbatch, nSW, Nf), dtype=dtype)
     Syw = cp.empty((Nbatch, nSY, Nf), dtype=dtype)
     Cyw = cp.empty((Nbatch, nSY, Nf), dtype=dtype)
@@ -294,11 +292,15 @@ def lombscargle(
     # XTy shape: (Nbatch, nterms_order, Nf)
     # We need to solve XTX[b,:,:,f] @ solution[b,:,f] = XTy[b,:,f] for all b,f
 
-    XTX_trans = XTX.transpose(0, 3, 1, 2)  # Shape: (Nbatch, Nf, nterms_order, nterms_order)
-    XTy_trans = XTy.transpose(0, 2, 1)     # Shape: (Nbatch, Nf, nterms_order)
+    XTX_trans = XTX.transpose(
+        0, 3, 1, 2
+    )  # Shape: (Nbatch, Nf, nterms_order, nterms_order)
+    XTy_trans = XTy.transpose(0, 2, 1)  # Shape: (Nbatch, Nf, nterms_order)
 
     # Solve linear systems
-    solutions = cp.linalg.solve(XTX_trans, XTy_trans)  # Shape: (Nbatch, Nf, nterms_order)
+    solutions = cp.linalg.solve(
+        XTX_trans, XTy_trans
+    )  # Shape: (Nbatch, Nf, nterms_order)
     raw_power = cp.sum(solutions * XTy_trans, axis=2)  # Shape: (Nbatch, Nf)
 
     # Apply normalization to all batches at once

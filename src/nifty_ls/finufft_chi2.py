@@ -15,6 +15,7 @@ from itertools import chain
 
 from .utils import same_dtype_or_raise
 
+
 def lombscargle(
     t,
     y,
@@ -55,7 +56,7 @@ def lombscargle(
     dy : array-like, optional
         The uncertainties of the data values, broadcastable to `y`.
     nthreads : int, optional
-        Number of threads for OpenMP Parallelization in C++ helpers and use for Finufft. The default 
+        Number of threads for OpenMP Parallelization in C++ helpers and use for Finufft. The default
         behavior is to use (N_t / 4) * (Nf / 2^15) threads, capped to the maximum number of OpenMP threads.
         This is a heuristic that may not work well in all cases.
     center_data : bool, optional
@@ -167,6 +168,7 @@ def lombscargle(
         )
 
     return power
+
 
 def _lombscargle_compute(
     t,
@@ -464,6 +466,7 @@ def _lombscargle_compute(
         )
 
     return power
+
 
 def get_finufft_max_threads():
     try:
