@@ -1,19 +1,168 @@
 from __future__ import annotations
 
-__all__ = ['lombscargle', 'FFTW_MEASURE', 'FFTW_ESTIMATE']
+__all__ = ['lombscargle']
 
 from timeit import default_timer as timer
 
 import finufft
+from nifty_ls.finufft import FFTW_ESTIMATE
+
 import numpy as np
 
 from . import cpu_helpers, chi2_helpers
 
 from itertools import chain
 
-FFTW_MEASURE = 0
-FFTW_ESTIMATE = 64
+def lombscargle(
+    t,
+    y,
+    fmin,
+    df,
+    Nf,
+    dy=None,
+    nthreads=None,
+    center_data=True,
+    fit_mean=True,
+    normalization='standard',
+    _no_cpp_helpers=False,
+    verbose=False,
+    finufft_kwargs=None,
+    nterms=1,
+):
+    """
+    Compute the Lomb-Scargle periodogram using the FINUFFT backend.
 
+    Performance Tuning:
+    The performance depends primarily on finufft, which can vary significantly based on
+    parameters like thread count. Order-of-magnitude speedups or slowdowns are possible.
+    For nthreads, start with 1 and increase until performance stops improving.
+    See finufft docs: https://finufft.readthedocs.io/en/latest/opts.html
+
+    Parameters
+    ----------
+    t : array-like
+        The time values, shape (N_t,)
+    y : array-like
+        The data values, shape (N_t,) or (N_y, N_t)
+    fmin : float
+        The minimum frequency of the periodogram.
+    df : float
+        The frequency bin width.
+    Nf : int
+        The number of frequency bins.
+    dy : array-like, optional
+        The uncertainties of the data values, broadcastable to `y`.
+    nthreads : int, optional
+        Number of threads for OpenMP Parallelization in C++ helpers and use for Finufft. The default 
+        behavior is to use (N_t / 4) * (Nf / 2^15) threads, capped to the maximum number of OpenMP threads.
+        This is a heuristic that may not work well in all cases.
+    center_data : bool, optional
+        Whether to center the data before computing the periodogram. Default is True.
+    fit_mean : bool, optional
+        Whether to fit a mean value to the data before computing the periodogram. Default is True.
+    normalization : str, optional
+        The normalization method to use. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
+    _no_cpp_helpers : bool, optional
+        Whether to use the pure Python implementation of the finufft pre- and post-processing.
+        Default is False.
+    verbose : bool, optional
+        Whether to print additional information about the finufft computation.
+    finufft_kwargs : dict, optional
+        Additional keyword arguments to pass to the `finufft.Plan()` constructor.
+        Particular finufft parameters of interest may be:
+        - `eps`: the requested precision [1e-9 for double precision and 1e-5 for single precision]
+        - `upsampfac`: the upsampling factor [1.25]
+        - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
+    nterms : int, optional
+        Number of Fourier terms in the fit
+    """
+
+    if nterms == 0 and not fit_mean:
+        raise ValueError('Cannot have nterms = 0 without fitting bias')
+
+    default_finufft_kwargs = dict(
+        eps='default',
+        upsampfac=1.25,  # Default upsampling factor
+        fftw=FFTW_ESTIMATE,  # FFTW_ESTIMATE
+        debug=int(verbose),
+    )
+
+    finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
+
+    dtype = t.dtype
+
+    if finufft_kwargs['eps'] == 'default':
+        if dtype == np.float32:
+            finufft_kwargs['eps'] = 1e-5
+        else:
+            finufft_kwargs['eps'] = 1e-9
+    if 'backend' in finufft_kwargs:
+        raise ValueError('backend should not be passed as a keyword argument')
+
+    cdtype = np.complex128 if dtype == np.float64 else np.complex64
+
+    if dy is None:
+        dy = dtype.type(1.0)
+
+    # treat 1D arrays as a batch of size 1
+    squeeze_output = y.ndim == 1
+    y = np.atleast_2d(y)
+    dy = np.atleast_2d(dy)
+
+    Nbatch, N = y.shape
+
+    # Broadcast dy to match the shape of t and y
+    if dy.ndim == 1 or dy.shape[1] == 1:  # if dy is 1D or has a single column
+        dy_broadcasted = np.broadcast_to(dy, (Nbatch, N))
+    else:
+        dy_broadcasted = dy
+
+    # Multithreading heuristics:
+    # Could probably be more than finufft nthreads in many cases,
+    # but it's conceptually cleaner to keep them the same, and it
+    # will almost never matter in practice.
+    # Technically, this is also suboptimal in the rare case of a finufft
+    # library without OpenMP and a nifty-ls with OpenMP
+    if nthreads is None:
+        # Optimal OpenMP threads based on problem size and batch size
+        nthreads = max(1, Nbatch // 4) * max(1, Nf // (1 << 15))
+        # Allocate threads more than system limits
+        nthreads = min(nthreads, get_finufft_max_threads())
+
+    nthreads_finufft = nthreads
+
+    power = _lombscargle_compute(
+        t=t,
+        y=y,
+        fmin=fmin,
+        df=df,
+        Nf=Nf,
+        dy_broadcasted=dy_broadcasted,
+        Nbatch=Nbatch,
+        N=N,
+        nthreads_finufft=nthreads_finufft,
+        nthreads_helpers=nthreads,
+        center_data=center_data,
+        fit_mean=fit_mean,
+        normalization=normalization,
+        _no_cpp_helpers=_no_cpp_helpers,
+        verbose=verbose,
+        finufft_kwargs=finufft_kwargs,
+        nterms=nterms,
+        cdtype=cdtype,
+        dtype=dtype,
+        squeeze_output=squeeze_output,
+    )
+
+    if verbose:
+        nthreads_msg = (
+            f'{nthreads} {"thread" if nthreads == 1 else "threads"} for batch'
+        )
+        print(
+            f'[nifty-ls finufft] Using {nthreads_msg}, {nthreads_finufft} for FINUFFT'
+        )
+
+    return power
 
 def _lombscargle_compute(
     t,
@@ -50,7 +199,7 @@ def _lombscargle_compute(
     nSY = nterms + 1
     Sw = np.empty(
         (Nbatch, nSW, Nf), dtype=dtype
-    )  # Shape(Nbatch, nSW, Nf) and initialize to 0
+    )  # Shape(Nbatch, nSW, Nf) and initialize
     Cw = np.empty((Nbatch, nSW, Nf), dtype=dtype)
     Syw = np.empty((Nbatch, nSY, Nf), dtype=dtype)
     Cyw = np.empty((Nbatch, nSY, Nf), dtype=dtype)
@@ -276,7 +425,6 @@ def _lombscargle_compute(
             else:
                 raise ValueError(f'Unknown normalization: {normalization}')
 
-        # Parallel batch processing using ThreadPoolExecutor
         def process_batch(batch_idx):
             Sw_b = Sw[batch_idx, :, :]  # shape: (nSW, Nf)
             Cw_b = Cw[batch_idx, :, :]
@@ -312,160 +460,6 @@ def _lombscargle_compute(
         )
 
     return power
-
-
-def lombscargle(
-    t,
-    y,
-    fmin,
-    df,
-    Nf,
-    dy=None,
-    nthreads=None,
-    center_data=True,
-    fit_mean=True,
-    normalization='standard',
-    _no_cpp_helpers=False,
-    verbose=False,
-    finufft_kwargs=None,
-    nterms=1,
-):
-    """
-    Compute the Lomb-Scargle periodogram using the FINUFFT backend.
-
-    Performance Tuning:
-    The performance depends primarily on finufft, which can vary significantly based on
-    parameters like thread count. Order-of-magnitude speedups or slowdowns are possible.
-    For nthreads, start with 1 and increase until performance stops improving.
-    See finufft docs: https://finufft.readthedocs.io/en/latest/opts.html
-
-    Parameters
-    ----------
-    t : array-like
-        The time values, shape (N_t,)
-    y : array-like
-        The data values, shape (N_t,) or (N_y, N_t)
-    fmin : float
-        The minimum frequency of the periodogram.
-    df : float
-        The frequency bin width.
-    Nf : int
-        The number of frequency bins.
-    dy : array-like, optional
-        The uncertainties of the data values, broadcastable to `y`.
-    nthreads_finufft: int, optional
-        The number of threads to use for Finufft. The default behavior is to use (N_t / 4) * (Nf / 2^14) threads,
-        capped to the maximum number of OpenMP threads. This is a heuristic that may not work well in all cases.
-    nthreads : int, optional
-        Number of threads for OpenMP Parallelization in C++ helpers. It share same heuristic as nthreads_finufft.
-    center_data : bool, optional
-        Whether to center the data before computing the periodogram. Default is True.
-    fit_mean : bool, optional
-        Whether to fit a mean value to the data before computing the periodogram. Default is True.
-    normalization : str, optional
-        The normalization method to use. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
-    _no_cpp_helpers : bool, optional
-        Whether to use the pure Python implementation of the finufft pre- and post-processing.
-        Default is False.
-    verbose : bool, optional
-        Whether to print additional information about the finufft computation.
-    finufft_kwargs : dict, optional
-        Additional keyword arguments to pass to the `finufft.Plan()` constructor.
-        Particular finufft parameters of interest may be:
-        - `eps`: the requested precision [1e-9 for double precision and 1e-5 for single precision]
-        - `upsampfac`: the upsampling factor [1.25]
-        - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
-    nterms : int, optional
-        Number of Fourier terms in the fit
-    """
-
-    if nterms == 0 and not fit_mean:
-        raise ValueError('Cannot have nterms = 0 without fitting bias')
-
-    default_finufft_kwargs = dict(
-        eps='default',
-        upsampfac=1.25,  # Default upsampling factor
-        fftw=FFTW_ESTIMATE,  # FFTW_ESTIMATE
-        debug=int(verbose),
-    )
-
-    finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
-
-    dtype = t.dtype
-
-    if finufft_kwargs['eps'] == 'default':
-        if dtype == np.float32:
-            finufft_kwargs['eps'] = 1e-5
-        else:
-            finufft_kwargs['eps'] = 1e-9
-    if 'backend' in finufft_kwargs:
-        raise ValueError('backend should not be passed as a keyword argument')
-
-    cdtype = np.complex128 if dtype == np.float64 else np.complex64
-
-    if dy is None:
-        dy = dtype.type(1.0)
-
-    # treat 1D arrays as a batch of size 1
-    squeeze_output = y.ndim == 1
-    y = np.atleast_2d(y)
-    dy = np.atleast_2d(dy)
-
-    Nbatch, N = y.shape
-
-    # Broadcast dy to match the shape of t and y
-    if dy.ndim == 1 or dy.shape[1] == 1:  # if dy is 1D or has a single column
-        dy_broadcasted = np.broadcast_to(dy, (Nbatch, N))
-    else:
-        dy_broadcasted = dy
-
-    # Multithreading heuristics:
-    # Could probably be more than finufft nthreads in many cases,
-    # but it's conceptually cleaner to keep them the same, and it
-    # will almost never matter in practice.
-    # Technically, this is also suboptimal in the rare case of a finufft
-    # library without OpenMP and a nifty-ls with OpenMP
-    if nthreads is None:
-        # Optimal OpenMP threads based on problem size and batch size
-        nthreads = max(1, Nbatch // 4) * max(1, Nf // (1 << 14))
-        # Allocate threads more than system limits
-        nthreads = min(nthreads, get_finufft_max_threads())
-
-    nthreads_finufft = nthreads
-
-    power = _lombscargle_compute(
-        t=t,
-        y=y,
-        fmin=fmin,
-        df=df,
-        Nf=Nf,
-        dy_broadcasted=dy_broadcasted,
-        Nbatch=Nbatch,
-        N=N,
-        nthreads_finufft=nthreads_finufft,
-        nthreads_helpers=nthreads,
-        center_data=center_data,
-        fit_mean=fit_mean,
-        normalization=normalization,
-        _no_cpp_helpers=_no_cpp_helpers,
-        verbose=verbose,
-        finufft_kwargs=finufft_kwargs,
-        nterms=nterms,
-        cdtype=cdtype,
-        dtype=dtype,
-        squeeze_output=squeeze_output,
-    )
-
-    if verbose:
-        nthreads_msg = (
-            f'{nthreads} {"thread" if nthreads == 1 else "threads"} for batch'
-        )
-        print(
-            f'[nifty-ls finufft] Using {nthreads_msg}, {nthreads_finufft} for FINUFFT'
-        )
-
-    return power
-
 
 def get_finufft_max_threads():
     try:

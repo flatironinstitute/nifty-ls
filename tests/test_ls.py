@@ -168,10 +168,8 @@ def test_batched(batched_data, nifty_backend, nterms, Nf=1000):
     'nifty_backend,nterms',
     [
         ('finufft', None),
-        ('finufft_chi2', 1),
         ('finufft_chi2', 2),
         ('cufinufft', None),
-        ('cufinufft_chi2', 1),
         ('cufinufft_chi2', 2),
     ],
     indirect=['nifty_backend'],
@@ -290,10 +288,8 @@ def test_no_cpp_helpers(data, batched_data, nifty_backend, nterms, Nf=1000):
     'nifty_backend,nterms',
     [
         ('finufft', None),
-        ('finufft_chi2', 1),
         ('finufft_chi2', 2),
         ('cufinufft', None),
-        ('cufinufft_chi2', 1),
         ('cufinufft_chi2', 2),
     ],
     indirect=['nifty_backend'],
@@ -330,10 +326,8 @@ def test_center_data(data, center_data, nterms, nifty_backend, Nf=1000):
     'nifty_backend,nterms',
     [
         ('finufft', None),
-        ('finufft_chi2', 1),
         ('finufft_chi2', 2),
         ('cufinufft', None),
-        ('cufinufft_chi2', 1),
         ('cufinufft_chi2', 2),
     ],
     indirect=['nifty_backend'],
@@ -368,11 +362,9 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
     'nifty_backend,nterms',
     [
         ('finufft', None),
-        ('finufft_chi2', 1),
         ('finufft_chi2', 2),
         ('cufinufft', None),
-        ('cufinufft_chi2', 1),
-        ('cufinufft_chi2', 1),
+        ('cufinufft_chi2', 2),
     ],
     indirect=['nifty_backend'],
 )

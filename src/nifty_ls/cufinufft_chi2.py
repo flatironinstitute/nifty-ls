@@ -129,18 +129,7 @@ def lombscargle(
     Nbatch, N = y.shape
 
     # Broadcast dy to match the shape of t and y
-    if dy.shape == ():  # Scalar case
-        dy_broadcasted = cp.broadcast_to(dy, (Nbatch, N))
-    elif dy.shape == (N,):  # 1D shape
-        dy_broadcasted = cp.broadcast_to(dy[None, :], (Nbatch, N))
-    elif dy.shape == (Nbatch, 1):
-        dy_broadcasted = cp.broadcast_to(dy, (Nbatch, N))
-    elif dy.shape == (Nbatch, N):
-        dy_broadcasted = dy
-    else:
-        raise ValueError(
-            f'Unsupported dy shape {dy.shape} for broadcast to ({Nbatch}, {N})'
-        )
+    dy_broadcasted = cp.broadcast_to(dy, (Nbatch, N))
 
     # Force fit them into 2 arrays to use the batched finufft transform for yw and w
     yw_w_shape = (2 * Nbatch, N)
@@ -157,7 +146,7 @@ def lombscargle(
     nSY = nterms + 1
     Sw = cp.empty(
         (Nbatch, nSW, Nf), dtype=dtype
-    )  # Shape(Nbatch, nSW, Nf) and Initlize to 0
+    )  # Shape(Nbatch, nSW, Nf) and initlize
     Cw = cp.empty((Nbatch, nSW, Nf), dtype=dtype)
     Syw = cp.empty((Nbatch, nSY, Nf), dtype=dtype)
     Cyw = cp.empty((Nbatch, nSY, Nf), dtype=dtype)
@@ -302,17 +291,12 @@ def lombscargle(
     # XTy shape: (Nbatch, nterms_order, Nf)
     # We need to solve XTX[b,:,:,f] @ solution[b,:,f] = XTy[b,:,f] for all b,f
 
-    # Reshape for batch solve
-    # (Nbatch * Nf, nterms_order, nterms_order)
-    XTX_trans = XTX.transpose(0, 3, 1, 2).reshape(
-        Nbatch * Nf, nterms_order, nterms_order
-    )
-    # (Nbatch * Nf, nterms_order)
-    XTy_trans = XTy.transpose(0, 2, 1).reshape(Nbatch * Nf, nterms_order)
+    XTX_trans = XTX.transpose(0, 3, 1, 2)  # Shape: (Nbatch, Nf, nterms_order, nterms_order)
+    XTy_trans = XTy.transpose(0, 2, 1)     # Shape: (Nbatch, Nf, nterms_order)
 
-    solutions = cp.linalg.solve(XTX_trans, XTy_trans)
-    raw_power_flat = cp.sum(solutions * XTy_trans, axis=1)
-    raw_power = raw_power_flat.reshape(Nbatch, Nf)  # Reshape back to (Nbatch, Nf)
+    # Solve linear systems
+    solutions = cp.linalg.solve(XTX_trans, XTy_trans)  # Shape: (Nbatch, Nf, nterms_order)
+    raw_power = cp.sum(solutions * XTy_trans, axis=2)  # Shape: (Nbatch, Nf)
 
     # Apply normalization to all batches at once
     if normalization == 'standard':

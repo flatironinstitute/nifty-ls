@@ -26,9 +26,9 @@ def bench_data():
 
 
 @pytest.fixture(
-    params=nifty_ls.backends.BACKEND_NAMES + ['astropy', 'astropy_fastchi2']
+    params=nifty_ls.backends.NONE_CHI2_BACKEND_NAMES + ['astropy']
 )
-def backend(request):
+def none_chi2_backend(request):
     """Parametrize over all nifty-ls backends, and astropy."""
     if request.param not in nifty_ls.core.AVAILABLE_BACKENDS and request.param not in (
         'astropy',
@@ -38,42 +38,60 @@ def backend(request):
     return request.param
 
 
-@pytest.mark.parametrize('Nf', [10_000, 100_000, 1_000_000])
+@pytest.fixture(
+    params=nifty_ls.backends.CHI2_BACKEND_NAMES + ['astropy_fastchi2']
+)
+def chi2_backend(request):
+    """Parametrize over all nifty-ls backends, and astropy."""
+    if request.param not in nifty_ls.core.AVAILABLE_BACKENDS and request.param not in (
+        'astropy',
+        'astropy_fastchi2',
+    ):
+        pytest.skip(f'Backend {request.param} is not available')
+    return request.param
+
+
 class TestPerf:
     """Benchmark nifty-ls versus astropy's FFT-based implementation."""
-
-    def test(self, bench_data, Nf, benchmark, backend):
-        if Nf == 1_000_000 and 'chi2' in backend:
-            pytest.skip('Skip Chi2 for large Nf to save time')
-        if backend == 'astropy':
+    @pytest.mark.parametrize('Nf', [1_000, 10_000, 100_000])
+    def test_none_chi2(self, bench_data, Nf, benchmark, none_chi2_backend):
+        if none_chi2_backend == 'astropy':
             benchmark(astropy_ls, **bench_data, Nf=Nf, use_fft=True)
-        elif backend == 'astropy_fastchi2':  # Nterms == 1 by default
-            benchmark(astropy_ls_fastchi2, **bench_data, Nf=Nf, use_fft=True)
         else:
-            benchmark(nifty_ls.lombscargle, **bench_data, Nf=Nf, backend=backend)
+            benchmark(nifty_ls.lombscargle, **bench_data, Nf=Nf, backend=none_chi2_backend)
+        # Usually this benchmark isn't very useful, since one will always use the
+            # compiled extensions in practice, but if looking at the performance
+            # of the extensions themselves, it might be interesting.
+            # def test_nifty_nohelpers(self, bench_data, Nf, benchmark):
+            #     import nifty_ls
 
-    # Usually this benchmark isn't very useful, since one will always use the
-    # compiled extensions in practice, but if looking at the performance
-    # of the extensions themselves, it might be interesting.
-    # def test_nifty_nohelpers(self, bench_data, Nf, benchmark):
-    #     import nifty_ls
+            #     benchmark(nifty_ls.lombscargle, **bench_data, fmin=0.1, fmax=10.0, Nf=Nf,
+            #               _no_cpp_helpers=True).power
 
-    #     benchmark(nifty_ls.lombscargle, **bench_data, fmin=0.1, fmax=10.0, Nf=Nf,
-    #               _no_cpp_helpers=True).power
+    """Benchmark fastchi2 implement in nifty-ls versus astropy's FFT-based implementation."""
+    @pytest.mark.parametrize('nterms', [2, 4])
+    @pytest.mark.parametrize('Nf', [1_000, 10_000]) # Decrease Nf to minimize the execution time of astropy_fastchi2.
+    def test_chi2(self, bench_data, Nf, nterms, benchmark, chi2_backend):
+        if chi2_backend == 'astropy_fastchi2':
+            benchmark(astropy_ls_fastchi2, **bench_data, Nf=Nf, nterms=nterms, use_fft=True)
+        else:
+            benchmark(nifty_ls.lombscargle, **bench_data, Nf=Nf, nterms=nterms, backend=chi2_backend)
 
 
 @pytest.mark.parametrize('Nf', [1_000])
-class TestBatchedPerf:
-    @pytest.mark.parametrize('backend', nifty_ls.core.AVAILABLE_BACKENDS, indirect=True)
-    def test_batched(self, batched_bench_data, Nf, benchmark, backend):
+class TestNoneChi2BatchedPerf:
+    @pytest.mark.parametrize('none_chi2_backend', list(set(nifty_ls.backends.NONE_CHI2_BACKEND_NAMES) 
+                                                       & set(nifty_ls.core.AVAILABLE_BACKENDS)), indirect=True)
+    def test_batched_none_chi2(self, batched_bench_data, Nf, benchmark, none_chi2_backend):
         benchmark(
             nifty_ls.lombscargle,
             **batched_bench_data,
             Nf=Nf,
-            backend=backend,
+            backend=none_chi2_backend,
         )
-
-    def test_unbatched(self, batched_bench_data, Nf, benchmark, backend):
+    @pytest.mark.parametrize('none_chi2_backend', list(set(nifty_ls.backends.NONE_CHI2_BACKEND_NAMES) 
+                                                  & set(nifty_ls.core.AVAILABLE_BACKENDS)) + ['astropy'], indirect=True)
+    def test_unbatched_none_chi2(self, batched_bench_data, Nf, benchmark, none_chi2_backend):
         t = batched_bench_data['t']
         y_batch = batched_bench_data['y']
         dy_batch = batched_bench_data['dy']
@@ -89,7 +107,7 @@ class TestBatchedPerf:
                     fmin=fmin,
                     fmax=fmax,
                     Nf=Nf,
-                    backend=backend,
+                    backend=none_chi2_backend,
                 )
 
         def _astropy():
@@ -104,6 +122,48 @@ class TestBatchedPerf:
                     use_fft=True,
                 )
 
+        if none_chi2_backend == 'astropy':
+            benchmark(_astropy)
+        else:
+            benchmark(_nifty)
+
+
+@pytest.mark.parametrize('Nf', [1_000])
+@pytest.mark.parametrize('nterms', [2, 4])
+class TestChi2BatchedPerf:
+    @pytest.mark.parametrize('chi2_backend', list(set(nifty_ls.backends.CHI2_BACKEND_NAMES) 
+                                                  & set(nifty_ls.core.AVAILABLE_BACKENDS)), indirect=True)
+    def test_batched_chi2(self, batched_bench_data, Nf, nterms, benchmark, chi2_backend):
+        benchmark(
+            nifty_ls.lombscargle,
+            **batched_bench_data,
+            Nf=Nf,
+            nterms=nterms,
+            backend=chi2_backend,
+        )
+
+    @pytest.mark.parametrize('chi2_backend', list(set(nifty_ls.backends.CHI2_BACKEND_NAMES) 
+                                                  & set(nifty_ls.core.AVAILABLE_BACKENDS)) + ['astropy_fastchi2'], indirect=True)
+    def test_unbatched_chi2(self, batched_bench_data, Nf, nterms, benchmark, chi2_backend):
+        t = batched_bench_data['t']
+        y_batch = batched_bench_data['y']
+        dy_batch = batched_bench_data['dy']
+        fmin = batched_bench_data['fmin']
+        fmax = batched_bench_data['fmax']
+
+        def _nifty():
+            for i in range(len(y_batch)):
+                nifty_ls.lombscargle(
+                    t,
+                    y_batch[i],
+                    dy_batch[i],
+                    fmin=fmin,
+                    fmax=fmax,
+                    Nf=Nf,
+                    nterms=nterms,
+                    backend=chi2_backend,
+                )
+
         def _astropy_fastchi2():
             for i in range(len(y_batch)):
                 astropy_ls_fastchi2(
@@ -113,12 +173,12 @@ class TestBatchedPerf:
                     fmin=fmin,
                     fmax=fmax,
                     Nf=Nf,
+                    nterms=nterms,
                     use_fft=True,
                 )
 
-        if backend == 'astropy':
-            benchmark(_astropy)
-        elif backend == 'astropy_fastchi2':
+        if chi2_backend == 'astropy_fastchi2':
             benchmark(_astropy_fastchi2)
         else:
             benchmark(_nifty)
+

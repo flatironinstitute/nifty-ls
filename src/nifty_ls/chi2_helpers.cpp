@@ -161,8 +161,8 @@ void process_chi2_inputs(
                 sum_norm += wt * (ym * ym);
                 sum_yw2 += ym * wt;
 
-                yw(i, m) = std::complex<Scalar>(ym * wt, Scalar(0));
-                w(i, m) = std::complex<Scalar>(wt, Scalar(0));
+                yw(i, m) = Complex<Scalar>(ym * wt, Scalar(0));
+                w(i, m) = Complex<Scalar>(wt, Scalar(0));
             }
 #ifdef _OPENMP
 #pragma omp single
@@ -197,10 +197,10 @@ template <typename Scalar>
 void compute_t(
     nifty_arr_1d<const Scalar> &t1_,
     nifty_arr_2d<const Complex<Scalar>> &yw_w_,
-    const int time_shift,
+    const size_t time_shift,
     const Scalar fmin,
     const Scalar df,
-    const int Nf,
+    const size_t Nf,
     nifty_arr_1d<Scalar> &tn_out,
     nifty_arr_2d<Complex<Scalar>> &yw_w_s_out,
     int nthreads)
@@ -463,25 +463,24 @@ void process_chi2_outputs(
                 // Dot product (XTy, bvec)
                 Scalar pw = small_matrixs_dot(n, bvec.data(), XTy.data());
 
-                power(b, f) = pw;
-                Scalar &p = power(b, f);
-
                 // Apply normalization
                 switch (norm_kind)
                 {
                 case NormKind::Standard:
-                    p /= norm_val;
+                    pw /= norm_val;
                     break;
                 case NormKind::Model:
-                    p /= (norm_val - p);
+                    pw /= (norm_val - pw);
                     break;
                 case NormKind::Log:
-                    p = -std::log(1 - p / norm_val);
+                    pw = -std::log(1 - pw / norm_val);
                     break;
                 case NormKind::PSD:
-                    p *= Scalar(0.5);
+                    pw *= Scalar(0.5);
                     break;
                 }
+
+                power(b, f) = pw; // write to output array
             }
         }
     }
@@ -553,11 +552,11 @@ NB_MODULE(chi2_helpers, m)
 
     m.def("process_chi2_outputs", &process_chi2_outputs<double>,
           "power"_a,
-          "Sw"_a,
-          "Cw"_a,
-          "Syw"_a,
-          "Cyw"_a,
-          "norm"_a,
+          "Sw"_a.noconvert(),
+          "Cw"_a.noconvert(),
+          "Syw"_a.noconvert(),
+          "Cyw"_a.noconvert(),
+          "norm"_a.noconvert(),
           "order_types"_a,
           "order_indices"_a,
           "norm_kind"_a,
@@ -565,11 +564,11 @@ NB_MODULE(chi2_helpers, m)
 
     m.def("process_chi2_outputs", &process_chi2_outputs<float>,
           "power"_a,
-          "Sw"_a,
-          "Cw"_a,
-          "Syw"_a,
-          "Cyw"_a,
-          "norm"_a,
+          "Sw"_a.noconvert(),
+          "Cw"_a.noconvert(),
+          "Syw"_a.noconvert(),
+          "Cyw"_a.noconvert(),
+          "norm"_a.noconvert(),
           "order_types"_a,
           "order_indices"_a,
           "norm_kind"_a,

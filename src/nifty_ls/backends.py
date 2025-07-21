@@ -3,11 +3,12 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Literal, get_args
 
-__all__ = ['available_backends', 'BACKEND_TYPE', 'BACKEND_NAMES']
+__all__ = ['available_backends', 'BACKEND_TYPE', 'BACKEND_NAMES', 'CHI2_BACKEND_NAMES', 'NONE_CHI2_BACKEND_NAMES']
 
+CHI2_BACKEND_NAMES = list(get_args(Literal['finufft_chi2', 'cufinufft_chi2']))
+NONE_CHI2_BACKEND_NAMES = list(get_args(Literal['finufft', 'cufinufft']))
 BACKEND_TYPE = Literal['auto', 'finufft', 'finufft_chi2', 'cufinufft', 'cufinufft_chi2']
 BACKEND_NAMES = list(get_args(BACKEND_TYPE))
-
 
 def available_backends(verbose: bool = False) -> list[str]:
     """Return a list of available backends.  Backends may be unavailable if their dependencies are not installed."""
@@ -17,6 +18,7 @@ def available_backends(verbose: bool = False) -> list[str]:
         if backend == 'auto':
             # 'auto' is a special case, it is not a backend but a mode to select the best available backend
             backends.append(backend)
+            continue
         try:
             # from . import backend
             import_module(f'.{backend}', __package__)
