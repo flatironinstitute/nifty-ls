@@ -450,18 +450,22 @@ def test_backends(data, nterms=1, Nf=1000):
 # GH #58
 def test_mixed_dtypes(data):
     """Test that calling lombscargle with mixed dtypes raises an exception."""
+    backends = nifty_ls.core.AVAILABLE_BACKENDS
+
     data_mixed = data.copy()
     data_mixed['t'] = data_mixed['t'].astype(np.float32)
     data_mixed['y'] = data_mixed['y'].astype(np.float64)
     data_mixed['dy'] = data_mixed['dy'].astype(np.float64)
 
-    with pytest.raises(ValueError, match='dtype'):
-        nifty_ls.lombscargle(**data_mixed)
+    for backend in backends:
+        with pytest.raises(ValueError, match='dtype'):
+            nifty_ls.lombscargle(**data_mixed, backend=backend)
 
     data_mixed = data.copy()
     data_mixed['t'] = data_mixed['t'].astype(np.float32)
     data_mixed['y'] = data_mixed['y'].astype(np.float32)
     data_mixed['dy'] = data_mixed['dy'].astype(np.float64)
 
-    with pytest.raises(ValueError, match='dtype'):
-        nifty_ls.lombscargle(**data_mixed)
+    for backend in backends:
+        with pytest.raises(ValueError, match='dtype'):
+            nifty_ls.lombscargle(**data_mixed, backend=backend)
