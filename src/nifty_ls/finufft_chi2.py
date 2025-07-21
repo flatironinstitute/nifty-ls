@@ -13,6 +13,8 @@ from . import cpu_helpers, chi2_helpers
 
 from itertools import chain
 
+from .utils import same_dtype_or_raise
+
 def lombscargle(
     t,
     y,
@@ -88,6 +90,8 @@ def lombscargle(
     )
 
     finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
+
+    same_dtype_or_raise(t=t, y=y, dy=dy)
 
     dtype = t.dtype
 

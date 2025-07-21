@@ -8,6 +8,8 @@ from __future__ import annotations
 from timeit import default_timer as timer
 from itertools import chain
 
+from .utils import same_dtype_or_raise
+
 try:
     import cupy as cp
     import cufinufft
@@ -46,10 +48,9 @@ def lombscargle(
     cufinufft is not as finicky to tune as finufft. The default parameters are probably
     fine for most cases, but you may want to experiment with the `eps` and `gpu_method`.
 
-    The cufinufft documentation has a stub pointing to the location in the source code
-    where the tuning parameters can be found:
+    The cufinufft documentation has more information on performance tuning:
 
-    https://finufft.readthedocs.io/en/latest/c_gpu.html#non-standard-options
+    https://finufft.readthedocs.io/en/latest/c_gpu.html#algorithm-performance-options
 
     Parameters
     ----------
@@ -91,6 +92,8 @@ def lombscargle(
     default_cufinufft_kwargs = dict(eps='default', gpu_method=1)
 
     cufinufft_kwargs = {**default_cufinufft_kwargs, **(cufinufft_kwargs or {})}
+
+    same_dtype_or_raise(t=t, y=y, dy=dy)
 
     dtype = t.dtype
 
