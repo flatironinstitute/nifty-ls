@@ -8,6 +8,7 @@ import finufft
 import numpy as np
 
 from . import cpu_helpers
+from .utils import same_dtype_or_raise
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
@@ -88,6 +89,8 @@ def lombscargle(
     )
 
     finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
+
+    same_dtype_or_raise(t=t, y=y, dy=dy)
 
     dtype = t.dtype
 
