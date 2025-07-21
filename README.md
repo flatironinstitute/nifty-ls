@@ -167,6 +167,7 @@ nifty_res = nifty_ls.lombscargle(t, y, dy, fmin=0.1, fmax=10, Nf=10**6)
 <summary>Full example</summary>
 
 ```python
+import matplotlib.pyplot as plt
 import nifty_ls
 import numpy as np
 
