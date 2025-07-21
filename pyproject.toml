@@ -8,14 +8,14 @@ description = "A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT."
 readme = "README.md"
 authors = [{ name = "Lehman Garrison" },
            { name = "Dan Foreman-Mackey" },
+           { name = "Yuwei (Peter) Sun" },
            ]
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
 urls = { Homepage = "https://github.com/flatironinstitute.org/nifty-ls" }
 dependencies = [
     "numpy",
- "finufft >= 2.3",
- "threadpoolctl>=3.5.0",
+    "finufft >= 2.3",
 ]
 dynamic = ["version"]
 
