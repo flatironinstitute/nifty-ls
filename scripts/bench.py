@@ -51,7 +51,7 @@ def do_nifty_finufft(*args, **kwargs):
     )
 
 
-def do_nifty_finufft_chi2(*args, nterms=1, **kwargs):
+def do_nifty_finufft_chi2(*args, nterms=4, **kwargs):
     return nifty_ls.finufft_chi2.lombscargle(
         *args,
         **kwargs,
@@ -60,7 +60,7 @@ def do_nifty_finufft_chi2(*args, nterms=1, **kwargs):
     )
 
 
-def do_nifty_cufinufft_chi2(*args, nterms=1, **kwargs):
+def do_nifty_cufinufft_chi2(*args, nterms=4, **kwargs):
     return nifty_ls.cufinufft_chi2.lombscargle(
         *args, **kwargs, nterms=nterms, cufinufft_kwargs={'eps': DEFAULT_EPS}
     )
@@ -83,7 +83,7 @@ def do_astropy_fast(t, y, dy, fmin, df, Nf, **astropy_kwargs):
     return power  # just last power for now
 
 
-def do_astropy_fastchi2(t, y, dy, fmin, df, Nf, nterms=1, **astropy_kwargs):
+def do_astropy_fastchi2(t, y, dy, fmin, df, Nf, nterms=4, **astropy_kwargs):
     f0 = fmin
     y = np.atleast_2d(y)
     dy = np.atleast_2d(dy)
@@ -104,7 +104,7 @@ def do_astropy_fastchi2(t, y, dy, fmin, df, Nf, nterms=1, **astropy_kwargs):
     return power
 
 
-def do_astropy_chi2(t, y, dy, fmin, df, Nf, nterms=1, **astropy_kwargs):
+def do_astropy_chi2(t, y, dy, fmin, df, Nf, nterms=4, **astropy_kwargs):
     y = np.atleast_2d(y)
     dy = np.atleast_2d(dy)
     frequency = fmin + df * np.arange(Nf)
@@ -246,6 +246,10 @@ def get_plot_kwargs(method, nthread_max=NTHREAD_MAX):
     elif method == 'astropy_worst':
         label = r'Astropy (worst case)'
         color = 'C0'
+        ls = ':'
+    elif method == 'astropy_fastchi2_worst':
+        label = r'Astropy (${\tt fastchi2}$ method worst case)'
+        color = 'C5'
         ls = ':'
     elif method == 'winding':
         label = 'nifty-ls (winding)'
@@ -438,10 +442,14 @@ def _plot(all_res: Table, sort=True, fname='bench_results.png', paper=False):
                 ha='right',
                 va='bottom',
             )
-
-    xline = all_res[var].max()
-    yline = all_res['time'][all_res[var] == xline].min()
-
+    # Handle different N
+    max_n_times = []
+    for group in groups:
+        max_n = group['N'].max()
+        time_at_max_n = group['time'][group['N'] == max_n][0]
+        max_n_times.append((max_n, time_at_max_n))
+    # Find the minimum time_at_max_n and corresponding max_n
+    xline, yline = min(max_n_times, key=lambda x: x[1])
     ax.axline(
         (xline, yline / 2), slope=1, label='Linear scaling', linestyle='--', color='k'
     )

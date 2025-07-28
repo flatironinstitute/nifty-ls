@@ -36,6 +36,11 @@ The complex and real parts of this transform are Press & Rybicki's $S_k$ and $C_
 
 There is some pre- and post-processing of $S_k$ and $C_k$ to compute the periodogram, which can become the bottleneck because finufft is so fast. This package also optimizes and parallelizes those computations.
 
+### Chi-Square/Fast Chi-Square Method
+To maintain efficiency while identifying more complex patterns, such as multiple fourier terms (`nterms > 1`), the [Fast Chi-squared Technique](https://arxiv.org/abs/0901.1913) were introduced. This method extend the traditional Lomb-Scargle approach by constructing matrix algebra using an FFT-based approach. 
+
+Based on the profiler’s results, matrix assembly and linear‐algebra solvers emerged as the primary bottlenecks of chi-square method. To align with FINUFFT’s speed, these routines and other computational steps have been optimized and parallelized.
+
 ## Installation
 ### From PyPI
 For CPU support:
@@ -111,6 +116,7 @@ of the fast family of methods that assume a regularly-spaced frequency grid.
 import nifty_ls
 from astropy.timeseries import LombScargle
 frequency, power = LombScargle(t, y).autopower(method="fastnifty")
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=nterms).autopower(method="fastnifty_chi2")
 ```
 
 <details>
@@ -128,9 +134,30 @@ t = rng.uniform(0, 100, size=N)
 y = np.sin(50 * t) + 1 + rng.poisson(size=N)
 
 frequency, power = LombScargle(t, y).autopower(method='fastnifty')
-plt.plot(frequency, power)
+
+nterms = 4
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=nterms).autopower(method='fastnifty_chi2')
+
+plt.figure(figsize=(12, 5))
+
+# Plot 1: Single component signal
+plt.subplot(1, 2, 1)
+plt.plot(frequency, power, label='nifty-ls (single component)')
 plt.xlabel('Frequency (cycles per unit time)')
 plt.ylabel('Power')
+plt.title('Single Component Signal')
+plt.legend()
+
+# Plot 2: Two component signals with chi2
+plt.subplot(1, 2, 2)
+plt.plot(frequency_chi2, power_chi2, label='nifty-ls Chi2 (multi-component)', color='red')
+plt.xlabel('Frequency (cycles per unit time)')
+plt.ylabel('Power')
+plt.title('Multi-Component Signal (nterms=4)')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
 ```  
 </details>
 
@@ -138,6 +165,7 @@ To use the CUDA (cufinufft) backend, pass the appropriate argument via `method_k
 
 ```python
 frequency, power = LombScargle(t, y).autopower(method="fastnifty", method_kws=dict(backend="cufinufft"))
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=nterms).autopower(method="fastnifty_chi2", method_kws=dict(backend="cufinufft_chi2"))
 ```
 
 In many cases, accelerating your periodogram is as simple as setting the `method`
@@ -159,8 +187,14 @@ import nifty_ls
 # with automatic frequency grid:
 nifty_res = nifty_ls.lombscargle(t, y, dy)
 
+# with automatic backend method selection:
+nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy, nterms=4)
+
 # with user-specified frequency grid:
 nifty_res = nifty_ls.lombscargle(t, y, dy, fmin=0.1, fmax=10, Nf=10**6)
+
+# with user-specified backend method:
+nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy, Nf=10**6, nterms=4, backend='finufft_chi2')
 ```
 
 <details>
@@ -179,12 +213,35 @@ y = np.sin(50 * t) + 1 + rng.poisson(size=N)
 # with automatic frequency grid:
 nifty_res = nifty_ls.lombscargle(t, y)
 
+# Automatically selects the backend method based on the available options and the specified nterms:
+nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy=None, nterms=4)
+
 # with user-specified frequency grid:
 nifty_res = nifty_ls.lombscargle(t, y, fmin=0.1, fmax=10, Nf=10**6)
 
-plt.plot(nifty_res.freq(), nifty_res.power)
+# with user-specified backend method:
+nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy=None, Nf=10**6, nterms=4, backend='finufft_chi2')
+
+plt.figure(figsize=(12, 5))
+
+# Plot 1: Finufft Grid
+plt.subplot(1, 2, 1)
+plt.plot(nifty_res.freq(), nifty_res.power, label='Default Grid')
 plt.xlabel('Frequency (cycles per unit time)')
 plt.ylabel('Power')
+plt.title('Default Grid')
+plt.legend()
+
+# Plot 2: Finufft_chi2 Backend
+plt.subplot(1, 2, 2)
+plt.plot(nifty_res_chi2.freq(), nifty_res_chi2.power, label='Chi2 Backend', color='red')
+plt.xlabel('Frequency (cycles per unit time)')
+plt.ylabel('Power')
+plt.title('Chi2 Backend (nterms=4)')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
 ```
 </details>
 
@@ -208,7 +265,12 @@ y_batch = np.sin(obj_freqs * t)
 dy_batch = rng.random(y_batch.shape)
 
 batched = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf)
+
+# Similarly for Chi2 method
+batched_chi2 = nifty_ls.lombscargle(t, y_batch, dy_batch, Nf=Nf, nterms=4)
+
 print(batched.power.shape)  # (10, 200)
+print(batched_chi2.power.shape)  # same: (10, 200)
 ```
 
 Note that this computes multiple periodograms simultaneously on a set of time
@@ -235,6 +297,12 @@ In this case, finufft is 5x faster (11x with threads) than Astropy for large tra
 
 cufinufft is 200x faster than Astropy for large $N$! The performance plateaus towards small $N$, mostly due to the overhead of sending data to the GPU and fetching the result. (Concurrent job execution on the GPU is another planned feature, which will especially help small $N$.)
 
+Similar performance trends are observed for the chi-square method using the same hardware configuration (16 cores of an Intel Icelake CPU and an NVIDIA A100 GPU). The following results use `nterms=4` as an example:
+
+![benchmarks](bench_chi2.png)
+
+In this case, finufft is 100× faster than Astropy's `fastchi2` method, and 300× faster with multi-threading enabled. cufinufft achieves an impressive 5600× speedup over Astropy for large $N$! However, it suffers from similar overhead for small $N$ due to data transfer costs between CPU and GPU.
+
 The following demonstrates "batch mode", in which 10 periodograms are computed from 10 different time series with the same observation times:
 
 ![batched benchmarks](bench_batch.png)
@@ -244,6 +312,16 @@ Here, the finufft single-threaded advantage is consistently 6x across problem si
 The 200x advantage of the GPU extends to even smaller $N$ in this case, since we're sending and receiving more data at once.
 
 We see that both multi-threaded finufft and cufinufft particularly benefit from batched transforms, as this exposes more parallelism and amortizes fixed latencies.
+
+In contrast, the following shows "batch mode" performance for the chi-squared method under the same setting and `nterms=4`:
+
+![batched benchmarks](bench_chi2_batch.png)
+
+Compared to the standard finufft method, the chi-squared method shows less single-thread performance gain when scaling from a single batch to multiple batches. This is because its primary bottlenecks lie in data processing tasks like matrix construction and solving linear systems, rather than the NUFFT transform itself. 
+
+Nevertheless, multi-threaded execution achieves up to a 430× speedup, owing to the fact that computations at each frequency are independent and can be efficiently parallelized across threads.
+
+However, due to GPU memory limitations, running cufinufft with a large batch size and number of data points (batch_size>=10 and N>=1000_000) will results in a CUDA out-of-memory error.
 
 We use `FFTW_MEASURE` for finufft in these benchmarks, which improves performance a few tens of percents.
 
@@ -257,7 +335,7 @@ density.
 
 
 ## Accuracy
-While we compared performance with Astropy's `fast` method, this isn't quite fair. nifty-ls is much more accurate than Astropy `fast`!  Astropy `fast` uses Press & Rybicki's extirpolation approximation, trading accuracy for speed, but thanks to finufft, nifty-ls can have both.
+While we compared performance with Astropy's Fast Fourier-based methods such as `fast` and `fastchi2`, this isn't quite fair. nifty-ls is much more accurate than Astropy `fast` and `fastchi2`!  Astropy's Fast Fourier-based methods uses Press & Rybicki's extirpolation approximation, trading accuracy for speed, but thanks to finufft, nifty-ls can have both.
 
 In the figure below, we plot the median periodogram error in circles and the 99th percentile error in triangles for astropy, finufft, and cufinufft for a range of $N$ (and default $N_F \approx 12N$).
 
@@ -265,17 +343,24 @@ The astropy result is presented for two cases: a nominal case and a "worst case"
 
 ![](accuracy.png)
 
-Errors of $\mathcal{O}(10\\%)$ or greater are common with worst-case evaluations. Errors of $\mathcal{O}(1\\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
+The reference result in the above figure comes from the "phase winding" method, which uses trigonometric identities to avoid expensive sin and cos evaluations. As showing below, one can also use astropy's `fast` method or `fastchi2` method as a reference with exact evaluation enabled via `use_fft=False`. One finds the same result, but the phase winding is a few orders of magnitude faster (but still not competitive with finufft).
 
-The reference result in the above figure comes from the "phase winding" method, which uses trigonometric identities to avoid expensive sin and cos evaluations. One can also use astropy's `fast` method as a reference with exact evaluation enabled via `use_fft=False`.  One finds the same result, but the phase winding is a few orders of magnitude faster (but still not competitive with finufft).
+![](accuracy_chi2.png)
+
+The diagram show a similar accuracy comparison for the chi-squared variants: astropy_fastchi2, finufft_chi2, and cufinufft_chi2.
+
+Errors of $\mathcal{O}(10\\%)$ or greater are common with worst-case evaluations. Errors of $\mathcal{O}(1\\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
 
 In summary, nifty-ls is highly accurate while also giving high performance.
 
 
 ### float32 vs float64
-While 32-bit floats provide a substantial speedup for finufft and cufinufft, we generally don't recommend their use for Lomb-Scargle. The reason is the challenging [condition number](https://en.wikipedia.org/wiki/Condition_number) of the problem.  The condition number is the response in the output to a small perturbation in the input—in other words, the derivative. [It can easily be shown](https://finufft.readthedocs.io/en/latest/trouble.html) that the derivative of a NUFFT with respect to the non-uniform points is proportional to $N$, the transform length (i.e. the number of modes). In other words, errors in the observation times are amplified by $\mathcal{O}(N)$.  Since float32 has a relative error of $\mathcal{O}(10^{-7})$, transforms of length $10^5$ already suffer $\mathcal{O}(1\\%)$ error. Therefore, we focus on float64 in nifty-ls, but float32 is also natively supported by all backends for adventurous users.
+While 32-bit floats deliver a substantial speedup for CPU routines (finufft/finufft_chi2) and GPU routines (cufinufft/cufinufft_chi2), we generally don't recommend their use for Lomb-Scargle. The reason is the challenging [condition number](https://en.wikipedia.org/wiki/Condition_number) of the problem.  The condition number is the response in the output to a small perturbation in the input—in other words, the derivative. [It can easily be shown](https://finufft.readthedocs.io/en/latest/trouble.html) that the derivative of a NUFFT with respect to the non-uniform points is proportional to $N$, the transform length (i.e. the number of modes). In other words, errors in the observation times are amplified by $\mathcal{O}(N)$.  Since float32 has a relative error of $\mathcal{O}(10^{-7})$, transforms of length $10^5$ already suffer $\mathcal{O}(1\\%)$ error. Therefore, we focus on float64 in nifty-ls, but float32 is also natively supported by all backends for adventurous users.
 
 The condition number is also a likely contributor to the mild upward trend in error versus $N$ in the above figure, at least for finufft/cufinufft. With a relative error of $\mathcal{O}(10^{-16})$ for float64 and a transform length of $\mathcal{O}(10^{6})$, the minimum error is $\mathcal{O}(10^{-10})$.
+
+### Numerical Instability
+TODO
 
 ## Testing
 First, install from source (`pip install .[test]`). Then, from the repo root, run:
@@ -289,56 +374,65 @@ nifty-ls and Astropy, shown below:
 
 ```
 $ pytest
-======================================================== test session starts =========================================================
-platform linux -- Python 3.10.13, pytest-8.1.1, pluggy-1.4.0
-benchmark: 4.0.0 (defaults: timer=time.perf_counter disable_gc=True min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
-rootdir: /mnt/home/lgarrison/nifty-ls
+============================= test session starts ==============================
+platform linux -- Python 3.10.13, pytest-8.4.0, pluggy-1.6.0
+benchmark: 5.1.0 (defaults: timer=time.perf_counter disable_gc=True min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /mnt/home/psun1/nifty_ls_nterm_support/nifty-ls
 configfile: pyproject.toml
-plugins: benchmark-4.0.0, asdf-2.15.0, anyio-3.6.2, hypothesis-6.23.1
-collected 36 items                                                                                                                   
+plugins: asdf-4.3.0, benchmark-5.1.0
+collected 82 items
 
-tests/test_ls.py ......................                                                                                        [ 61%]
-tests/test_perf.py ..............                                                                                              [100%]
+tests/test_ls.py ....................................................... [ 67%]
+..........                                                               [ 79%]
+tests/test_perf.py .................                                     [100%]
 
 
------------------------------------------ benchmark 'Nf=1000': 5 tests ----------------------------------------
-Name (time in ms)                       Min                Mean            StdDev            Rounds  Iterations
----------------------------------------------------------------------------------------------------------------
-test_batched[finufft-1000]           6.8418 (1.0)        7.1821 (1.0)      0.1831 (1.32)         43           1
-test_batched[cufinufft-1000]         7.7027 (1.13)       8.6634 (1.21)     0.9555 (6.89)         74           1
-test_unbatched[finufft-1000]       110.7541 (16.19)    111.0603 (15.46)    0.1387 (1.0)          10           1
-test_unbatched[astropy-1000]       441.2313 (64.49)    441.9655 (61.54)    1.0732 (7.74)          5           1
-test_unbatched[cufinufft-1000]     488.2630 (71.36)    496.0788 (69.07)    6.1908 (44.63)         5           1
----------------------------------------------------------------------------------------------------------------
+------------------------------------ benchmark 'batched_standard Nf=1000': 5 tests -------------------------------------
+Name (time in ms)                                Min                Mean            StdDev            Rounds  Iterations
+------------------------------------------------------------------------------------------------------------------------
+test_batched_standard[cufinufft-1000]         6.1639 (1.0)        6.6860 (1.0)      0.4799 (4.07)         83           1
+test_batched_standard[finufft-1000]          17.5466 (2.85)      26.0489 (3.90)     7.5615 (64.16)        40           1
+test_unbatched_standard[finufft-1000]       140.0611 (22.72)    140.2554 (20.98)    0.1179 (1.0)           8           1
+test_unbatched_standard[astropy-1000]       201.8929 (32.75)    202.0876 (30.23)    0.2012 (1.71)          5           1
+test_unbatched_standard[cufinufft-1000]     300.5980 (48.77)    305.7871 (45.74)    4.1439 (35.16)         5           1
+------------------------------------------------------------------------------------------------------------------------
 
---------------------------------- benchmark 'Nf=10000': 3 tests ----------------------------------
-Name (time in ms)            Min              Mean            StdDev            Rounds  Iterations
---------------------------------------------------------------------------------------------------
-test[finufft-10000]       1.8481 (1.0)      1.8709 (1.0)      0.0347 (1.75)        507           1
-test[cufinufft-10000]     5.1269 (2.77)     5.2052 (2.78)     0.3313 (16.72)       117           1
-test[astropy-10000]       8.1725 (4.42)     8.2176 (4.39)     0.0198 (1.0)         113           1
---------------------------------------------------------------------------------------------------
+----------------------------------------- benchmark 'chi2_nterms4 Nf=10000': 3 tests -----------------------------------------
+Name (time in ms)                                    Min                  Mean            StdDev            Rounds  Iterations
+------------------------------------------------------------------------------------------------------------------------------
+test_chi2_nterms4[cufinufft_chi2-10000]          10.1617 (1.0)         10.2186 (1.0)      0.1002 (2.51)         85           1
+test_chi2_nterms4[finufft_chi2-10000]            11.9403 (1.18)        11.9854 (1.17)     0.0399 (1.0)          78           1
+test_chi2_nterms4[astropy_fastchi2-10000]     9,430.5506 (928.05)   9,437.9781 (923.61)   5.2359 (131.36)        5           1
+------------------------------------------------------------------------------------------------------------------------------
 
------------------------------------ benchmark 'Nf=100000': 3 tests ----------------------------------
-Name (time in ms)              Min               Mean            StdDev            Rounds  Iterations
------------------------------------------------------------------------------------------------------
-test[cufinufft-100000]      5.8566 (1.0)       6.0411 (1.0)      0.7407 (10.61)       159           1
-test[finufft-100000]        6.9766 (1.19)      7.1816 (1.19)     0.0748 (1.07)        132           1
-test[astropy-100000]       47.9246 (8.18)     48.0828 (7.96)     0.0698 (1.0)          19           1
------------------------------------------------------------------------------------------------------
+---------------------------------- benchmark 'standard Nf=10000': 3 tests ---------------------------------
+Name (time in ms)                     Min              Mean            StdDev            Rounds  Iterations
+-----------------------------------------------------------------------------------------------------------
+test_standard[finufft-10000]       2.3321 (1.0)      2.3486 (1.0)      0.0084 (1.0)         391           1
+test_standard[cufinufft-10000]     2.8325 (1.21)     2.8743 (1.22)     0.0229 (2.72)        268           1
+test_standard[astropy-10000]       5.7358 (2.46)     5.7815 (2.46)     0.1054 (12.54)       150           1
+-----------------------------------------------------------------------------------------------------------
 
-------------------------------------- benchmark 'Nf=1000000': 3 tests --------------------------------------
-Name (time in ms)                  Min                  Mean            StdDev            Rounds  Iterations
-------------------------------------------------------------------------------------------------------------
-test[cufinufft-1000000]         8.0038 (1.0)          8.5193 (1.0)      1.3245 (1.62)         84           1
-test[finufft-1000000]          74.9239 (9.36)        76.5690 (8.99)     0.8196 (1.0)          10           1
-test[astropy-1000000]       1,430.4282 (178.72)   1,434.7986 (168.42)   5.5234 (6.74)          5           1
-------------------------------------------------------------------------------------------------------------
+---------------------------------- benchmark 'standard Nf=100000': 3 tests -----------------------------------
+Name (time in ms)                       Min               Mean            StdDev            Rounds  Iterations
+--------------------------------------------------------------------------------------------------------------
+test_standard[cufinufft-100000]      3.6294 (1.0)       3.6634 (1.0)      0.0608 (1.0)         237           1
+test_standard[finufft-100000]        8.0218 (2.21)      8.9424 (2.44)     2.0032 (32.93)        74           1
+test_standard[astropy-100000]       45.1638 (12.44)    45.5427 (12.43)    0.4489 (7.38)         19           1
+--------------------------------------------------------------------------------------------------------------
+
+-------------------------------------- benchmark 'standard Nf=1000000': 3 tests --------------------------------------
+Name (time in ms)                           Min                  Mean             StdDev            Rounds  Iterations
+----------------------------------------------------------------------------------------------------------------------
+test_standard[cufinufft-1000000]         5.5406 (1.0)          5.6519 (1.0)       0.1557 (1.0)         146           1
+test_standard[finufft-1000000]          80.2681 (14.49)       90.6020 (16.03)    11.3134 (72.67)        10           1
+test_standard[astropy-1000000]       1,207.3889 (217.92)   1,210.8376 (214.23)    4.5923 (29.50)         5           1
+----------------------------------------------------------------------------------------------------------------------
 
 Legend:
   Outliers: 1 Standard Deviation from Mean; 1.5 IQR (InterQuartile Range) from 1st Quartile and 3rd Quartile.
   OPS: Operations Per Second, computed as 1 / Mean
-======================================================== 36 passed in 30.81s =========================================================
+======================== 82 passed in 167.49s (0:02:47) ========================
 ```
 
 The results were obtained using 16 cores of an Intel Icelake CPU and 1 NVIDIA A100 GPU.
