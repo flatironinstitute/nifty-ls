@@ -37,3 +37,35 @@ def lombscargle_fastnifty(
         normalization=normalization,
         **lombscargle_kwargs,
     ).power
+
+
+def lombscargle_fastnifty_chi2(
+    t,
+    y,
+    dy,
+    f0,
+    df,
+    Nf,
+    center_data=True,
+    fit_mean=True,
+    normalization='standard',
+    nterms=1,
+    **lombscargle_kwargs,
+):
+    """
+    Use the finufft_chi2 or cufinufft_chi2 backends
+    """
+
+    return lombscargle(
+        t,
+        y,
+        dy,
+        fmin=f0,
+        fmax=f0 + df * (Nf - 1),
+        Nf=Nf,
+        center_data=center_data,
+        fit_mean=fit_mean,
+        normalization=normalization,
+        nterms=nterms,
+        **lombscargle_kwargs,
+    ).power

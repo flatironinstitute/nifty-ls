@@ -8,11 +8,15 @@ description = "A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT."
 readme = "README.md"
 authors = [{ name = "Lehman Garrison" },
            { name = "Dan Foreman-Mackey" },
+           { name = "Yuwei (Peter) Sun" },
            ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 urls = { Homepage = "https://github.com/flatironinstitute.org/nifty-ls" }
-dependencies = ["numpy", "finufft >= 2.3"]
+dependencies = [
+    "numpy",
+    "finufft >= 2.3",
+]
 dynamic = ["version"]
 
 [project.optional-dependencies]
@@ -41,7 +45,7 @@ version_file = "src/nifty_ls/version.py"
 [tool.pytest.ini_options]
 # is there a way to set this in the test script?
 addopts = [
-    "--benchmark-group-by=param:Nf",
+    "--benchmark-group-by=group,param:Nf",
     "--benchmark-disable-gc",
     "--benchmark-columns=min,mean,stddev,rounds,iterations",
     ]
