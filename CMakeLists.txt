@@ -26,6 +26,8 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
 
     target_compile_options(${MODULE_NAME} PRIVATE
         -Wall -Wextra -std=c++17
+        # until next nanobind release
+        -Wno-deprecated-literal-operator-whitespace
     )
 
     if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
