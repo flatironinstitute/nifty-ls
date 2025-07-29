@@ -21,13 +21,14 @@ endif()
 
 set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
 
+# until https://github.com/wjakob/nanobind/pull/1092 is published
+add_compile_options(-Wno-deprecated-literal-operator)
+
 foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI)
 
     target_compile_options(${MODULE_NAME} PRIVATE
         -Wall -Wextra -std=c++17
-        # until next nanobind release
-        -Wno-deprecated-literal-operator-whitespace
     )
 
     if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
