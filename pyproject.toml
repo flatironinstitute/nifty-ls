@@ -46,6 +46,7 @@ addopts = [
     "--benchmark-group-by=group,param:Nf",
     "--benchmark-disable-gc",
     "--benchmark-columns=min,mean,stddev,rounds,iterations",
+    "--benchmark-min-rounds=3",
     ]
 
 [tool.ruff.format]
