@@ -19,34 +19,24 @@ jobs:
       matrix:
         include:
           - label: "linux-target-x86_64"
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - label: "macos-target-x86_64"
             os: macos-13
-            env:
-              CIBW_ARCHS_MACOS: "x86_64"
-            bottle-tag: "monterey"
           - os: macos-14
             label: "macos-target-arm64"
-            env:
-              CIBW_ARCHS_MACOS: "arm64"
-            bottle-tag: "arm64_monterey"
 
     env:
       # All the MacOS logic is adapted directly from finufft
       CIBW_ENVIRONMENT_MACOS: >
-        CC=gcc-14
-        CXX=g++-14
-        MACOSX_DEPLOYMENT_TARGET=12
-      CIBW_ARCHS_MACOS: ${{ matrix.env.CIBW_ARCHS_MACOS }}
+        CC=$(brew --prefix llvm)/bin/clang
+        CXX=$(brew --prefix llvm)/bin/clang++
+        CFLAGS="-I$(brew --prefix libomp)/include"
+        LDFLAGS="-L$(brew --prefix libomp)/lib"
+        MACOSX_DEPLOYMENT_TARGET=${{ matrix.os == 'macos-14' && '14' || '13' }}
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true cmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON"
       CIBW_BUILD_VERBOSITY: 1
       CIBW_BEFORE_ALL_MACOS: |
-        brew uninstall gcc
-        pkg=$(brew fetch --force --bottle-tag=${{ matrix.bottle-tag }} gcc | grep 'Downloaded to' | cut -d' ' -f3)
-        brew install $pkg
-
-        pkg=$(brew fetch --force --bottle-tag=${{ matrix.bottle-tag }} fftw | grep 'Downloaded to' | cut -d' ' -f3)
-        brew install $pkg
+        brew install llvm libomp
 
     steps:
       - uses: actions/checkout@v4
@@ -75,10 +65,14 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "0.8.3"
+
     - name: Build SDist
       run: |
-        pip install -vU build
-        python -m build --sdist
+        uv build --sdist
 
     - uses: actions/upload-artifact@v4
       with:

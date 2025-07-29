@@ -54,21 +54,22 @@ docstring-code-format = true
 
 [tool.cibuildwheel]
 archs = "auto64"
+build-frontend = "build[uv]"
 test-command = "pytest -s --benchmark-skip {project}/tests"
-test-extras = "test"
+test-groups = "test"
 skip = "pp* *-musllinux_*"
 
 [tool.cibuildwheel.linux]
 repair-wheel-command = [
   "auditwheel repair -w {dest_dir} {wheel}",
   # run abi3audit on wheels tagged with abi3
-  'case "$(basename {wheel})" in *"-abi3-"*) pip install -U abi3audit && abi3audit --strict --report {wheel};; esac',
+  'case "$(basename {wheel})" in *"-abi3-"*) uvx abi3audit --strict --report {wheel};; esac',
 ]
 
 [tool.cibuildwheel.macos]
 repair-wheel-command = [
   'delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}',
-  'case "$(basename {wheel})" in *"-abi3-"*) pip install -U abi3audit && abi3audit --strict --report {wheel};; esac',
+  'case "$(basename {wheel})" in *"-abi3-"*) uvx abi3audit --strict --report {wheel};; esac',
 ]
 
 [dependency-groups]
@@ -77,7 +78,7 @@ dev = [
     {include-group = "test"}
 ]
 test = [
-    "astropy>=7.1.0",
+    "astropy>=6",
     "pytest>=8.4.1",
     "pytest-benchmark>=5.1.0",
 ]
