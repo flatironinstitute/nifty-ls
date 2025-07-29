@@ -36,10 +36,10 @@ The complex and real parts of this transform are Press & Rybicki's $S_k$ and $C_
 
 There is some pre- and post-processing of $S_k$ and $C_k$ to compute the periodogram, which can become the bottleneck because finufft is so fast. This package also optimizes and parallelizes those computations.
 
-### Chi-Square/Fast Chi-Square Method
-To maintain efficiency while identifying more complex patterns, such as multiple fourier terms (`nterms > 1`), the [Fast Chi-squared Technique](https://arxiv.org/abs/0901.1913) were introduced. This method extend the traditional Lomb-Scargle approach by constructing matrix algebra using an FFT-based approach. 
+### Fast $\chi^2$ Method (`nterms > 1`)
+[Palmer (2009)](https://ui.adsabs.harvard.edu/abs/2009ApJ...695..496P/abstract) extends the Lomb-Scargle model with a specified number of harmonics (called `nterms` in [Astropy](https://docs.astropy.org/en/v7.1.0/timeseries/lombscargle.html#additional-arguments)). This is implemented as a $\chi^2$ minimization at each frequency, requiring solving $N$ small matrix systems. This method is also amenable to FINUFFT acceleration, as the terms in these matrices can be computed with a NUFFT.
 
-Based on the profiler’s results, matrix assembly and linear‐algebra solvers emerged as the primary bottlenecks of chi-square method. To align with FINUFFT’s speed, these routines and other computational steps have been optimized and parallelized.
+Because FINUFFT is so fast, the matrix assembly and linear‐algebra solve can be the primary bottlenecks of the fast $\chi^2$ method. These routines and other computational steps have been optimized and parallelized in nifty-ls.
 
 ## Installation
 ### From PyPI
@@ -100,7 +100,7 @@ follow the Python installation instructions for
 [finufft](https://finufft.readthedocs.io/en/latest/install.html#building-a-python-interface-to-a-locally-compiled-library)
 and
 [cufinufft](https://finufft.readthedocs.io/en/latest/install_gpu.html#python-interface),
-configuring the libraries as desired.
+configuring the libraries as desired. Note that (cu)finufft is not bundled with nifty-ls, but is instead used through its Python interface.
 
 nifty-ls can likewise be built from source following the instructions above for
 best performance, but most of the heavy computations are offloaded to (cu)finufft,
@@ -116,7 +116,12 @@ of the fast family of methods that assume a regularly-spaced frequency grid.
 import nifty_ls
 from astropy.timeseries import LombScargle
 frequency, power = LombScargle(t, y).autopower(method="fastnifty")
-frequency_chi2, power_chi2 = LombScargle(t, y, nterms=nterms).autopower(method="fastnifty_chi2")
+```
+
+For `nterms > 1`, pass the `"fastnifty_chi2"` method:
+
+```python
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=2).autopower(method="fastnifty_chi2")
 ```
 
 <details>
@@ -148,7 +153,7 @@ plt.ylabel('Power')
 plt.title('Single Component Signal')
 plt.legend()
 
-# Plot 2: Two component signals with chi2
+# Plot 2: Two component signal with chi2
 plt.subplot(1, 2, 2)
 plt.plot(frequency_chi2, power_chi2, label='nifty-ls Chi2 (multi-component)', color='red')
 plt.xlabel('Frequency (cycles per unit time)')
@@ -165,7 +170,12 @@ To use the CUDA (cufinufft) backend, pass the appropriate argument via `method_k
 
 ```python
 frequency, power = LombScargle(t, y).autopower(method="fastnifty", method_kws=dict(backend="cufinufft"))
-frequency_chi2, power_chi2 = LombScargle(t, y, nterms=nterms).autopower(method="fastnifty_chi2", method_kws=dict(backend="cufinufft_chi2"))
+```
+
+Likewise, for `nterms > 1`:
+
+```python
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=2).autopower(method="fastnifty_chi2", method_kws=dict(backend="cufinufft_chi2"))
 ```
 
 In many cases, accelerating your periodogram is as simple as setting the `method`
@@ -293,25 +303,27 @@ Using 16 cores of an Intel Icelake CPU and a NVIDIA A100 GPU, we obtain the foll
 
 ![benchmarks](bench.png)
 
-In this case, finufft is 5x faster (11x with threads) than Astropy for large transforms, and 2x faster for (very) small transforms.  Small transforms improve futher relative to Astropy with more frequency bins. (Dynamic multi-threaded dispatch of transforms is planned as a future feature which will especially benefit small $N$.)
+In this case, finufft is 5× faster (11× with threads) than Astropy for large transforms, and 2× faster for (very) small transforms.  Small transforms improve futher relative to Astropy with more frequency bins. (Dynamic multi-threaded dispatch of transforms is planned as a future feature which will especially benefit small $N$.)
 
-cufinufft is 200x faster than Astropy for large $N$! The performance plateaus towards small $N$, mostly due to the overhead of sending data to the GPU and fetching the result. (Concurrent job execution on the GPU is another planned feature, which will especially help small $N$.)
+cufinufft is 200× faster than Astropy for large $N$! The performance plateaus towards small $N$, mostly due to the overhead of sending data to the GPU and fetching the result. (Concurrent job execution on the GPU is another planned feature, which will especially help small $N$.)
 
-Similar performance trends are observed for the chi-square method using the same hardware configuration (16 cores of an Intel Icelake CPU and an NVIDIA A100 GPU). The following results use `nterms=4` as an example:
+Similar performance trends are observed for the $\chi^2$ method. The following results use `nterms=4` as an example:
 
 ![benchmarks](bench_chi2.png)
 
-In this case, finufft is 100× faster than Astropy's `fastchi2` method, and 300× faster with multi-threading enabled. cufinufft achieves an impressive 5600× speedup over Astropy for large $N$! However, it suffers from similar overhead for small $N$ due to data transfer costs between CPU and GPU.
+In this case, finufft is 100× faster than Astropy's `fastchi2` method, and 300× faster with multi-threading enabled. cufinufft achieves an impressive 5600× speedup over Astropy for large $N$! However, it suffers from similar overhead for small $N$ due to data transfer costs between CPU and GPU. The performance gain being larger for the $\chi^2$ method than the standard method is partially due to the greater number of NUFFTs in this method, and partially due to the large number of small matrix operations, which nifty-ls accelerates.
 
 The following demonstrates "batch mode", in which 10 periodograms are computed from 10 different time series with the same observation times:
 
 ![batched benchmarks](bench_batch.png)
 
-Here, the finufft single-threaded advantage is consistently 6x across problem sizes, while the multi-threaded advantage is up to 30x for large transforms.
+Here, the finufft single-threaded advantage is consistently 6× across problem sizes, while the multi-threaded advantage is up to 30× for large transforms.
 
-The 200x advantage of the GPU extends to even smaller $N$ in this case, since we're sending and receiving more data at once.
+The 200× advantage of the GPU extends to even smaller $N$ in this case, since we're sending and receiving more data at once.
 
 We see that both multi-threaded finufft and cufinufft particularly benefit from batched transforms, as this exposes more parallelism and amortizes fixed latencies.
+
+<!-- FUTURE: move to a readthedocs page and include the following performance plot
 
 In contrast, the following shows "batch mode" performance for the chi-squared method under the same setting and `nterms=4`:
 
@@ -321,7 +333,7 @@ Compared to the standard finufft method, the chi-squared method shows less singl
 
 Nevertheless, multi-threaded execution achieves up to a 430× speedup, owing to the fact that computations at each frequency are independent and can be efficiently parallelized across threads.
 
-However, due to GPU memory limitations, running cufinufft with a large batch size and number of data points (batch_size>=10 and N>=1000_000) will results in a CUDA out-of-memory error.
+However, due to GPU memory limitations, running cufinufft with a large batch size and number of data points (batch_size>=10 and N>=1000_000) will results in a CUDA out-of-memory error. -->
 
 We use `FFTW_MEASURE` for finufft in these benchmarks, which improves performance a few tens of percents.
 
@@ -335,7 +347,7 @@ density.
 
 
 ## Accuracy
-While we compared performance with Astropy's Fast Fourier-based methods such as `fast` and `fastchi2`, this isn't quite fair. nifty-ls is much more accurate than Astropy `fast` and `fastchi2`!  Astropy's Fast Fourier-based methods uses Press & Rybicki's extirpolation approximation, trading accuracy for speed, but thanks to finufft, nifty-ls can have both.
+While we compared performance with Astropy's `fast` and `fastchi2` methods, this isn't quite fair. nifty-ls is much more accurate than Astropy `fast` and `fastchi2`!  These Astropy methods use Press & Rybicki's extirpolation approximation, trading accuracy for speed, but thanks to finufft, nifty-ls can have both.
 
 In the figure below, we plot the median periodogram error in circles and the 99th percentile error in triangles for astropy, finufft, and cufinufft for a range of $N$ (and default $N_F \approx 12N$).
 
@@ -343,24 +355,25 @@ The astropy result is presented for two cases: a nominal case and a "worst case"
 
 ![](accuracy.png)
 
-The reference result in the above figure comes from the "phase winding" method, which uses trigonometric identities to avoid expensive sin and cos evaluations. As showing below, one can also use astropy's `fast` method or `fastchi2` method as a reference with exact evaluation enabled via `use_fft=False`. One finds the same result, but the phase winding is a few orders of magnitude faster (but still not competitive with finufft).
+Errors of $\mathcal{O}(10\%)$ or greater are common with worst-case evaluations. Errors of $\mathcal{O}(1\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
+
+The reference result in the above figure comes from the "phase winding" method, which uses trigonometric identities to avoid expensive sin and cos evaluations. One can also use astropy's `fast` method or `fastchi2` method as a reference with exact evaluation enabled via `use_fft=False`, and one finds the same result. The phase winding is used because it is a few orders of magnitude faster (but still not competitive with finufft).
+
+The following shows a similar accuracy comparison for the $\chi^2$ variants, finding similar results:
 
 ![](accuracy_chi2.png)
 
-The diagram show a similar accuracy comparison for the chi-squared variants: astropy_fastchi2, finufft_chi2, and cufinufft_chi2.
-
-Errors of $\mathcal{O}(10\\%)$ or greater are common with worst-case evaluations. Errors of $\mathcal{O}(1\\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
-
 In summary, nifty-ls is highly accurate while also giving high performance.
 
+### Numerics
 
-### float32 vs float64
-While 32-bit floats deliver a substantial speedup for CPU routines (finufft/finufft_chi2) and GPU routines (cufinufft/cufinufft_chi2), we generally don't recommend their use for Lomb-Scargle. The reason is the challenging [condition number](https://en.wikipedia.org/wiki/Condition_number) of the problem.  The condition number is the response in the output to a small perturbation in the input—in other words, the derivative. [It can easily be shown](https://finufft.readthedocs.io/en/latest/trouble.html) that the derivative of a NUFFT with respect to the non-uniform points is proportional to $N$, the transform length (i.e. the number of modes). In other words, errors in the observation times are amplified by $\mathcal{O}(N)$.  Since float32 has a relative error of $\mathcal{O}(10^{-7})$, transforms of length $10^5$ already suffer $\mathcal{O}(1\\%)$ error. Therefore, we focus on float64 in nifty-ls, but float32 is also natively supported by all backends for adventurous users.
+#### float32 vs float64
+While 32-bit floats provide a substantial speedup for finufft and cufinufft, we generally don't recommend their use for Lomb-Scargle. The reason is the challenging [condition number](https://en.wikipedia.org/wiki/Condition_number) of the problem.  The condition number is the response in the output to a small perturbation in the input—in other words, the derivative. [It can easily be shown](https://finufft.readthedocs.io/en/latest/trouble.html) that the derivative of a NUFFT with respect to the non-uniform points is proportional to $N$, the transform length (i.e. the number of modes). In other words, errors in the observation times are amplified by $\mathcal{O}(N)$.  Since float32 has a relative error of $\mathcal{O}(10^{-7})$, transforms of length $10^5$ already suffer $\mathcal{O}(1\%)$ error. Therefore, we focus on float64 in nifty-ls, but float32 is also natively supported by all backends for adventurous users.
 
 The condition number is also a likely contributor to the mild upward trend in error versus $N$ in the above figure, at least for finufft/cufinufft. With a relative error of $\mathcal{O}(10^{-16})$ for float64 and a transform length of $\mathcal{O}(10^{6})$, the minimum error is $\mathcal{O}(10^{-10})$.
 
-### Numerical Instability
-TODO
+#### Fast $\chi^2$ matrix condition number
+In the $\chi^2$ backends with `nterms > 1`, users should be aware that the first few modes tend to have ill-conditioned matrices, especially when using the default frequency grid. Each matrix represents a Fourier mode and its `nterms` harmonics, and the loss of conditioning appears to represent a loss of linear independence between the harmonics because the default minimum frequency (inherited from Astropy) is so low. In other words, the harmonics are not picking up appreciably different power across the signal. Solving for the harmonic amplitudes is thus under-constrained, which can amplify differences between nifty-ls and Astropy. Most users will not notice this unless directly comparing Astropy and nifty-ls periodograms, but if you encounter this, consider using fewer `nterms` or a higher minimum frequency.
 
 ## Testing
 First, install from source (`pip install .[test]`). Then, from the repo root, run:
