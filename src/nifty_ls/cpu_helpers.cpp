@@ -12,11 +12,11 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/complex.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-
 #include "cpu_helpers.hpp"
 using cpu_helpers::NormKind;
+
+#ifdef _OPENMP
+#include <omp.h>
 
 // Declare a reduction for std::vector<double> using std::transform
 #pragma omp declare reduction(                                \
