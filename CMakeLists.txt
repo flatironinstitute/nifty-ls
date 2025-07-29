@@ -32,7 +32,12 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     )
 
     if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
-        target_compile_options(${MODULE_NAME} PRIVATE -Ofast)
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            set(OPT_VARS -O3 -ffast-math)
+        else()
+            set(OPT_VARS -Ofast)
+        endif()
+        target_compile_options(${MODULE_NAME} PRIVATE ${OPT_VARS})
     endif()
 
     if (OpenMP_CXX_FOUND)
