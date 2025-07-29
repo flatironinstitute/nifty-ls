@@ -80,8 +80,8 @@ or `.[cuda11]` for CUDA 11.
 
 For development (with automatic rebuilds enabled by default in `pyproject.toml`):
 ```console
-$ pip install nanobind scikit-build-core setuptools_scm
-$ pip install -e .[test] --no-build-isolation
+$ pip install nanobind scikit-build-core setuptools_scm ninja
+$ pip install -e . --group dev --no-build-isolation
 ```
 
 Developers may also be interested in setting these keys in `pyproject.toml`:
@@ -376,10 +376,16 @@ The condition number is also a likely contributor to the mild upward trend in er
 In the $\chi^2$ backends with `nterms > 1`, users should be aware that the first few modes tend to have ill-conditioned matrices, especially when using the default frequency grid. Each matrix represents a Fourier mode and its `nterms` harmonics, and the loss of conditioning appears to represent a loss of linear independence between the harmonics because the default minimum frequency (inherited from Astropy) is so low. In other words, the harmonics are not picking up appreciably different power across the signal. Solving for the harmonic amplitudes is thus under-constrained, which can amplify differences between nifty-ls and Astropy. Most users will not notice this unless directly comparing Astropy and nifty-ls periodograms, but if you encounter this, consider using fewer `nterms` or a higher minimum frequency.
 
 ## Testing
-First, install from source (`pip install .[test]`). Then, from the repo root, run:
+First, install from source (`pip install . --group test`). Then, from the repo root, run:
 
 ```console
 $ pytest
+```
+
+Or, with uv, the previous steps can be combined as:
+
+```console
+$ uv run pytest
 ```
 
 The tests are defined in the `tests/` directory, and include a mini-benchmark of
