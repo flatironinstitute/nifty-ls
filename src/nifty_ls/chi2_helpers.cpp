@@ -199,6 +199,10 @@ void compute_t(
    nifty_arr_2d<Complex<Scalar>> &yw_w_s_out,
    int nthreads
 ) {
+#ifndef _OPENMP
+    (void) nthreads;
+#endif
+
     auto t1             = t1_.view();         // input length-N array
     auto yw_w           = yw_w_.view();       // input with 2*Nbatch × N size
     auto tn             = tn_out.view();      // output
