@@ -44,5 +44,10 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
         target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
     endif()
 
+    if(APPLE)
+        # On macOS, use flat namespace to avoid duplicate initialization of libomp
+        target_link_options(${MODULE_NAME} PRIVATE -Wl,-flat_namespace)
+    endif()
+
     install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION nifty_ls)
 endforeach()
