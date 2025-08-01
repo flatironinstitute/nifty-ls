@@ -56,6 +56,7 @@ docstring-code-format = true
 [tool.cibuildwheel]
 archs = "auto64"
 build-frontend = "build[uv]"
+enable = "cpython-freethreading"
 test-command = "pytest -s --benchmark-skip {project}/tests"
 test-groups = "test"
 skip = "pp* *-musllinux_*"
