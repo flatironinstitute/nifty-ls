@@ -45,7 +45,7 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS'  # macos doesn't run in a container and uses external uv
         with:
           version: "0.8.3"
 

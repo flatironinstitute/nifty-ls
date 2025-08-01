@@ -25,7 +25,7 @@ set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
 add_compile_options(-Wno-deprecated-literal-operator)
 
 foreach(MODULE_NAME ${NIFTY_LS_MODULES})
-    nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI)
+    nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI FREE_THREADED)
 
     target_compile_options(${MODULE_NAME} PRIVATE
         -Wall -Wextra -std=c++17
