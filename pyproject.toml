@@ -80,6 +80,9 @@ dev = [
 ]
 test = [
     "astropy>=6",
+    {include-group = "test-freethreaded"},
+]
+test-freethreaded = [
     "pytest>=8.4.1",
     "pytest-benchmark>=5.1.0",
 ]

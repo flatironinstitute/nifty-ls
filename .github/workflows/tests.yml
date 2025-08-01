@@ -30,6 +30,8 @@ jobs:
             python-version: "3.14"
           - os: macos-14
             python-version: "3.13"
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -38,6 +40,7 @@ jobs:
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
+      id: setup-python
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
@@ -55,7 +58,7 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
       with:
-        version: "0.8.3"
+        version: "0.8.4"
 
     - name: Install from source
       run: |
@@ -66,3 +69,11 @@ jobs:
     - name: Run tests
       run: |
         uv run pytest -vs
+
+    - name: Run free-threaded tests
+      if: endsWith(matrix.python-version, 't')
+      env:
+        NIFTY_LS_FORCE_FREETHREADED_TEST: 1
+      run: |
+        # Needs special treatment to only load nogil-compatible packages
+        uv run --no-dev --exact --group test-freethreaded pytest -xs tests/test_freethreaded.py

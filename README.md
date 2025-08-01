@@ -287,8 +287,74 @@ Note that this computes multiple periodograms simultaneously on a set of time
 series with the same observation times.  This approach is particularly efficient
 for short time series, and/or when using the GPU.
 
-Support for batching multiple time series with distinct observation times is
-not currently implemented, but is planned.
+Batching multiple time series with distinct observation times is not directly supported
+currently, but a similar effect can be achieved with [free-threaded Python](#free-threaded-parallelism).
+
+### Free-Threaded Parallelism
+nifty-ls supports [free-threaded Python](https://docs.python.org/3/howto/free-threading-python.html)
+since version 1.1.0. With a free-threaded build of Python, efficient parallelism over many time
+series with distinct observation times can be achieved with:
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+with ThreadPoolExecutor(max_workers=nthreads) as executor:
+    futures = [
+        executor.submit(nifty_ls.lombscargle, t, y, nthreads=1) for (t,y) in zip(t_values, y_values)
+    ]
+results = [future.result() for future in futures]
+```
+
+<details>
+<summary>Full example</summary>
+
+```python
+import concurrent.futures
+
+import matplotlib.pyplot as plt
+import nifty_ls
+import numpy as np
+
+N_periodograms = 200
+N_points_poisson = 10000
+python_threads = 32  # "None" will use all CPUs
+rng = np.random.default_rng(42)
+
+t_values = []
+y_values = []
+frequencies = rng.uniform(0.1, 100.0, size=N_periodograms)
+
+for i in range(N_periodograms):
+    n_points = rng.poisson(N_points_poisson)
+    t = np.sort(rng.uniform(0, 100, size=n_points))
+    y = np.sin(2 * np.pi * frequencies[i] * t) + 0.1 * rng.normal(size=n_points)
+    t_values.append(t)
+    y_values.append(y)
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=python_threads) as executor:
+    futures = [
+        executor.submit(nifty_ls.lombscargle, t, y, nthreads=1) for (t,y) in zip(t_values, y_values)
+    ]
+
+results = [future.result() for future in futures]
+
+fig, axes = plt.subplots(N_periodograms, 1, figsize=(6, 2 * N_periodograms), constrained_layout=True)
+for i in range(N_periodograms):
+    axes[i].plot(results[i].freq(), results[i].power)
+    axes[i].set_title(f"Periodogram {i + 1}")
+    axes[i].set_xlabel("Frequency")
+    axes[i].set_ylabel("Power")
+
+plt.show()
+plt.savefig("periodograms.png", dpi=300, bbox_inches="tight")
+```
+</details>
+
+This approach allows you to compute multiple heterogeneous periodograms in parallel. A similar effect can be achieved with multiple processes, but this is less efficient due to the overhead of inter-process communication.
+
+Astropy (as of version 7.1.0) does not support free-threaded Python, however. Be alert for messages printed to the interpreter that free threading is disabled due to Astropy, and remove Astropy from your environment if necessary.
+
+Note that each nifty-ls computation may use multiple OpenMP threads internally. To avoid spawning too many threads, we recommend setting `nthreads=1` in the call to nifty-ls.
 
 
 ### Limitations
