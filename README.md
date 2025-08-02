@@ -349,7 +349,6 @@ for i in range(N_periodograms):
     axes[i].set_ylabel("Power")
 
 plt.show()
-plt.savefig("periodograms.png", dpi=300, bbox_inches="tight")
 ```
 </details>
 
@@ -370,7 +369,7 @@ but please open a GitHub issue if this is of interest to you.
 
 Using 16 cores of an Intel Icelake CPU and a NVIDIA A100 GPU, we obtain the following performance. First, we'll look at results from a single periodogram (i.e. unbatched):
 
-![benchmarks](bench.png)
+![benchmarks](doc/bench.png)
 
 In this case, finufft is 5× faster (11× with threads) than Astropy for large transforms, and 2× faster for (very) small transforms.  Small transforms improve futher relative to Astropy with more frequency bins. (Dynamic multi-threaded dispatch of transforms is planned as a future feature which will especially benefit small $N$.)
 
@@ -378,13 +377,13 @@ cufinufft is 200× faster than Astropy for large $N$! The performance plateaus t
 
 Similar performance trends are observed for the $\chi^2$ method. The following results use `nterms=4` as an example:
 
-![benchmarks](bench_chi2.png)
+![benchmarks](doc/bench_chi2.png)
 
 In this case, finufft is 100× faster than Astropy's `fastchi2` method, and 300× faster with multi-threading enabled. cufinufft achieves an impressive 5600× speedup over Astropy for large $N$! However, it suffers from similar overhead for small $N$ due to data transfer costs between CPU and GPU. The performance gain being larger for the $\chi^2$ method than the standard method is partially due to the greater number of NUFFTs in this method, and partially due to the large number of small matrix operations, which nifty-ls accelerates.
 
 The following demonstrates "batch mode", in which 10 periodograms are computed from 10 different time series with the same observation times:
 
-![batched benchmarks](bench_batch.png)
+![batched benchmarks](doc/bench_batch.png)
 
 Here, the finufft single-threaded advantage is consistently 6× across problem sizes, while the multi-threaded advantage is up to 30× for large transforms.
 
@@ -396,7 +395,7 @@ We see that both multi-threaded finufft and cufinufft particularly benefit from 
 
 In contrast, the following shows "batch mode" performance for the chi-squared method under the same setting and `nterms=4`:
 
-![batched benchmarks](bench_chi2_batch.png)
+![batched benchmarks](doc/bench_chi2_batch.png)
 
 Compared to the standard finufft method, the chi-squared method shows less single-thread performance gain when scaling from a single batch to multiple batches. This is because its primary bottlenecks lie in data processing tasks like matrix construction and solving linear systems, rather than the NUFFT transform itself. 
 
@@ -422,7 +421,7 @@ In the figure below, we plot the median periodogram error in circles and the 99t
 
 The astropy result is presented for two cases: a nominal case and a "worst case". Internally, astropy uses an FFT grid whose size is the next power of 2 above the target oversampling rate. Each jump to a new power of 2 typically yields an increase in accuracy. The "worst case", therefore, is the highest frequency that does not yield such a jump.
 
-![](accuracy.png)
+![](doc/accuracy.png)
 
 Errors of $\mathcal{O}(10\%)$ or greater are common with worst-case evaluations. Errors of $\mathcal{O}(1\%)$ or greater are common in typical evaluations. nifty-ls is conservatively 6 orders of magnitude more accurate.
 
@@ -430,7 +429,7 @@ The reference result in the above figure comes from the "phase winding" method, 
 
 The following shows a similar accuracy comparison for the $\chi^2$ variants, finding similar results:
 
-![](accuracy_chi2.png)
+![](doc/accuracy_chi2.png)
 
 In summary, nifty-ls is highly accurate while also giving high performance.
 
