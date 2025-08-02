@@ -58,6 +58,8 @@ $ pip install nifty-ls[cuda]
 The default is to install with CUDA 12 support; one can use `nifty-ls[cuda11]` instead for CUDA 11 support (installs `cupy-cuda11x`).
 
 ### From source
+The main requirement for a source build is a C++17 compiler.
+
 First, clone the repo and `cd` to the repo root:
 ```console
 $ git clone https://www.github.com/flatironinstitute/nifty-ls
@@ -76,7 +78,8 @@ To install with GPU (CUDA) support:
 $ pip install .[cuda]
 ```
 
-or `.[cuda11]` for CUDA 11.
+or `.[cuda11]` for CUDA 11. CUDA support is provided by cupy and cufinufft; nifty-ls does not have
+its own CUDA requirements.
 
 For development (with automatic rebuilds enabled by default in `pyproject.toml`):
 ```console
@@ -293,7 +296,7 @@ currently, but a similar effect can be achieved with [free-threaded Python](#fre
 ### Free-Threaded Parallelism
 nifty-ls supports [free-threaded Python](https://docs.python.org/3/howto/free-threading-python.html)
 since version 1.1.0. With a free-threaded build of Python, efficient parallelism over many time
-series with distinct observation times can be achieved with:
+series with distinct observation times can be achieved with Python threads. For example:
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
@@ -529,7 +532,9 @@ depend on the Numpy distribution you have installed and its trig function perfor
 nifty-ls was originally implemented by [Lehman Garrison](https://github.com/lgarrison)
 based on work done by [Dan Foreman-Mackey](https://github.com/dfm) in the
 [dfm/nufft-ls](https://github.com/dfm/nufft-ls) repo, with consulting from
-[Alex Barnett](https://github.com/ahbarnett).
+[Alex Barnett](https://github.com/ahbarnett). [Yuwei (Peter) Sun](https://github.com/YuWei-CH)
+added the chi2 functionality.
+
 
 ## Citation
 If you use nifty-ls in an academic work, please cite our RNAAS research note:
