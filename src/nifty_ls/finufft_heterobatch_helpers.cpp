@@ -324,7 +324,7 @@ void process_hetero_batch(
     }
 }
 
-NB_MODULE(heterobatch_helpers, m) {
+NB_MODULE(finufft_heterobatch_helpers, m) {
     m.def(
        "process_hetero_batch",
        &process_hetero_batch<float>,

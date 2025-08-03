@@ -4,7 +4,7 @@ __all__ = ['lombscargle_heterobatch', 'FFTW_MEASURE', 'FFTW_ESTIMATE']
 
 import numpy as np
 
-from nifty_ls.heterobatch_helpers import process_hetero_batch
+from nifty_ls.finufft_heterobatch_helpers import process_hetero_batch
 from nifty_ls.finufft import FFTW_ESTIMATE, FFTW_MEASURE
 from .utils import same_dtype_or_raise
 from .finufft import get_finufft_max_threads
