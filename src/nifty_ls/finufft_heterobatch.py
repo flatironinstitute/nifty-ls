@@ -9,28 +9,29 @@ from nifty_ls.finufft import FFTW_ESTIMATE, FFTW_MEASURE
 from .utils import same_dtype_or_raise
 from .finufft import get_finufft_max_threads
 
+
 def lombscargle_heterobatch(
-        t_list,
-        y_list,
-        fmin_list,
-        df_list,
-        Nf_list,
-        dy_list = None,
-        nthreads = None,
-        center_data = True,
-        fit_mean = True,
-        normalization = 'standard',
-        eps = 'default',
-        upsampfac = 1.25,
-        fftw = FFTW_ESTIMATE,
-        verbose = False
+    t_list,
+    y_list,
+    fmin_list,
+    df_list,
+    Nf_list,
+    dy_list=None,
+    nthreads=None,
+    center_data=True,
+    fit_mean=True,
+    normalization='standard',
+    eps='default',
+    upsampfac=1.25,
+    fftw=FFTW_ESTIMATE,
+    verbose=False,
 ):
     """
     Compute multiple series of Lomb-Scargle periodogram, or a batch of periodograms if `y` and `dy` are 2D arrays.
 
-    This function can dispatch to multiple backends, including 'finufft_heterobatch'. Plan to implement CUDA 
+    This function can dispatch to multiple backends, including 'finufft_heterobatch'. Plan to implement CUDA
     version latter.
-    
+
     The result is a `NiftyHeteroBatchResult` dataclass containing the computed periodogram(s), frequency grid parameters,
     and other metadata. The actual frequency grid can be obtained by calling `freq()` on the result.
 
@@ -43,7 +44,7 @@ def lombscargle_heterobatch(
         The time values, shape (N_series, N_d_i) for i in [0..N_series-1]
     y_list : List of array-like
         The data values, shape (N_series, N_t_i) or (N_series, N_y, N_t_i)
-        for i in [0..N_series-1]. 
+        for i in [0..N_series-1].
     fmin_list : List of float, optional
         The minimum frequency of the periodogram. If not provided, it will be chosen automatically.
     df_list : List of float, optional
@@ -66,7 +67,7 @@ def lombscargle_heterobatch(
         The upsampling factor for the FFT used in FINUFFT. Larger values improve accuracy at the cost of speed.
         Default is 1.25.
     fftw : int, optional
-        The FFTW planning flag to use. Options are FFTW_ESTIMATE (faster planning, slower FFT) 
+        The FFTW planning flag to use. Options are FFTW_ESTIMATE (faster planning, slower FFT)
         or FFTW_MEASURE (slower planning, faster FFT). Default is FFTW_ESTIMATE.
     verbose : bool, optional
         Whether to print verbose output during computation. Default is False.
@@ -78,7 +79,7 @@ def lombscargle_heterobatch(
         The fields are 'powers', 'fmin', 'df', 'Nf', and 'fmax'.
         `nifty_result.powers` will be an ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
     """
-    
+
     # Use max threads
     if nthreads is None:
         nthreads = get_finufft_max_threads()
@@ -88,7 +89,7 @@ def lombscargle_heterobatch(
 
     # Verify variable size, dtype
     if len(y_list) != N_series:
-        raise ValueError(f'Time series(t), observation(y) should have same length')
+        raise ValueError('Time series(t), observation(y) should have same length')
     if dy_list:
         if np.isscalar(dy_list):
             dy_list = [np.atleast_2d(dy_list)] * N_series
@@ -97,10 +98,11 @@ def lombscargle_heterobatch(
                 dy_list[i] = np.atleast_2d(dy_list[i]) * N_series
             # TODO: Move nonetype handler to here
         if len(dy_list) != N_series:
-            raise ValueError(f'Time series(t), observation(y) should have same length')
+            raise ValueError('Time series(t), observation(y) should have same length')
     for i in range(N_series):
-        same_dtype_or_raise(t=t_list[i], y=y_list[i], 
-                            dy=dy_list[i] if dy_list else dy_list)
+        same_dtype_or_raise(
+            t=t_list[i], y=y_list[i], dy=dy_list[i] if dy_list else dy_list
+        )
     dtype = t_list[0].dtype
 
     if eps == 'default':
@@ -108,7 +110,7 @@ def lombscargle_heterobatch(
             eps = 1e-5
         else:
             eps = 1e-9
-    
+
     # Pre-allocate space for powers
     powers = []
     for i in range(len(t_list)):
@@ -117,21 +119,21 @@ def lombscargle_heterobatch(
 
     # Call C++ function
     process_hetero_batch(
-            t_list,
-            y_list,
-            dy_list,
-            fmin_list,
-            df_list,
-            Nf_list,
-            powers,
-            normalization,
-            nthreads,
-            center_data,
-            fit_mean,
-            eps,
-            upsampfac,
-            fftw,
-            verbose
-        )
-    
+        t_list,
+        y_list,
+        dy_list,
+        fmin_list,
+        df_list,
+        Nf_list,
+        powers,
+        normalization,
+        nthreads,
+        center_data,
+        fit_mean,
+        eps,
+        upsampfac,
+        fftw,
+        verbose,
+    )
+
     return powers

@@ -10,7 +10,12 @@ import numpy.typing as npt
 from typing import List
 
 from . import utils
-from .backends import available_backends, BACKEND_TYPE, HETEROBATCH_BACKEND_TYPE, HETEROBATCH_BACKEND_NAMES
+from .backends import (
+    available_backends,
+    BACKEND_TYPE,
+    HETEROBATCH_BACKEND_TYPE,
+    HETEROBATCH_BACKEND_NAMES,
+)
 
 __all__ = [
     'lombscargle',
@@ -23,7 +28,9 @@ __all__ = [
 
 
 AVAILABLE_BACKENDS = available_backends()
-AVAILABLE_HETEROBATCH_BACKENDS = available_backends(backend_names=HETEROBATCH_BACKEND_NAMES)
+AVAILABLE_HETEROBATCH_BACKENDS = available_backends(
+    backend_names=HETEROBATCH_BACKEND_NAMES
+)
 NORMALIZATION_TYPE = Literal['standard', 'model', 'log', 'psd']
 
 
@@ -181,7 +188,7 @@ def lombscargle_heterobatch(
     t_list: List[npt.NDArray[np.floating]],
     y_list: List[npt.NDArray[np.floating]],
     dy_list: Optional[List[npt.NDArray[np.floating]]] = None,
-    fmin_list:Optional[List[float]] = None,
+    fmin_list: Optional[List[float]] = None,
     fmax_list: Optional[List[float]] = None,
     Nf_list: Optional[List[float]] = None,
     center_data: bool = True,
@@ -197,9 +204,9 @@ def lombscargle_heterobatch(
     """
     Compute multiple series of Lomb-Scargle periodogram, or a batch of periodograms if `y` and `dy` are 2D arrays.
 
-    This function can dispatch to multiple backends, including 'finufft_heterobatch'. Plan to implement CUDA 
+    This function can dispatch to multiple backends, including 'finufft_heterobatch'. Plan to implement CUDA
     version latter.
-    
+
     The result is a `NiftyHeteroBatchResult` dataclass containing the computed periodogram(s), frequency grid parameters,
     and other metadata. The actual frequency grid can be obtained by calling `freq()` on the result.
 
@@ -212,7 +219,7 @@ def lombscargle_heterobatch(
         The time values, shape (N_series, N_d_i) for i in [0..N_series-1]
     y : List of array-like
         The data values, shape (N_series, N_t_i) or (N_series, N_y, N_t_i)
-        for i in [0..N_series-1]. 
+        for i in [0..N_series-1].
     dy : List of array-like, optional
         List of the uncertainties of the data values, broadcastable to `y`
     fmin : List of float, optional
@@ -311,7 +318,9 @@ def lombscargle_heterobatch(
         **backend_kwargs,
     )
 
-    fmax_list = [fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))]
+    fmax_list = [
+        fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))
+    ]
     nifty_results = NiftyHeteroBatchResult(
         powers=powers,
         fmin_list=fmin_list,
@@ -344,6 +353,7 @@ class NiftyResult:
     def freq(self) -> npt.NDArray[np.floating]:
         return self.fmin + self.df * np.arange(self.Nf)
 
+
 @dataclass
 class NiftyHeteroBatchResult:
     powers: List[npt.NDArray[np.floating]]
@@ -358,5 +368,7 @@ class NiftyHeteroBatchResult:
     backend_kwargs: Optional[dict]
 
     def freqs(self) -> List[npt.NDArray[np.floating]]:
-        return [fmin_i + df_i * np.arange(Nf_i) for fmin_i, df_i, Nf_i 
-                in zip(self.fmin_list, self.df_list, self.Nf_list)]
+        return [
+            fmin_i + df_i * np.arange(Nf_i)
+            for fmin_i, df_i, Nf_i in zip(self.fmin_list, self.df_list, self.Nf_list)
+        ]

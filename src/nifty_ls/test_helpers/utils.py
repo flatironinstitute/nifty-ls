@@ -59,17 +59,28 @@ def gen_data_mp(N_series=100_000, N_batch=None, N_d=100, dtype=np.float64, seed=
         t_i.setflags(write=False)
         y_i.setflags(write=False)
         dy_i.setflags(write=False)
-        
+
         t_list.append(t_i)
         y_list.append(y_i)
         dy_list.append(dy_i)
 
     fmin_list, df_list, Nf_list = validate_frequency_grid_mp(
-        fmin=None, fmax=None, Nf=None, t_list=t_list)
+        fmin=None, fmax=None, Nf=None, t_list=t_list
+    )
 
-    fmax_list = [fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))]
+    fmax_list = [
+        fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))
+    ]
 
-    return dict(t=t_list, y=y_list, dy=dy_list, fmin=fmin_list, fmax=fmax_list, df=df_list, Nf=Nf_list)
+    return dict(
+        t=t_list,
+        y=y_list,
+        dy=dy_list,
+        fmin=fmin_list,
+        fmax=fmax_list,
+        df=df_list,
+        Nf=Nf_list,
+    )
 
 
 def astropy_ls(

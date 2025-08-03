@@ -20,7 +20,9 @@ HETEROBATCH_BACKEND_TYPE = Literal['auto', 'finufft_heterobatch']
 HETEROBATCH_BACKEND_NAMES = list(get_args(HETEROBATCH_BACKEND_TYPE))
 
 
-def available_backends(verbose: bool = False, backend_names: Optional[List[str]] = None) -> list[str]:
+def available_backends(
+    verbose: bool = False, backend_names: Optional[List[str]] = None
+) -> list[str]:
     """Return a list of available backends.  Backends may be unavailable if their dependencies are not installed."""
     backends = []
     # Default BACKEND_NAMES
