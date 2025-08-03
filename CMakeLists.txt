@@ -20,6 +20,9 @@ if(NIFTY_LS_OPENMP)
     find_package(OpenMP REQUIRED)
 endif()
 
+# until https://github.com/wjakob/nanobind/pull/1092 is published
+add_compile_options(-Wno-deprecated-literal-operator)
+
 if(NIFTY_LS_HETEROBATCH)
     # Download CPM.cmake if not already available
     if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
@@ -57,8 +60,6 @@ endif()
 
 set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
 
-# until https://github.com/wjakob/nanobind/pull/1092 is published
-add_compile_options(-Wno-deprecated-literal-operator)
 
 foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI FREE_THREADED)
