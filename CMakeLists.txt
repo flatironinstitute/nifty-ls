@@ -55,6 +55,12 @@ if(NIFTY_LS_HETEROBATCH)
         target_link_libraries(heterobatch_helpers PRIVATE OpenMP::OpenMP_CXX)
     endif()
     target_link_libraries(heterobatch_helpers PRIVATE finufft)
+    
+    # On macOS, use flat namespace to avoid duplicate initialization of libomp
+    if(APPLE)
+        target_link_options(heterobatch_helpers PRIVATE -Wl,-flat_namespace)
+    endif()
+    
     install(TARGETS heterobatch_helpers LIBRARY DESTINATION nifty_ls)
 endif()
 
