@@ -152,3 +152,75 @@ class TestBatchedPerf:
             benchmark(_astropy)
         else:
             benchmark(_nifty)
+
+
+@pytest.mark.parametrize('Nf', [1_000])
+@pytest.mark.parametrize('nterms', [2, 4])
+class TestChi2BatchedPerf:
+    @pytest.mark.parametrize(
+        'chi2_backend',
+        list(
+            set(nifty_ls.backends.CHI2_BACKEND_NAMES)
+            & set(nifty_ls.core.AVAILABLE_BACKENDS)
+        ),
+        indirect=True,
+    )
+    def test_batched_chi2(
+        self, batched_bench_data, Nf, nterms, benchmark, chi2_backend
+    ):
+        benchmark(
+            nifty_ls.lombscargle,
+            **batched_bench_data,
+            Nf=Nf,
+            nterms=nterms,
+            backend=chi2_backend,
+        )
+
+    @pytest.mark.parametrize(
+        'chi2_backend',
+        list(
+            set(nifty_ls.backends.CHI2_BACKEND_NAMES)
+            & set(nifty_ls.core.AVAILABLE_BACKENDS)
+        )
+        + ['astropy_fastchi2'],
+        indirect=True,
+    )
+    def test_unbatched_chi2(
+        self, batched_bench_data, Nf, nterms, benchmark, chi2_backend
+    ):
+        t = batched_bench_data['t']
+        y_batch = batched_bench_data['y']
+        dy_batch = batched_bench_data['dy']
+        fmin = batched_bench_data['fmin']
+        fmax = batched_bench_data['fmax']
+
+        def _nifty():
+            for i in range(len(y_batch)):
+                nifty_ls.lombscargle(
+                    t,
+                    y_batch[i],
+                    dy_batch[i],
+                    fmin=fmin,
+                    fmax=fmax,
+                    Nf=Nf,
+                    nterms=nterms,
+                    backend=chi2_backend,
+                )
+
+        def _astropy_fastchi2():
+            for i in range(len(y_batch)):
+                astropy_ls_fastchi2(
+                    t,
+                    y_batch[i],
+                    dy_batch[i],
+                    fmin=fmin,
+                    fmax=fmax,
+                    Nf=Nf,
+                    nterms=nterms,
+                    use_fft=True,
+                )
+
+        if chi2_backend == 'astropy_fastchi2':
+            benchmark(_astropy_fastchi2)
+        else:
+            benchmark(_nifty)

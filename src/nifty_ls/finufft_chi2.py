@@ -118,7 +118,8 @@ def lombscargle(
 
     # Broadcast dy to match the shape of t and y
     if dy.ndim == 1 or dy.shape[1] == 1:  # if dy is 1D or has a single column
-        dy_broadcasted = np.broadcast_to(dy, (Nbatch, N))
+        # Deepcopy to avoid Non-Contiguous Memory or Zero Strides caused by broadcast_to
+        dy_broadcasted = np.broadcast_to(dy, (Nbatch, N)).copy()
     else:
         dy_broadcasted = dy
 
