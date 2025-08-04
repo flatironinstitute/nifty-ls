@@ -68,6 +68,9 @@ def gen_data_mp(N_series=100_000, N_batch=None, N_d=100, dtype=np.float64, seed=
         fmin=None, fmax=None, Nf=None, t_list=t_list
     )
 
+    for i in range(len(fmin_list)):
+        fmin_list[i] = 2 * df_list[i]
+
     fmax_list = [
         fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))
     ]

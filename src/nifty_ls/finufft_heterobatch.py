@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-__all__ = ['lombscargle_heterobatch', 'FFTW_MEASURE', 'FFTW_ESTIMATE']
+__all__ = ['lombscargle_heterobatch']
 
 import numpy as np
 
 from nifty_ls.finufft_heterobatch_helpers import process_hetero_batch
-from nifty_ls.finufft import FFTW_ESTIMATE, FFTW_MEASURE
-from .utils import same_dtype_or_raise
+from nifty_ls.finufft import FFTW_ESTIMATE
+from .utils import same_dtype_or_raise, broadcast_dy_list
 from .finufft import get_finufft_max_threads
 
 
@@ -87,21 +87,13 @@ def lombscargle_heterobatch(
     # N_series and data type check
     N_series = len(t_list)
 
-    # Verify variable size, dtype
+    # Verify variable sizes and dtypes
     if len(y_list) != N_series:
         raise ValueError('Time series(t), observation(y) should have same length')
-    if dy_list:
-        if np.isscalar(dy_list):
-            dy_list = [np.atleast_2d(dy_list)] * N_series
-        elif np.isscalar(dy_list[0]):
-            for i in range(len(dy_list)):
-                dy_list[i] = np.atleast_2d(dy_list[i]) * N_series
-            # TODO: Move nonetype handler to here
-        if len(dy_list) != N_series:
-            raise ValueError('Time series(t), observation(y) should have same length')
+    broadcased_dy_list = broadcast_dy_list(y_list=y_list, dy_list=dy_list)
     for i in range(N_series):
         same_dtype_or_raise(
-            t=t_list[i], y=y_list[i], dy=dy_list[i] if dy_list else dy_list
+            t=t_list[i], y=y_list[i], dy=broadcased_dy_list[i] if dy_list else dy_list
         )
     dtype = t_list[0].dtype
 
@@ -121,7 +113,7 @@ def lombscargle_heterobatch(
     process_hetero_batch(
         t_list,
         y_list,
-        dy_list,
+        broadcased_dy_list,
         fmin_list,
         df_list,
         Nf_list,
