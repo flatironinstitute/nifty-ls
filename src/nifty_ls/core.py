@@ -248,7 +248,7 @@ def lombscargle_heterobatch(
         The backend to use for the computation. Default is 'auto' which selects the best available backend.
     nterms : int, optional
         The number of terms to use in the Lomb-Scargle computation. Must be at least 1.
-        If greater than 1, the 'cufinufft_chi2' or 'finufft_chi2' should be used for backend.
+        If greater than 1, the 'cufinufft_chi2_heterobatch' or 'finufft_chi2' should be used for backend.
     backend_kwargs : dict, optional
         Additional keyword arguments to pass to the backend.
 
@@ -277,16 +277,16 @@ def lombscargle_heterobatch(
     # Backend selection
     if backend == 'auto':
         if nterms > 1:
-            if 'cufinufft_chi2' in AVAILABLE_HETEROBATCH_BACKENDS:
-                backend = 'cufinufft_chi2'
+            if 'cufinufft_chi2_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
+                backend = 'cufinufft_chi2_heterobatch'
             elif 'finufft_chi2_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
                 backend = 'finufft_chi2_heterobatch'
             else:
                 raise ValueError(
-                    'Please install and select the "cufinufft_chi2" or "finufft_chi2_heterobatch" backend when nterms > 1.'
+                    'Please install and select the "cufinufft_chi2_heterobatch" or "finufft_chi2_heterobatch" backend when nterms > 1.'
                 )
-        elif 'cufinufft' in AVAILABLE_HETEROBATCH_BACKENDS:
-            backend = 'cufinufft'
+        elif 'cufinufft_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
+            backend = 'cufinufft_heterobatch'
         elif 'finufft_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
             backend = 'finufft_heterobatch'
         else:
@@ -297,12 +297,12 @@ def lombscargle_heterobatch(
         raise ValueError(
             f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_HETEROBATCH_BACKENDS}'
         )
-    if backend in ('finufft_heterobatch', 'cufinufft') and nterms > 1:
+    if backend in ('finufft_heterobatch', 'cufinufft_heterobatch') and nterms > 1:
         raise ValueError(
             f'Backend "{backend}" only supports nterms == 1. '
-            'Use "cufinufft_chi2" or "finufft_chi2_heterobatch" for nterms > 1.'
+            'Use "cufinufft_chi2_heterobatch" or "finufft_chi2_heterobatch" for nterms > 1.'
         )
-    if backend == 'cufinufft_chi2' or backend == 'finufft_chi2_heterobatch':
+    if backend == 'cufinufft_chi2_heterobatch' or backend == 'finufft_chi2_heterobatch':
         # Add nterms to backend_kwargs and pass it to the backend
         backend_kwargs.setdefault('nterms', nterms)
 

@@ -47,7 +47,7 @@ if(NIFTY_LS_HETEROBATCH)
     set(NIFTY_LS_HETEROBATCH_MODULES finufft_heterobatch_helpers finufft_chi2_heterobatch_helpers)
 
     foreach(MODULE_NAME ${NIFTY_LS_HETEROBATCH_MODULES})
-        nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI)
+        nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI FREE_THREADED)
         target_compile_options(${MODULE_NAME} PRIVATE
             -Wall -Wextra -std=c++17
         )
