@@ -14,6 +14,7 @@ import nifty_ls
 import nifty_ls.backends
 from nifty_ls.test_helpers.utils import gen_data_mp
 
+
 @pytest.fixture
 def data(request):
     """Generate test data with specified N data points and N_batch series"""
@@ -78,15 +79,19 @@ def test_lombscargle(data, Nf, nifty_backend, nterms):
         dy_list=dy_list,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
-        nterms=nterms
+        nterms=nterms,
     )
 
     # Single series
     standard_result_powers = []
     for i in range(len(t_list)):
         standard_result = nifty_ls.lombscargle(
-            t=t_list[i], y=y_list[i], dy=dy_list[i], 
-            fmin=fmin_list[i], Nf=Nf, nterms=nterms
+            t=t_list[i],
+            y=y_list[i],
+            dy=dy_list[i],
+            fmin=fmin_list[i],
+            Nf=Nf,
+            nterms=nterms,
         )
         standard_result_powers.append(standard_result.power)
 
@@ -122,7 +127,7 @@ def test_normalization(data, nifty_backend, nterms, Nf=1000):
             fmin_list=fmin_list,
             Nf_list=Nf_list,
             normalization=norm,
-            nterms=nterms
+            nterms=nterms,
         )
 
         # Single series
@@ -135,7 +140,7 @@ def test_normalization(data, nifty_backend, nterms, Nf=1000):
                 fmin=fmin_list[i],
                 Nf=Nf,
                 normalization=norm,
-                nterms=nterms
+                nterms=nterms,
             )
             standard_result_powers.append(standard_result.power)
 
@@ -171,7 +176,7 @@ def test_center_data(data, center_data, nifty_backend, nterms, Nf=1000):
         fmin_list=fmin_list,
         Nf_list=Nf_list,
         center_data=center_data,
-        nterms=nterms
+        nterms=nterms,
     )
 
     # Single series
@@ -184,7 +189,7 @@ def test_center_data(data, center_data, nifty_backend, nterms, Nf=1000):
             fmin=fmin_list[i],
             Nf=Nf,
             center_data=center_data,
-            nterms=nterms
+            nterms=nterms,
         )
         standard_result_powers.append(standard_result.power)
 
@@ -220,7 +225,7 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
         fmin_list=fmin_list,
         Nf_list=Nf_list,
         fit_mean=fit_mean,
-        nterms=nterms
+        nterms=nterms,
     )
 
     # Single series
@@ -233,7 +238,7 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
             fmin=fmin_list[i],
             Nf=Nf,
             fit_mean=fit_mean,
-            nterms=nterms
+            nterms=nterms,
         )
         standard_result_powers.append(standard_result.power)
 
@@ -271,19 +276,14 @@ def test_dy_none(data, nifty_backend, nterms, Nf=1000):
         dy_list=None,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
-        nterms=nterms
+        nterms=nterms,
     )
 
     # Single series
     standard_result_powers = []
     for i in range(len(t_list)):
         standard_result = nifty_ls.lombscargle(
-            t=t_list[i],
-            y=y_list[i],
-            dy=None,
-            fmin=fmin_list[i],
-            Nf=Nf,
-            nterms=nterms
+            t=t_list[i], y=y_list[i], dy=None, fmin=fmin_list[i], Nf=Nf, nterms=nterms
         )
         standard_result_powers.append(standard_result.power)
 
@@ -322,7 +322,7 @@ def test_dy_scalar(data, nifty_backend, nterms, Nf=1000):
         dy_list=scalar_dy,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
-        nterms=nterms
+        nterms=nterms,
     )
 
     standard_result_powers = []
@@ -333,11 +333,12 @@ def test_dy_scalar(data, nifty_backend, nterms, Nf=1000):
             dy=scalar_dy,
             fmin=fmin_list[i],
             Nf=Nf,
-            nterms=nterms
+            nterms=nterms,
         )
         standard_result_powers.append(standard_result.power)
 
     np.testing.assert_allclose(heterobatch_results.powers, standard_result_powers)
+
 
 @pytest.mark.parametrize(
     'data',
@@ -371,7 +372,7 @@ def test_dy_scalar_list(data, nifty_backend, nterms, Nf=1000):
         dy_list=scalar_dy_list,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
-        nterms=nterms
+        nterms=nterms,
     )
 
     standard_result_powers = []
@@ -382,7 +383,7 @@ def test_dy_scalar_list(data, nifty_backend, nterms, Nf=1000):
             dy=scalar_dy_list[i],
             fmin=fmin_list[i],
             Nf=Nf,
-            nterms=nterms
+            nterms=nterms,
         )
         standard_result_powers.append(standard_result.power)
 

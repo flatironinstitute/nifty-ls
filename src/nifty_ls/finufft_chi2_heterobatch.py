@@ -5,7 +5,7 @@ __all__ = ['lombscargle_heterobatch']
 import numpy as np
 
 from nifty_ls.finufft_chi2_heterobatch_helpers import process_chi2_hetero_batch
-from nifty_ls.finufft import FFTW_ESTIMATE, FFTW_MEASURE
+from nifty_ls.finufft import FFTW_ESTIMATE
 from .utils import same_dtype_or_raise, broadcast_dy_list
 from .finufft import get_finufft_max_threads
 
@@ -25,11 +25,11 @@ def lombscargle_heterobatch(
     upsampfac=1.25,
     fftw=FFTW_ESTIMATE,
     nterms=1,
-    verbose=False
+    verbose=False,
 ):
     """
     Compute multiple series of Chi2 Lomb-Scargle periodogram with heterogeneous lengths.
-    
+
     This function extends the heterobatch capability to the Chi2 method, allowing fitting
     of multiple harmonic terms on time series of different lengths.
 
@@ -60,13 +60,13 @@ def lombscargle_heterobatch(
     normalization : str, optional
         The normalization method. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
     eps : float or str, optional
-        The precision tolerance for FINUFFT. Default is 'default', which uses 1e-5 for float32 
+        The precision tolerance for FINUFFT. Default is 'default', which uses 1e-5 for float32
         and 1e-9 for float64.
     upsampfac : float, optional
         The upsampling factor for FINUFFT. Larger values improve accuracy at the cost of speed.
         Default is 1.25.
     fftw : int, optional
-        The FFTW planning flag to use. Options are FFTW_ESTIMATE or FFTW_MEASURE. 
+        The FFTW planning flag to use. Options are FFTW_ESTIMATE or FFTW_MEASURE.
         Default is FFTW_ESTIMATE.
     verbose : bool, optional
         Whether to print verbose output during computation. Default is False.
@@ -114,7 +114,7 @@ def lombscargle_heterobatch(
         if len(y_shape) == 1:
             y_list[i] = y_list[i].reshape(1, -1)
             y_shape = y_list[i].shape
-            
+
         power = np.empty((y_shape[0], Nf_list[i]), dtype=dtype)
         powers.append(power)
 

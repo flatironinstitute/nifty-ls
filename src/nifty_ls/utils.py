@@ -143,6 +143,7 @@ def same_dtype_or_raise(**arrays):
                 f'{dtypes[names[0]]} and {dtypes[n]}'
             )
 
+
 def broadcast_dy_list(y_list, dy_list):
     """
     Broadcast uncertainty values (dy) to match shapes of observation arrays.
@@ -151,10 +152,12 @@ def broadcast_dy_list(y_list, dy_list):
 
     if not dy_list:
         return dy_list
-    
+
     if np.isscalar(dy_list):
         for i in range(len(y_list)):
-            broadcased_dy_list.append(np.full_like(y_list[i], dy_list, dtype=y_list[i].dtype))
+            broadcased_dy_list.append(
+                np.full_like(y_list[i], dy_list, dtype=y_list[i].dtype)
+            )
     # Handle list of scalar
     elif np.isscalar(dy_list[0]):
         if len(dy_list) != len(y_list):
@@ -166,8 +169,9 @@ def broadcast_dy_list(y_list, dy_list):
                 raise ValueError(
                     f'Expected scalar uncertainty at index {i}, got {type(dy_list[i]).__name__}'
                 )
-            broadcased_dy_list.append(np.full_like(y_list[i], 
-                                               dy_list[i], dtype=y_list[i].dtype))
+            broadcased_dy_list.append(
+                np.full_like(y_list[i], dy_list[i], dtype=y_list[i].dtype)
+            )
     else:
         return dy_list
     return broadcased_dy_list
