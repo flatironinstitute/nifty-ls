@@ -40,7 +40,10 @@ def nifty_backend(request):
     )
 
     if request.param in available_heterobatch_backends:
-        return (request.param, partial(nifty_ls.lombscargle_heterobatch, backend=request.param))
+        return (
+            request.param,
+            partial(nifty_ls.lombscargle_heterobatch, backend=request.param),
+        )
     else:
         pytest.skip(f'Backend {request.param} is not available')
 
@@ -92,7 +95,9 @@ def test_lombscargle(data, Nf, nifty_backend, nterms):
             fmin=fmin_list[i],
             Nf=Nf,
             nterms=nterms,
-            backend= 'finufft' if nifty_backend[0] == 'finufft_heterobatch' else 'finufft_chi2'
+            backend='finufft'
+            if nifty_backend[0] == 'finufft_heterobatch'
+            else 'finufft_chi2',
         )
         standard_result_powers.append(standard_result.power)
 
@@ -142,7 +147,9 @@ def test_normalization(data, nifty_backend, nterms, Nf=1000):
                 Nf=Nf,
                 normalization=norm,
                 nterms=nterms,
-                backend= 'finufft' if nifty_backend[0] == 'finufft_heterobatch' else 'finufft_chi2'
+                backend='finufft'
+                if nifty_backend[0] == 'finufft_heterobatch'
+                else 'finufft_chi2',
             )
             standard_result_powers.append(standard_result.power)
 
@@ -192,7 +199,9 @@ def test_center_data(data, center_data, nifty_backend, nterms, Nf=1000):
             Nf=Nf,
             center_data=center_data,
             nterms=nterms,
-            backend= 'finufft' if nifty_backend[0] == 'finufft_heterobatch' else 'finufft_chi2'
+            backend='finufft'
+            if nifty_backend[0] == 'finufft_heterobatch'
+            else 'finufft_chi2',
         )
         standard_result_powers.append(standard_result.power)
 
@@ -242,7 +251,9 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
             Nf=Nf,
             fit_mean=fit_mean,
             nterms=nterms,
-            backend= 'finufft' if nifty_backend[0] == 'finufft_heterobatch' else 'finufft_chi2'
+            backend='finufft'
+            if nifty_backend[0] == 'finufft_heterobatch'
+            else 'finufft_chi2',
         )
         standard_result_powers.append(standard_result.power)
 
@@ -288,12 +299,14 @@ def test_dy_none(data, nifty_backend, nterms, Nf=1000):
     for i in range(len(t_list)):
         standard_result = nifty_ls.lombscargle(
             t=t_list[i],
-            y=y_list[i], 
-            dy=None, 
-            fmin=fmin_list[i], 
-            Nf=Nf, 
-            nterms=nterms, 
-            backend= 'finufft' if nifty_backend[0] == 'finufft_heterobatch' else 'finufft_chi2'
+            y=y_list[i],
+            dy=None,
+            fmin=fmin_list[i],
+            Nf=Nf,
+            nterms=nterms,
+            backend='finufft'
+            if nifty_backend[0] == 'finufft_heterobatch'
+            else 'finufft_chi2',
         )
         standard_result_powers.append(standard_result.power)
 
@@ -344,7 +357,9 @@ def test_dy_scalar(data, nifty_backend, nterms, Nf=1000):
             fmin=fmin_list[i],
             Nf=Nf,
             nterms=nterms,
-            backend= 'finufft' if nifty_backend[0] == 'finufft_heterobatch' else 'finufft_chi2'
+            backend='finufft'
+            if nifty_backend[0] == 'finufft_heterobatch'
+            else 'finufft_chi2',
         )
         standard_result_powers.append(standard_result.power)
 
@@ -395,7 +410,9 @@ def test_dy_scalar_list(data, nifty_backend, nterms, Nf=1000):
             fmin=fmin_list[i],
             Nf=Nf,
             nterms=nterms,
-            backend= 'finufft' if nifty_backend[0] == 'finufft_heterobatch' else 'finufft_chi2'
+            backend='finufft'
+            if nifty_backend[0] == 'finufft_heterobatch'
+            else 'finufft_chi2',
         )
         standard_result_powers.append(standard_result.power)
 
