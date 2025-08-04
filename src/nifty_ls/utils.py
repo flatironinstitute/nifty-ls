@@ -142,3 +142,32 @@ def same_dtype_or_raise(**arrays):
                 f'Arrays {names[0]} and {n} have different dtypes: '
                 f'{dtypes[names[0]]} and {dtypes[n]}'
             )
+
+def broadcast_dy_list(y_list, dy_list):
+    """
+    Broadcast uncertainty values (dy) to match shapes of observation arrays.
+    """
+    broadcased_dy_list = []
+
+    if not dy_list:
+        return dy_list
+    
+    if np.isscalar(dy_list):
+        for i in range(len(y_list)):
+            broadcased_dy_list.append(np.full_like(y_list[i], dy_list, dtype=y_list[i].dtype))
+    # Handle list of scalar
+    elif np.isscalar(dy_list[0]):
+        if len(dy_list) != len(y_list):
+            raise ValueError(
+                f'Length mismatch: y_list has {len(y_list)} elements but dy_list has {len(dy_list)} elements'
+            )
+        for i in range(len(y_list)):
+            if not np.isscalar(dy_list[i]):
+                raise ValueError(
+                    f'Expected scalar uncertainty at index {i}, got {type(dy_list[i]).__name__}'
+                )
+            broadcased_dy_list.append(np.full_like(y_list[i], 
+                                               dy_list[i], dtype=y_list[i].dtype))
+    else:
+        return dy_list
+    return broadcased_dy_list

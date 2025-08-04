@@ -215,18 +215,21 @@ def lombscargle_heterobatch(
 
     Parameters
     ----------
-    t : List of array-like
+    t_list : List of array-like
         The time values, shape (N_series, N_d_i) for i in [0..N_series-1]
-    y : List of array-like
+    y_list : List of array-like
         The data values, shape (N_series, N_t_i) or (N_series, N_y, N_t_i)
         for i in [0..N_series-1].
-    dy : List of array-like, optional
-        List of the uncertainties of the data values, broadcastable to `y`
-    fmin : List of float, optional
+    dy_list : List of array-like, optional
+        Measurement uncertainties for the data values. Can be provided as:
+        - A single scalar (uniform uncertainty for all data points across all series)
+        - A list of scalars (one uncertainty value per series)
+        - A list of arrays (element-wise uncertainties matching shapes of corresponding y_list entries)
+    fmin_list : List of float, optional
         The minimum frequency of the periodogram. If not provided, it will be chosen automatically.
-    fmax : List of float, optional
+    fmax_list : List of float, optional
         The maximum frequency of the periodogram. If not provided, it will be chosen automatically.
-    Nf : List of int, optional
+    Nf_list : List of int, optional
         The number of frequency bins. If not provided, it will be chosen automatically.
     center_data : bool, optional
         Whether to center the data before computing the periodogram. Default is True.
@@ -276,11 +279,11 @@ def lombscargle_heterobatch(
         if nterms > 1:
             if 'cufinufft_chi2' in AVAILABLE_HETEROBATCH_BACKENDS:
                 backend = 'cufinufft_chi2'
-            elif 'finufft_chi2' in AVAILABLE_HETEROBATCH_BACKENDS:
-                backend = 'finufft_chi2'
+            elif 'finufft_chi2_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
+                backend = 'finufft_chi2_heterobatch'
             else:
                 raise ValueError(
-                    'Please install and select the "cufinufft_chi2" or "finufft_chi2" backend when nterms > 1.'
+                    'Please install and select the "cufinufft_chi2" or "finufft_chi2_heterobatch" backend when nterms > 1.'
                 )
         elif 'cufinufft' in AVAILABLE_HETEROBATCH_BACKENDS:
             backend = 'cufinufft'
@@ -297,9 +300,9 @@ def lombscargle_heterobatch(
     if backend in ('finufft_heterobatch', 'cufinufft') and nterms > 1:
         raise ValueError(
             f'Backend "{backend}" only supports nterms == 1. '
-            'Use "cufinufft_chi2" or "finufft_chi2" for nterms > 1.'
+            'Use "cufinufft_chi2" or "finufft_chi2_heterobatch" for nterms > 1.'
         )
-    if backend == 'cufinufft_chi2' or backend == 'finufft_chi2':
+    if backend == 'cufinufft_chi2' or backend == 'finufft_chi2_heterobatch':
         # Add nterms to backend_kwargs and pass it to the backend
         backend_kwargs.setdefault('nterms', nterms)
 

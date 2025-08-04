@@ -44,24 +44,28 @@ if(NIFTY_LS_HETEROBATCH)
             # "FINUFFT_ARCH_FLAGS -march=native"
     )
 
-    nanobind_add_module(finufft_heterobatch_helpers src/nifty_ls/finufft_heterobatch_helpers.cpp NOMINSIZE STABLE_ABI)
-    target_compile_options(finufft_heterobatch_helpers PRIVATE
-        -Wall -Wextra -std=c++17
-    )
-    if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
-        target_compile_options(finufft_heterobatch_helpers PRIVATE -O3 -ffast-math)
-    endif()
-    if (OpenMP_CXX_FOUND)
-        target_link_libraries(finufft_heterobatch_helpers PRIVATE OpenMP::OpenMP_CXX)
-    endif()
-    target_link_libraries(finufft_heterobatch_helpers PRIVATE finufft)
+    set(NIFTY_LS_HETEROBATCH_MODULES finufft_heterobatch_helpers finufft_chi2_heterobatch_helpers)
+
+    foreach(MODULE_NAME ${NIFTY_LS_HETEROBATCH_MODULES})
+        nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI)
+        target_compile_options(${MODULE_NAME} PRIVATE
+            -Wall -Wextra -std=c++17
+        )
+        if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
+            target_compile_options(${MODULE_NAME} PRIVATE -O3 -ffast-math)
+        endif()
+        if (OpenMP_CXX_FOUND)
+            target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
+        endif()
+        target_link_libraries(${MODULE_NAME} PRIVATE finufft)
+        
+        # On macOS, use flat namespace to avoid duplicate initialization of libomp
+        if(APPLE)
+            target_link_options(${MODULE_NAME} PRIVATE -Wl,-flat_namespace)
+        endif()
     
-    # On macOS, use flat namespace to avoid duplicate initialization of libomp
-    if(APPLE)
-        target_link_options(finufft_heterobatch_helpers PRIVATE -Wl,-flat_namespace)
-    endif()
-    
-    install(TARGETS finufft_heterobatch_helpers LIBRARY DESTINATION nifty_ls)
+        install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION nifty_ls)
+    endforeach()
 endif()
 
 set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)

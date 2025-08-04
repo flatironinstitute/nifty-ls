@@ -71,14 +71,16 @@ void process_chi2_inputs_raw(
     const Scalar TWO_PI = 2 * static_cast<Scalar>(PI);
 
 #ifdef _OPENMP
-    if (nthreads < 1) { nthreads = omp_get_max_threads(); }
-    if (nthreads > omp_get_max_threads()) {
-        fprintf(
-           stderr,
-           "[nifty-ls finufft] Warning: nthreads (%d) > omp_get_max_threads() (%d). Performance may be suboptimal.\n",
-           nthreads,
-           omp_get_max_threads()
-        );
+    if (nthreads != 1) {
+        if (nthreads < 1) { nthreads = omp_get_max_threads(); }
+        if (nthreads > omp_get_max_threads()) {
+            fprintf(
+               stderr,
+               "[nifty-ls finufft] Warning: nthreads (%d) > omp_get_max_threads() (%d). Performance may be suboptimal.\n",
+               nthreads,
+               omp_get_max_threads()
+            );
+        }
     }
 #else
     (void) nthreads;
@@ -86,7 +88,7 @@ void process_chi2_inputs_raw(
 
 // Compute and store t1
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) num_threads(nthreads)
+#pragma omp parallel for schedule(static) num_threads(nthreads) if (nthreads > 1)
 #endif
     for (size_t j = 0; j < N; ++j) { t1[j] = TWO_PI * df * t[j]; }
 
@@ -98,7 +100,7 @@ void process_chi2_inputs_raw(
         Scalar sum_yw2  = Scalar(0);
 
 #ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
+#pragma omp parallel num_threads(nthreads) if (nthreads > 1)
 #endif
         {
 #ifdef _OPENMP
@@ -175,7 +177,7 @@ void compute_t_raw(
    int nthreads
 ) {
 #ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
+#pragma omp parallel num_threads(nthreads) if (nthreads > 1)
 #endif
     {
 #ifdef _OPENMP
@@ -298,7 +300,7 @@ void process_chi2_outputs_raw(
 #endif
 
 #ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)
+#pragma omp parallel num_threads(nthreads) if (nthreads > 1)
 #endif
     {
         std::vector<Scalar> XTy(order_size);

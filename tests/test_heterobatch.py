@@ -14,18 +14,6 @@ import nifty_ls
 import nifty_ls.backends
 from nifty_ls.test_helpers.utils import gen_data_mp
 
-
-def rtol(dtype, Nf):
-    """Use a relative tolerance that accounts for the condition number of the problem"""
-    if dtype == np.float32:
-        # NB we don't test float32
-        return max(1e-3, 1e-7 * Nf)
-    elif dtype == np.float64:
-        return max(1e-5, 1e-9 * Nf)
-    else:
-        raise ValueError(f'Unknown dtype {dtype}')
-
-
 @pytest.fixture
 def data(request):
     """Generate test data with specified N data points and N_batch series"""
@@ -51,8 +39,7 @@ def nifty_backend(request):
     )
 
     if request.param in available_heterobatch_backends:
-        fn = partial(nifty_ls.lombscargle_heterobatch, backend=request.param)
-        return fn, request.param
+        return partial(nifty_ls.lombscargle_heterobatch, backend=request.param)
     else:
         pytest.skip(f'Backend {request.param} is not available')
 
@@ -68,18 +55,16 @@ def nifty_backend(request):
     indirect=['data'],
 )
 @pytest.mark.parametrize(
-    'nifty_backend',
+    'nifty_backend,nterms',
     [
-        'finufft_heterobatch',
-        # 'finufft_heterobatch_chi2',
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
     ],
     indirect=['nifty_backend'],
 )
-def test_lombscargle(data, Nf, nifty_backend):
+def test_lombscargle(data, Nf, nifty_backend, nterms):
     """Check that heterobatch implementation agrees with single series results"""
 
-    # TODO: Add chi2
-    backend_fn, backend_name = nifty_backend
     t_list = data['t']
     y_list = data['y']
     dy_list = data['dy']
@@ -87,19 +72,21 @@ def test_lombscargle(data, Nf, nifty_backend):
     Nf_list = [Nf] * len(t_list)
 
     # heterobatch
-    heterobatch_results = backend_fn(
+    heterobatch_results = nifty_backend(
         t_list=t_list,
         y_list=y_list,
         dy_list=dy_list,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
+        nterms=nterms
     )
 
     # Single series
     standard_result_powers = []
     for i in range(len(t_list)):
         standard_result = nifty_ls.lombscargle(
-            t=t_list[i], y=y_list[i], dy=dy_list[i], fmin=fmin_list[i], Nf=Nf
+            t=t_list[i], y=y_list[i], dy=dy_list[i], 
+            fmin=fmin_list[i], Nf=Nf, nterms=nterms
         )
         standard_result_powers.append(standard_result.power)
 
@@ -110,18 +97,16 @@ def test_lombscargle(data, Nf, nifty_backend):
     'data', [{'N_series': 100, 'N': 50, 'N_batch': 3}], indirect=['data']
 )
 @pytest.mark.parametrize(
-    'nifty_backend',
+    'nifty_backend,nterms',
     [
-        'finufft_heterobatch',
-        # 'finufft_heterobatch_chi2',
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
     ],
     indirect=['nifty_backend'],
 )
-def test_normalization(data, nifty_backend, Nf=1000):
+def test_normalization(data, nifty_backend, nterms, Nf=1000):
     """Check that the normalization modes work as expected"""
 
-    # TODO: Add chi2
-    backend_fn, backend_name = nifty_backend
     t_list = data['t']
     y_list = data['y']
     dy_list = data['dy']
@@ -130,13 +115,14 @@ def test_normalization(data, nifty_backend, Nf=1000):
 
     for norm in ['standard', 'model', 'log', 'psd']:
         # heterobatch
-        heterobatch_results = backend_fn(
+        heterobatch_results = nifty_backend(
             t_list=t_list,
             y_list=y_list,
             dy_list=dy_list,
             fmin_list=fmin_list,
             Nf_list=Nf_list,
             normalization=norm,
+            nterms=nterms
         )
 
         # Single series
@@ -149,6 +135,7 @@ def test_normalization(data, nifty_backend, Nf=1000):
                 fmin=fmin_list[i],
                 Nf=Nf,
                 normalization=norm,
+                nterms=nterms
             )
             standard_result_powers.append(standard_result.power)
 
@@ -160,18 +147,16 @@ def test_normalization(data, nifty_backend, Nf=1000):
 )
 @pytest.mark.parametrize('center_data', [True, False])
 @pytest.mark.parametrize(
-    'nifty_backend',
+    'nifty_backend,nterms',
     [
-        'finufft_heterobatch',
-        # 'finufft_heterobatch_chi2',
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
     ],
     indirect=['nifty_backend'],
 )
-def test_center_data(data, center_data, nifty_backend, Nf=1000):
+def test_center_data(data, center_data, nifty_backend, nterms, Nf=1000):
     """Check that the center_data parameter work as expected"""
 
-    # TODO: Add chi2
-    backend_fn, backend_name = nifty_backend
     t_list = data['t']
     y_list = data['y']
     dy_list = data['dy']
@@ -179,13 +164,14 @@ def test_center_data(data, center_data, nifty_backend, Nf=1000):
     Nf_list = [Nf] * len(t_list)
 
     # heterobatch
-    heterobatch_results = backend_fn(
+    heterobatch_results = nifty_backend(
         t_list=t_list,
         y_list=y_list,
         dy_list=dy_list,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
         center_data=center_data,
+        nterms=nterms
     )
 
     # Single series
@@ -198,6 +184,7 @@ def test_center_data(data, center_data, nifty_backend, Nf=1000):
             fmin=fmin_list[i],
             Nf=Nf,
             center_data=center_data,
+            nterms=nterms
         )
         standard_result_powers.append(standard_result.power)
 
@@ -209,18 +196,16 @@ def test_center_data(data, center_data, nifty_backend, Nf=1000):
 )
 @pytest.mark.parametrize('fit_mean', [True, False])
 @pytest.mark.parametrize(
-    'nifty_backend',
+    'nifty_backend,nterms',
     [
-        'finufft_heterobatch',
-        # 'finufft_heterobatch_chi2',
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
     ],
     indirect=['nifty_backend'],
 )
-def test_fit_mean(data, fit_mean, nifty_backend, Nf=1000):
+def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
     """Check that the fit_mean parameter work as expected"""
 
-    # TODO: Add chi2
-    backend_fn, backend_name = nifty_backend
     t_list = data['t']
     y_list = data['y']
     dy_list = data['dy']
@@ -228,13 +213,14 @@ def test_fit_mean(data, fit_mean, nifty_backend, Nf=1000):
     Nf_list = [Nf] * len(t_list)
 
     # heterobatch
-    heterobatch_results = backend_fn(
+    heterobatch_results = nifty_backend(
         t_list=t_list,
         y_list=y_list,
         dy_list=dy_list,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
         fit_mean=fit_mean,
+        nterms=nterms
     )
 
     # Single series
@@ -247,6 +233,7 @@ def test_fit_mean(data, fit_mean, nifty_backend, Nf=1000):
             fmin=fmin_list[i],
             Nf=Nf,
             fit_mean=fit_mean,
+            nterms=nterms
         )
         standard_result_powers.append(standard_result.power)
 
@@ -261,20 +248,16 @@ def test_fit_mean(data, fit_mean, nifty_backend, Nf=1000):
     ],
     indirect=['data'],
 )
-@pytest.mark.parametrize('fit_mean', [True, False])  # Add fit_mean parameter
 @pytest.mark.parametrize(
-    'nifty_backend',
+    'nifty_backend,nterms',
     [
-        'finufft_heterobatch',
-        # 'finufft_heterobatch_chi2',
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
     ],
     indirect=['nifty_backend'],
 )
-def test_dy_none(data, nifty_backend, fit_mean, Nf=1000):
+def test_dy_none(data, nifty_backend, nterms, Nf=1000):
     """Test that `dy = None` works properly"""
-
-    # TODO: Add chi2
-    backend_fn, backend_name = nifty_backend
 
     t_list = data['t']
     y_list = data['y']
@@ -282,13 +265,13 @@ def test_dy_none(data, nifty_backend, fit_mean, Nf=1000):
     Nf_list = [Nf] * len(t_list)
 
     # heterobatch
-    heterobatch_results = backend_fn(
+    heterobatch_results = nifty_backend(
         t_list=t_list,
         y_list=y_list,
         dy_list=None,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
-        fit_mean=fit_mean,
+        nterms=nterms
     )
 
     # Single series
@@ -300,7 +283,7 @@ def test_dy_none(data, nifty_backend, fit_mean, Nf=1000):
             dy=None,
             fmin=fmin_list[i],
             Nf=Nf,
-            fit_mean=fit_mean,
+            nterms=nterms
         )
         standard_result_powers.append(standard_result.power)
 
@@ -315,19 +298,16 @@ def test_dy_none(data, nifty_backend, fit_mean, Nf=1000):
     ],
     indirect=['data'],
 )
-@pytest.mark.parametrize('fit_mean', [True, False])
 @pytest.mark.parametrize(
-    'nifty_backend',
+    'nifty_backend,nterms',
     [
-        'finufft_heterobatch',
-        # 'finufft_heterobatch_chi2',
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
     ],
     indirect=['nifty_backend'],
 )
-def test_dy_scalar(data, nifty_backend, fit_mean, Nf=1000):
-    """Test that dy_list can be a list of scalar values or scalar value"""
-
-    backend_fn, backend_name = nifty_backend
+def test_dy_scalar(data, nifty_backend, nterms, Nf=1000):
+    """Test that dy_list can be a scalar value"""
 
     t_list = data['t']
     y_list = data['y']
@@ -336,13 +316,13 @@ def test_dy_scalar(data, nifty_backend, fit_mean, Nf=1000):
 
     scalar_dy = 0.5
 
-    heterobatch_results = backend_fn(
+    heterobatch_results = nifty_backend(
         t_list=t_list,
         y_list=y_list,
         dy_list=scalar_dy,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
-        fit_mean=fit_mean,
+        nterms=nterms
     )
 
     standard_result_powers = []
@@ -353,33 +333,56 @@ def test_dy_scalar(data, nifty_backend, fit_mean, Nf=1000):
             dy=scalar_dy,
             fmin=fmin_list[i],
             Nf=Nf,
-            fit_mean=fit_mean,
+            nterms=nterms
         )
         standard_result_powers.append(standard_result.power)
 
     np.testing.assert_allclose(heterobatch_results.powers, standard_result_powers)
 
+@pytest.mark.parametrize(
+    'data',
+    [
+        {'N_series': 100, 'N': 100, 'N_batch': 1},
+        {'N_series': 100, 'N': 100, 'N_batch': 5},
+    ],
+    indirect=['data'],
+)
+@pytest.mark.parametrize(
+    'nifty_backend,nterms',
+    [
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
+    ],
+    indirect=['nifty_backend'],
+)
+def test_dy_scalar_list(data, nifty_backend, nterms, Nf=1000):
+    """Test that dy_list can be a list of scalar values"""
+
+    t_list = data['t']
+    y_list = data['y']
+    fmin_list = data['fmin']
+    Nf_list = [Nf] * len(t_list)
+
     scalar_dy_list = [0.5 * (i + 1) for i in range(len(t_list))]
 
-    heterobatch_results = backend_fn(
+    heterobatch_results = nifty_backend(
         t_list=t_list,
         y_list=y_list,
         dy_list=scalar_dy_list,
         fmin_list=fmin_list,
         Nf_list=Nf_list,
-        fit_mean=fit_mean,
+        nterms=nterms
     )
 
     standard_result_powers = []
     for i in range(len(t_list)):
-        scalar_dy = scalar_dy_list[i]
         standard_result = nifty_ls.lombscargle(
             t=t_list[i],
             y=y_list[i],
-            dy=scalar_dy,
+            dy=scalar_dy_list[i],
             fmin=fmin_list[i],
             Nf=Nf,
-            fit_mean=fit_mean,
+            nterms=nterms
         )
         standard_result_powers.append(standard_result.power)
 
@@ -390,20 +393,19 @@ def test_dy_scalar(data, nifty_backend, fit_mean, Nf=1000):
     'data', [{'N_series': 100, 'N': 50, 'N_batch': 3}], indirect=['data']
 )
 @pytest.mark.parametrize(
-    'nifty_backend',
+    'nifty_backend,nterms',
     [
-        'finufft_heterobatch',
-        # 'finufft_heterobatch_chi2',
+        ('finufft_heterobatch', 1),
+        ('finufft_chi2_heterobatch', 2),
     ],
     indirect=['nifty_backend'],
 )
-def test_mixed_dtypes(data, nifty_backend):
+def test_mixed_dtypes(data, nifty_backend, nterms):
     """Test that mixed dtypes raise an appropriate error"""
-    backend_fn, backend_name = nifty_backend
     data_mixed = {}
     data_mixed['t_list'] = [data['t'][0].astype(np.float32)]
     data_mixed['y_list'] = [data['y'][-1].astype(np.float64)]
     data_mixed['dy_list'] = [data['dy'][len(data['dy']) // 2].astype(np.float64)]
 
     with pytest.raises(ValueError, match='dtype'):
-        backend_fn(**data_mixed)
+        nifty_backend(**data_mixed, nterms=nterms)
