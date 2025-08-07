@@ -17,20 +17,11 @@ int _finufft_makeplan(
    int isign,
    int ntrans,
    double eps,
-   finufft_plan *plan,
+   typename finufft_plan_type<Scalar>::type *plan,
    finufft_opts *opts
 ) {
     if constexpr (std::is_same_v<Scalar, float>) {
-        return finufftf_makeplan(
-           type,
-           dim,
-           nmodes,
-           isign,
-           ntrans,
-           eps,
-           reinterpret_cast<finufftf_plan *>(plan),
-           opts
-        );
+        return finufftf_makeplan(type, dim, nmodes, isign, ntrans, eps, plan, opts);
     } else {
         return finufft_makeplan(type, dim, nmodes, isign, ntrans, eps, plan, opts);
     }
@@ -38,7 +29,7 @@ int _finufft_makeplan(
 
 template <typename Scalar>
 int _finufft_setpts(
-   finufft_plan plan,
+   typename finufft_plan_type<Scalar>::type plan,
    size_t M,
    Scalar *xj,
    Scalar *yj,
@@ -49,9 +40,7 @@ int _finufft_setpts(
    Scalar *u
 ) {
     if constexpr (std::is_same_v<Scalar, float>) {
-        return finufftf_setpts(
-           reinterpret_cast<finufftf_plan>(plan), M, xj, yj, zj, N, s, t, u
-        );
+        return finufftf_setpts(plan, M, xj, yj, zj, N, s, t, u);
     } else {
         return finufft_setpts(plan, M, xj, yj, zj, N, s, t, u);
     }
@@ -59,19 +48,21 @@ int _finufft_setpts(
 
 template <typename Scalar>
 int _finufft_execute(
-   finufft_plan plan, std::complex<Scalar> *weights, std::complex<Scalar> *result
+   typename finufft_plan_type<Scalar>::type plan,
+   std::complex<Scalar> *weights,
+   std::complex<Scalar> *result
 ) {
     if constexpr (std::is_same_v<Scalar, float>) {
-        return finufftf_execute(reinterpret_cast<finufftf_plan>(plan), weights, result);
+        return finufftf_execute(plan, weights, result);
     } else {
         return finufft_execute(plan, weights, result);
     }
 }
 
 template <typename Scalar>
-int _finufft_destroy(finufft_plan plan) {
+int _finufft_destroy(typename finufft_plan_type<Scalar>::type plan) {
     if constexpr (std::is_same_v<Scalar, float>) {
-        return finufftf_destroy(reinterpret_cast<finufftf_plan>(plan));
+        return finufftf_destroy(plan);
     } else {
         return finufft_destroy(plan);
     }

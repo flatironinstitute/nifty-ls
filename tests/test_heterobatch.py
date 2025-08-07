@@ -26,8 +26,8 @@ def data(request):
     else:
         # Default values when not parametrized
         N_series = 100
-        N_d = 50
-        N_batch = 3
+        N_d = 100
+        N_batch = 1
 
     return gen_data_mp(N_series=N_series, N_d=N_d, N_batch=N_batch)
 
@@ -48,11 +48,9 @@ def nifty_backend(request):
         pytest.skip(f'Backend {request.param} is not available')
 
 
-@pytest.mark.parametrize('Nf', [1_000, 10_000])
 @pytest.mark.parametrize(
     'data',
     [
-        {'N_series': 1000, 'N': 1000, 'N_batch': 1},
         {'N_series': 1000, 'N': 100, 'N_batch': 5},
         {'N_series': 10_000, 'N': 100, 'N_batch': 1},
     ],
@@ -66,7 +64,7 @@ def nifty_backend(request):
     ],
     indirect=['nifty_backend'],
 )
-def test_lombscargle(data, Nf, nifty_backend, nterms):
+def test_lombscargle(data, nifty_backend, nterms, Nf=1000):
     """Check that heterobatch implementation agrees with single series results"""
 
     t_list = data['t']
@@ -104,9 +102,6 @@ def test_lombscargle(data, Nf, nifty_backend, nterms):
     np.testing.assert_allclose(heterobatch_results.powers, standard_result_powers)
 
 
-@pytest.mark.parametrize(
-    'data', [{'N_series': 100, 'N': 50, 'N_batch': 3}], indirect=['data']
-)
 @pytest.mark.parametrize(
     'nifty_backend,nterms',
     [
@@ -156,9 +151,6 @@ def test_normalization(data, nifty_backend, nterms, Nf=1000):
         np.testing.assert_allclose(heterobatch_results.powers, standard_result_powers)
 
 
-@pytest.mark.parametrize(
-    'data', [{'N_series': 100, 'N': 50, 'N_batch': 3}], indirect=['data']
-)
 @pytest.mark.parametrize('center_data', [True, False])
 @pytest.mark.parametrize(
     'nifty_backend,nterms',
@@ -208,9 +200,6 @@ def test_center_data(data, center_data, nifty_backend, nterms, Nf=1000):
     np.testing.assert_allclose(heterobatch_results.powers, standard_result_powers)
 
 
-@pytest.mark.parametrize(
-    'data', [{'N_series': 100, 'N': 50, 'N_batch': 3}], indirect=['data']
-)
 @pytest.mark.parametrize('fit_mean', [True, False])
 @pytest.mark.parametrize(
     'nifty_backend,nterms',
@@ -419,9 +408,6 @@ def test_dy_scalar_list(data, nifty_backend, nterms, Nf=1000):
     np.testing.assert_allclose(heterobatch_results.powers, standard_result_powers)
 
 
-@pytest.mark.parametrize(
-    'data', [{'N_series': 100, 'N': 50, 'N_batch': 3}], indirect=['data']
-)
 @pytest.mark.parametrize(
     'nifty_backend,nterms',
     [

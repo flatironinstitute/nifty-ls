@@ -155,7 +155,6 @@ class TestBatchedPerf:
 
 
 @pytest.mark.parametrize('Nf', [1_000])
-@pytest.mark.parametrize('nterms', [2, 4])
 class TestChi2BatchedPerf:
     @pytest.mark.parametrize(
         'chi2_backend',
@@ -165,14 +164,12 @@ class TestChi2BatchedPerf:
         ),
         indirect=True,
     )
-    def test_batched_chi2(
-        self, batched_bench_data, Nf, nterms, benchmark, chi2_backend
-    ):
+    def test_batched_chi2(self, batched_bench_data, Nf, benchmark, chi2_backend):
         benchmark(
             nifty_ls.lombscargle,
             **batched_bench_data,
             Nf=Nf,
-            nterms=nterms,
+            nterms=4,
             backend=chi2_backend,
         )
 
@@ -185,9 +182,7 @@ class TestChi2BatchedPerf:
         + ['astropy_fastchi2'],
         indirect=True,
     )
-    def test_unbatched_chi2(
-        self, batched_bench_data, Nf, nterms, benchmark, chi2_backend
-    ):
+    def test_unbatched_chi2(self, batched_bench_data, Nf, benchmark, chi2_backend):
         t = batched_bench_data['t']
         y_batch = batched_bench_data['y']
         dy_batch = batched_bench_data['dy']
@@ -203,7 +198,7 @@ class TestChi2BatchedPerf:
                     fmin=fmin,
                     fmax=fmax,
                     Nf=Nf,
-                    nterms=nterms,
+                    nterms=4,
                     backend=chi2_backend,
                 )
 
@@ -216,7 +211,7 @@ class TestChi2BatchedPerf:
                     fmin=fmin,
                     fmax=fmax,
                     Nf=Nf,
-                    nterms=nterms,
+                    nterms=4,
                     use_fft=True,
                 )
 

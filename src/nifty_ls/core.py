@@ -7,8 +7,6 @@ from typing import Optional, Literal
 import numpy as np
 import numpy.typing as npt
 
-from typing import List
-
 from . import utils
 from .backends import (
     available_backends,
@@ -185,12 +183,12 @@ def lombscargle(
 
 
 def lombscargle_heterobatch(
-    t_list: List[npt.NDArray[np.floating]],
-    y_list: List[npt.NDArray[np.floating]],
-    dy_list: Optional[List[npt.NDArray[np.floating]]] = None,
-    fmin_list: Optional[List[float]] = None,
-    fmax_list: Optional[List[float]] = None,
-    Nf_list: Optional[List[float]] = None,
+    t_list: list[npt.NDArray[np.floating]],
+    y_list: list[npt.NDArray[np.floating]],
+    dy_list: Optional[list[npt.NDArray[np.floating]]] = None,
+    fmin_list: Optional[list[float]] = None,
+    fmax_list: Optional[list[float]] = None,
+    Nf_list: Optional[list[float]] = None,
     center_data: bool = True,
     fit_mean: bool = True,
     normalization: NORMALIZATION_TYPE = 'standard',
@@ -202,34 +200,37 @@ def lombscargle_heterobatch(
     **backend_kwargs: Optional[dict],
 ) -> NiftyHeteroBatchResult:
     """
-    Compute multiple series of Lomb-Scargle periodogram, or a batch of periodograms if `y` and `dy` are 2D arrays.
+    Compute multiple series of Lomb-Scargle periodograms, or a batch of periodograms if `y` and `dy` are 2D arrays.
 
-    This function can dispatch to multiple backends, including 'finufft_heterobatch'. Plan to implement CUDA
-    version latter.
+    This function supports "heterogeneous batches," meaning that each time series `t`, observations `y` and noissy `dy` can have
+    a different length. Unlike traditional batched interfaces that require uniform array sizes, this function dynamically
+    dispatches each time series to worker threads at the C++ level. This makes it efficient even for small or unevenly sized inputs.
 
-    The result is a `NiftyHeteroBatchResult` dataclass containing the computed periodogram(s), frequency grid parameters,
-    and other metadata. The actual frequency grid can be obtained by calling `freq()` on the result.
+    It supports multiple backends, including 'finufft_heterobatch', and is designed with future support for CUDA acceleration.
+
+    The result is a `NiftyHeteroBatchResult` dataclass, which contains the computed periodogram(s), frequency grid parameters,
+    and other metadata. You can retrieve the actual frequency grid by calling `freq()` on the result.
 
     The meanings of these parameters conform to the Lomb-Scargle implementation in Astropy:
     https://docs.astropy.org/en/stable/timeseries/lombscargle.html
 
     Parameters
     ----------
-    t_list : List of array-like
+    t_list : list of array-like
         The time values, shape (N_series, N_d_i) for i in [0..N_series-1]
-    y_list : List of array-like
+    y_list : list of array-like
         The data values, shape (N_series, N_t_i) or (N_series, N_y, N_t_i)
         for i in [0..N_series-1].
-    dy_list : List of array-like, optional
+    dy_list : list of array-like, optional
         Measurement uncertainties for the data values. Can be provided as:
         - A single scalar (uniform uncertainty for all data points across all series)
         - A list of scalars (one uncertainty value per series)
         - A list of arrays (element-wise uncertainties matching shapes of corresponding y_list entries)
-    fmin_list : List of float, optional
+    fmin_list : list of float, optional
         The minimum frequency of the periodogram. If not provided, it will be chosen automatically.
-    fmax_list : List of float, optional
+    fmax_list : list of float, optional
         The maximum frequency of the periodogram. If not provided, it will be chosen automatically.
-    Nf_list : List of int, optional
+    Nf_list : list of int, optional
         The number of frequency bins. If not provided, it will be chosen automatically.
     center_data : bool, optional
         Whether to center the data before computing the periodogram. Default is True.
@@ -257,7 +258,7 @@ def lombscargle_heterobatch(
     nifty_result : NiftyHeteroBatchResult
         A dataclass containing the computed periodogram(s), frequency grid parameters, and other.
         The fields are 'powers', 'fmin', 'df', 'Nf', and 'fmax'.
-        `nifty_result.powers` will be an ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
+        `nifty_result.powers` will be an list of ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
     """
     fmin_list, df_list, Nf_list = utils.validate_frequency_grid_mp(
         fmin_list,
@@ -359,18 +360,18 @@ class NiftyResult:
 
 @dataclass
 class NiftyHeteroBatchResult:
-    powers: List[npt.NDArray[np.floating]]
-    fmin_list: List[float]
-    df_list: List[float]
-    Nf_list: List[float]
-    fmax_list: List[float]
+    powers: list[npt.NDArray[np.floating]]
+    fmin_list: list[float]
+    df_list: list[float]
+    Nf_list: list[float]
+    fmax_list: list[float]
     center_data: bool
     fit_mean: bool
     normalization: NORMALIZATION_TYPE
     backend: BACKEND_TYPE
     backend_kwargs: Optional[dict]
 
-    def freqs(self) -> List[npt.NDArray[np.floating]]:
+    def freqs(self) -> list[npt.NDArray[np.floating]]:
         return [
             fmin_i + df_i * np.arange(Nf_i)
             for fmin_i, df_i, Nf_i in zip(self.fmin_list, self.df_list, self.Nf_list)

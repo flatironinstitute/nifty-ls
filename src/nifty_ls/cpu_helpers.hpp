@@ -12,22 +12,10 @@
 
 #ifdef _OPENMP
 #include <omp.h>
+#endif
 
 #include "utils_helpers.hpp"
 using utils_helpers::NormKind;
-
-// Declare a reduction for std::vector<double> using std::transform
-#pragma omp declare reduction(                                \
-      vsum : std::vector<double> : std::transform(            \
-            omp_out.begin(),                                  \
-               omp_out.end(),                                 \
-               omp_in.begin(),                                \
-               omp_out.begin(),                               \
-               std::plus<double>()                            \
-      )                                                       \
-) initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
-
-#endif
 
 namespace nb = nanobind;
 using namespace nb::literals;

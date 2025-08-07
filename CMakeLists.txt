@@ -23,6 +23,8 @@ endif()
 # until https://github.com/wjakob/nanobind/pull/1092 is published
 add_compile_options(-Wno-deprecated-literal-operator)
 
+set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
+
 if(NIFTY_LS_HETEROBATCH)
     # Download CPM.cmake if not already available
     if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
@@ -44,31 +46,9 @@ if(NIFTY_LS_HETEROBATCH)
             # "FINUFFT_ARCH_FLAGS -march=native"
     )
 
-    set(NIFTY_LS_HETEROBATCH_MODULES finufft_heterobatch_helpers finufft_chi2_heterobatch_helpers)
+    list(APPEND NIFTY_LS_MODULES finufft_heterobatch_helpers finufft_chi2_heterobatch_helpers)
 
-    foreach(MODULE_NAME ${NIFTY_LS_HETEROBATCH_MODULES})
-        nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI FREE_THREADED)
-        target_compile_options(${MODULE_NAME} PRIVATE
-            -Wall -Wextra -std=c++17
-        )
-        if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
-            target_compile_options(${MODULE_NAME} PRIVATE -O3 -ffast-math)
-        endif()
-        if (OpenMP_CXX_FOUND)
-            target_link_libraries(${MODULE_NAME} PRIVATE OpenMP::OpenMP_CXX)
-        endif()
-        target_link_libraries(${MODULE_NAME} PRIVATE finufft)
-        
-        # On macOS, use flat namespace to avoid duplicate initialization of libomp
-        if(APPLE)
-            target_link_options(${MODULE_NAME} PRIVATE -Wl,-flat_namespace)
-        endif()
-    
-        install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION nifty_ls)
-    endforeach()
 endif()
-
-set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
 
 
 foreach(MODULE_NAME ${NIFTY_LS_MODULES})
@@ -90,6 +70,13 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     if(APPLE)
         # On macOS, use flat namespace to avoid duplicate initialization of libomp
         target_link_options(${MODULE_NAME} PRIVATE -Wl,-flat_namespace)
+    endif()
+
+
+    if(NIFTY_LS_HETEROBATCH AND 
+       (${MODULE_NAME} STREQUAL "finufft_heterobatch_helpers" OR 
+        ${MODULE_NAME} STREQUAL "finufft_chi2_heterobatch_helpers"))
+        target_link_libraries(${MODULE_NAME} PRIVATE finufft)
     endif()
 
     install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION nifty_ls)

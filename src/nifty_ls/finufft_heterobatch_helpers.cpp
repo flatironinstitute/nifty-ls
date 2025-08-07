@@ -95,7 +95,7 @@ void process_single_series(
        f2_(N_batch * Nf);
 
     // Plan solo
-    finufft_plan solo_plan;
+    typename finufft_plan_type<Scalar>::type solo_plan;
     int64_t nmodes[] = {static_cast<int64_t>(Nf)};
     int ntrans       = N_batch;
     int solo_ier =
@@ -108,7 +108,7 @@ void process_single_series(
 
     if (fit_mean) {
         // Plan pair
-        finufft_plan pair_plan;
+        typename finufft_plan_type<Scalar>::type pair_plan;
         int ntrans   = 2 * N_batch;
         int pair_ier = _finufft_makeplan<Scalar>(
            type, dim, nmodes, +1, ntrans, eps, &pair_plan, opts

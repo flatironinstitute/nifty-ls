@@ -94,7 +94,7 @@ void process_chi2_single_series(
     );
 
     // FINUFFT plans for different harmonics
-    finufft_plan plan_yw;
+    typename finufft_plan_type<Scalar>::type plan_yw;
     int64_t nmodes[] = {static_cast<int64_t>(Nf)};
     int plan_yw_ier =
        _finufft_makeplan<Scalar>(1, 1, nmodes, +1, 2 * N_batch, eps, &plan_yw, opts);
@@ -106,7 +106,7 @@ void process_chi2_single_series(
         );
     }
 
-    finufft_plan plan_w;
+    typename finufft_plan_type<Scalar>::type plan_w;
     int plan_w_ier =
        _finufft_makeplan<Scalar>(1, 1, nmodes, +1, N_batch, eps, &plan_w, opts);
 
@@ -172,6 +172,7 @@ void process_chi2_single_series(
         // Store results in trig matrices
         for (size_t i = 0; i < N_batch; ++i) {
             for (size_t f = 0; f < Nf; ++f) {
+                // Syw_[i, j, f] = f1_fw[i,f]
                 Syw_[i * nSY * Nf + j * Nf + f] = f1_fw[i * Nf + f].imag();
                 Cyw_[i * nSY * Nf + j * Nf + f] = f1_fw[i * Nf + f].real();
                 Sw_[i * nSW * Nf + j * Nf + f]  = f1_fw[(N_batch + i) * Nf + f].imag();
@@ -218,6 +219,7 @@ void process_chi2_single_series(
         // Store results in trig matrices
         for (size_t i = 0; i < N_batch; ++i) {
             for (size_t f = 0; f < Nf; ++f) {
+                // Sw_[i, j, f] = f2_all[i,f]
                 Sw_[i * nSW * Nf + j * Nf + f] = f2_all[i * Nf + f].imag();
                 Cw_[i * nSW * Nf + j * Nf + f] = f2_all[i * Nf + f].real();
             }

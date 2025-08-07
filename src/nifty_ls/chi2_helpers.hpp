@@ -14,25 +14,13 @@
 #include <nanobind/stl/complex.h>
 #include <nanobind/stl/vector.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "utils_helpers.hpp"
 using utils_helpers::NormKind;
 using utils_helpers::TermType;
-
-#ifdef _OPENMP
-#include <omp.h>
-
-// Declare a reduction for std::vector<double> using std::transform
-#pragma omp declare reduction(                                \
-      vsum : std::vector<double> : std::transform(            \
-            omp_out.begin(),                                  \
-               omp_out.end(),                                 \
-               omp_in.begin(),                                \
-               omp_out.begin(),                               \
-               std::plus<double>()                            \
-      )                                                       \
-) initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
-
-#endif
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -66,7 +54,6 @@ void process_chi2_inputs_raw(
    const bool center_data,
    const bool fit_mean,
    int nthreads
-   // TODO: add if to control if OMP
 ) {
     const Scalar TWO_PI = 2 * static_cast<Scalar>(PI);
 
