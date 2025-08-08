@@ -318,60 +318,7 @@ def test_dy_none(data, nifty_backend, nterms, Nf=1000):
     ],
     indirect=['nifty_backend'],
 )
-def test_dy_scalar(data, nifty_backend, nterms, Nf=1000):
-    """Test that dy_list can be a scalar value"""
-
-    t_list = data['t']
-    y_list = data['y']
-    fmin_list = data['fmin']
-    Nf_list = [Nf] * len(t_list)
-
-    scalar_dy = 0.5
-
-    heterobatch_results = nifty_backend[1](
-        t_list=t_list,
-        y_list=y_list,
-        dy_list=scalar_dy,
-        fmin_list=fmin_list,
-        Nf_list=Nf_list,
-        nterms=nterms,
-    )
-
-    standard_result_powers = []
-    for i in range(len(t_list)):
-        standard_result = nifty_ls.lombscargle(
-            t=t_list[i],
-            y=y_list[i],
-            dy=scalar_dy,
-            fmin=fmin_list[i],
-            Nf=Nf,
-            nterms=nterms,
-            backend='finufft'
-            if nifty_backend[0] == 'finufft_heterobatch'
-            else 'finufft_chi2',
-        )
-        standard_result_powers.append(standard_result.power)
-
-    np.testing.assert_allclose(heterobatch_results.powers, standard_result_powers)
-
-
-@pytest.mark.parametrize(
-    'data',
-    [
-        {'N_series': 100, 'N': 100, 'N_batch': 1},
-        {'N_series': 100, 'N': 100, 'N_batch': 5},
-    ],
-    indirect=['data'],
-)
-@pytest.mark.parametrize(
-    'nifty_backend,nterms',
-    [
-        ('finufft_heterobatch', 1),
-        ('finufft_chi2_heterobatch', 2),
-    ],
-    indirect=['nifty_backend'],
-)
-def test_dy_scalar_list(data, nifty_backend, nterms, Nf=1000):
+def test_dy_mix_type(data, nifty_backend, nterms, Nf=1000):
     """Test that dy_list can be a list of scalar values"""
 
     t_list = data['t']
@@ -380,6 +327,8 @@ def test_dy_scalar_list(data, nifty_backend, nterms, Nf=1000):
     Nf_list = [Nf] * len(t_list)
 
     scalar_dy_list = [0.5 * (i + 1) for i in range(len(t_list))]
+    mid = len(scalar_dy_list) // 2
+    scalar_dy_list[mid] = data['dy'][mid]
 
     heterobatch_results = nifty_backend[1](
         t_list=t_list,

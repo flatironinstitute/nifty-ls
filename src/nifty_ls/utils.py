@@ -134,9 +134,6 @@ def broadcast_dy_list(y_list, dy_list):
                 f'Length mismatch: y_list has {len(y_list)} elements but dy_list has {len(dy_list)} elements'
             )
         for i in range(len(y_list)):
-            if not np.isscalar(dy_list[i]):
-                raise ValueError(
-                    f'Expected scalar uncertainty at index {i}, got {type(dy_list[i]).__name__}'
-                )
-        return None
+            if np.isscalar(dy_list[i]):
+                dy_list[i] = None
     return dy_list

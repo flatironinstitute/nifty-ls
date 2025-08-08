@@ -211,7 +211,7 @@ template <typename Scalar>
 void process_hetero_batch(
    const std::vector<nifty_arr_1d<const Scalar>> &t_list,
    const std::vector<nifty_arr_2d<const Scalar>> &y_list,
-   const std::optional<std::vector<nifty_arr_2d<const Scalar>>> &dy_list,
+   const std::optional<std::vector<std::optional<nifty_arr_2d<const Scalar>>>> &dy_list,
    const std::vector<Scalar> &fmin_list,
    const std::vector<Scalar> &df_list,
    const std::vector<size_t> &Nf_list,
@@ -291,10 +291,10 @@ void process_hetero_batch(
         size_t N_batch       = y_i.shape(0);
         const Scalar *dy_ptr = nullptr;
         bool broadcast_dy    = false;
-        if (dy_list.has_value()) {
-            const auto &dy_i = dy_list.value()[i];
-            dy_ptr           = dy_i.data();
-            broadcast_dy     = (dy_i.shape(1) == 1);
+        if (dy_list && (*dy_list)[i].has_value()) {
+            const auto &dy_arr_i = *(*dy_list)[i];
+            dy_ptr               = dy_arr_i.data();
+            broadcast_dy         = (dy_arr_i.shape(1) == 1);
         }
         auto &power = powers[i];
 

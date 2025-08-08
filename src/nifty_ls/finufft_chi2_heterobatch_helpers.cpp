@@ -269,7 +269,7 @@ template <typename Scalar>
 void process_chi2_hetero_batch(
    const std::vector<nifty_arr_1d<const Scalar>> &t_list,
    const std::vector<nifty_arr_2d<const Scalar>> &y_list,
-   const std::optional<std::vector<nifty_arr_2d<const Scalar>>> &dy_list,
+   const std::optional<std::vector<std::optional<nifty_arr_2d<const Scalar>>>> &dy_list,
    const std::vector<Scalar> &fmin_list,
    const std::vector<Scalar> &df_list,
    const std::vector<size_t> &Nf_list,
@@ -351,7 +351,8 @@ void process_chi2_hetero_batch(
         const auto &t_i      = t_list[i];
         const auto &y_i      = y_list[i];
         const Scalar *dy_ptr = nullptr;
-        if (dy_list.has_value()) { dy_ptr = (*dy_list)[i].data(); }
+        dy_ptr =
+           (dy_list && (*dy_list)[i].has_value()) ? (*dy_list)[i]->data() : nullptr;
         size_t N_d     = t_i.shape(0);
         size_t N_batch = y_i.shape(0);
 
