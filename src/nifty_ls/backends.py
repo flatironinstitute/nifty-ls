@@ -9,6 +9,10 @@ __all__ = [
     'BACKEND_NAMES',
     'CHI2_BACKEND_NAMES',
     'STANDARD_BACKEND_NAMES',
+    'HETEROBATCH_STANDARD_BACKEND_NAMES',
+    'HETEROBATCH_CHI2_BACKEND_NAMES',
+    'HETEROBATCH_BACKEND_TYPE',
+    'HETEROBATCH_BACKEND_NAMES',
 ]
 
 CHI2_BACKEND_NAMES = ['finufft_chi2', 'cufinufft_chi2']
@@ -16,12 +20,19 @@ STANDARD_BACKEND_NAMES = ['finufft', 'cufinufft']
 BACKEND_TYPE = Literal['auto', 'finufft', 'finufft_chi2', 'cufinufft', 'cufinufft_chi2']
 BACKEND_NAMES = list(get_args(BACKEND_TYPE))
 
+HETEROBATCH_STANDARD_BACKEND_NAMES = ['finufft_heterobatch']
+HETEROBATCH_CHI2_BACKEND_NAMES = ['finufft_chi2_heterobatch']
+HETEROBATCH_BACKEND_TYPE = Literal[
+    'auto', 'finufft_heterobatch', 'finufft_chi2_heterobatch'
+]
+HETEROBATCH_BACKEND_NAMES = list(get_args(HETEROBATCH_BACKEND_TYPE))
+
 
 def available_backends(verbose: bool = False) -> list[str]:
     """Return a list of available backends.  Backends may be unavailable if their dependencies are not installed."""
     backends = []
 
-    for backend in BACKEND_NAMES:
+    for backend in BACKEND_NAMES + HETEROBATCH_BACKEND_NAMES:
         if backend == 'auto':
             # 'auto' is a special case, it is not a backend but a mode to select the best available backend
             backends.append(backend)

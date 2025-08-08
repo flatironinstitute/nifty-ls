@@ -64,6 +64,17 @@ jobs:
       with:
         version: "0.8.4"
 
+    - name: Install FFTW (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfftw3-dev
+
+    - name: Install FFTW (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install fftw
+
     - name: Install from source
       run: |
         uv sync -v \
