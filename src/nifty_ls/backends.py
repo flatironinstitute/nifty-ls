@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Literal, get_args, Optional, List
+from typing import Literal, get_args
 
 __all__ = [
     'available_backends',
@@ -9,6 +9,9 @@ __all__ = [
     'BACKEND_NAMES',
     'CHI2_BACKEND_NAMES',
     'STANDARD_BACKEND_NAMES',
+    'HETEROBATCH_STANDARD_BACKEND_NAMES',
+    'HETEROBATCH_CHI2_BACKEND_NAMES',
+    'HETEROBATCH_BACKEND_TYPE',
     'HETEROBATCH_BACKEND_NAMES',
 ]
 
@@ -16,22 +19,20 @@ CHI2_BACKEND_NAMES = ['finufft_chi2', 'cufinufft_chi2']
 STANDARD_BACKEND_NAMES = ['finufft', 'cufinufft']
 BACKEND_TYPE = Literal['auto', 'finufft', 'finufft_chi2', 'cufinufft', 'cufinufft_chi2']
 BACKEND_NAMES = list(get_args(BACKEND_TYPE))
+
+HETEROBATCH_STANDARD_BACKEND_NAMES = ['finufft_heterobatch']
+HETEROBATCH_CHI2_BACKEND_NAMES = ['finufft_chi2_heterobatch']
 HETEROBATCH_BACKEND_TYPE = Literal[
     'auto', 'finufft_heterobatch', 'finufft_chi2_heterobatch'
 ]
 HETEROBATCH_BACKEND_NAMES = list(get_args(HETEROBATCH_BACKEND_TYPE))
 
 
-def available_backends(
-    verbose: bool = False, backend_names: Optional[List[str]] = None
-) -> list[str]:
+def available_backends(verbose: bool = False) -> list[str]:
     """Return a list of available backends.  Backends may be unavailable if their dependencies are not installed."""
     backends = []
-    # Default BACKEND_NAMES
-    if backend_names is None:
-        backend_names = BACKEND_NAMES
 
-    for backend in backend_names:
+    for backend in BACKEND_NAMES + HETEROBATCH_BACKEND_NAMES:
         if backend == 'auto':
             # 'auto' is a special case, it is not a backend but a mode to select the best available backend
             backends.append(backend)

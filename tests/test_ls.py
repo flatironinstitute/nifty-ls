@@ -428,7 +428,10 @@ def test_backends(data, nterms=1, Nf=1000):
     without reference to astropy
     """
 
-    backends = nifty_ls.core.AVAILABLE_BACKENDS
+    backends = list(
+        set(nifty_ls.backends.STANDARD_BACKEND_NAMES)
+        & set(nifty_ls.core.AVAILABLE_BACKENDS)
+    )
     if len(backends) < 2:
         pytest.skip('Need more than one backend to compare')
 
@@ -450,7 +453,10 @@ def test_backends(data, nterms=1, Nf=1000):
 # GH #58
 def test_mixed_dtypes(data):
     """Test that calling lombscargle with mixed dtypes raises an exception."""
-    backends = nifty_ls.core.AVAILABLE_BACKENDS
+    backends = list(
+        set(nifty_ls.backends.STANDARD_BACKEND_NAMES)
+        & set(nifty_ls.core.AVAILABLE_BACKENDS)
+    )
 
     data_mixed = data.copy()
     data_mixed['t'] = data_mixed['t'].astype(np.float32)

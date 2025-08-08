@@ -12,7 +12,6 @@ from .backends import (
     available_backends,
     BACKEND_TYPE,
     HETEROBATCH_BACKEND_TYPE,
-    HETEROBATCH_BACKEND_NAMES,
 )
 
 __all__ = [
@@ -26,9 +25,6 @@ __all__ = [
 
 
 AVAILABLE_BACKENDS = available_backends()
-AVAILABLE_HETEROBATCH_BACKENDS = available_backends(
-    backend_names=HETEROBATCH_BACKEND_NAMES
-)
 NORMALIZATION_TYPE = Literal['standard', 'model', 'log', 'psd']
 
 
@@ -134,9 +130,7 @@ def lombscargle(
         elif 'finufft' in AVAILABLE_BACKENDS:
             backend = 'finufft'
         else:
-            raise ValueError(
-                f'No valid backends available. AVAILABLE_BACKENDS = {AVAILABLE_BACKENDS}'
-            )
+            raise ValueError(f'No valid backends available. {AVAILABLE_BACKENDS = }')
     if backend not in AVAILABLE_BACKENDS:
         raise ValueError(
             f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_BACKENDS}'
@@ -278,25 +272,23 @@ def lombscargle_heterobatch(
     # Backend selection
     if backend == 'auto':
         if nterms > 1:
-            if 'cufinufft_chi2_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
+            if 'cufinufft_chi2_heterobatch' in AVAILABLE_BACKENDS:
                 backend = 'cufinufft_chi2_heterobatch'
-            elif 'finufft_chi2_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
+            elif 'finufft_chi2_heterobatch' in AVAILABLE_BACKENDS:
                 backend = 'finufft_chi2_heterobatch'
             else:
                 raise ValueError(
                     'Please install and select the "cufinufft_chi2_heterobatch" or "finufft_chi2_heterobatch" backend when nterms > 1.'
                 )
-        elif 'cufinufft_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
+        elif 'cufinufft_heterobatch' in AVAILABLE_BACKENDS:
             backend = 'cufinufft_heterobatch'
-        elif 'finufft_heterobatch' in AVAILABLE_HETEROBATCH_BACKENDS:
+        elif 'finufft_heterobatch' in AVAILABLE_BACKENDS:
             backend = 'finufft_heterobatch'
         else:
-            raise ValueError(
-                f'No valid backends available. AVAILABLE_BACKENDS = {AVAILABLE_HETEROBATCH_BACKENDS}'
-            )
-    if backend not in AVAILABLE_HETEROBATCH_BACKENDS:
+            raise ValueError(f'No valid backends available. {AVAILABLE_BACKENDS = }')
+    if backend not in AVAILABLE_BACKENDS:
         raise ValueError(
-            f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_HETEROBATCH_BACKENDS}'
+            f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_BACKENDS}'
         )
     if backend in ('finufft_heterobatch', 'cufinufft_heterobatch') and nterms > 1:
         raise ValueError(

@@ -35,11 +35,7 @@ def data(request):
 @pytest.fixture(scope='module')
 def nifty_backend(request):
     """Set up the backend function based on the parameterized backend name"""
-    available_heterobatch_backends = nifty_ls.backends.available_backends(
-        backend_names=nifty_ls.backends.HETEROBATCH_BACKEND_NAMES
-    )
-
-    if request.param in available_heterobatch_backends:
+    if request.param in nifty_ls.core.AVAILABLE_BACKENDS:
         return (
             request.param,
             partial(nifty_ls.lombscargle_heterobatch, backend=request.param),
