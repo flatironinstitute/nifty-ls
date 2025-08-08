@@ -83,7 +83,11 @@ void process_finufft_inputs_raw(
         // w2 = dy**-2.
         for (size_t i = 0; i < Nbatch; ++i) {
             for (size_t j = 0; j < N; ++j) {
-                w2[i * N + j] = 1 / (dy[i * N + j] * dy[i * N + j]);
+                if (dy == nullptr) {
+                    w2[i * N + j] = 1;
+                } else {
+                    w2[i * N + j] = 1 / (dy[i * N + j] * dy[i * N + j]);
+                }
                 if (center_data || fit_mean) {
                     yoff[i] += w2[i * N + j].real() * y[i * N + j];
                 }

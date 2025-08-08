@@ -95,7 +95,14 @@ void process_chi2_inputs_raw(
 #endif
             // 1. compute sum_w, yoff and fill w2s
             for (size_t j = 0; j < N; ++j) {
-                Scalar wt = Scalar(1) / (dy[i * N + j] * dy[i * N + j]);
+                // If dy is None, use unit weights
+                Scalar wt;
+                if (dy == nullptr) {
+                    wt = Scalar(1);
+                } else {
+                    Scalar d = dy[i * N + j];
+                    wt       = Scalar(1) / (d * d);
+                }
                 sum_w += wt;
                 yoff += wt * y[i * N + j];
             }
@@ -117,7 +124,13 @@ void process_chi2_inputs_raw(
 #endif
             // 2. compute norm, yws, and fill yw, w
             for (size_t m = 0; m < N; ++m) {
-                Scalar wt = Scalar(1) / (dy[i * N + m] * dy[i * N + m]);
+                Scalar wt;
+                if (dy == nullptr) {
+                    wt = Scalar(1);
+                } else {
+                    Scalar d = dy[i * N + m];
+                    wt       = Scalar(1) / (d * d);
+                }
                 Scalar ym = y[i * N + m] - yoff;
                 sum_norm += wt * (ym * ym);
                 sum_yw2 += ym * wt;

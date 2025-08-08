@@ -285,13 +285,12 @@ void process_hetero_batch(
     for (size_t i = 0; i < N_series; ++i) {
 
         // Data for single series
-        const auto &t_i = t_list[i];
-        const auto &y_i = y_list[i];
-        size_t N_d      = t_i.shape(0);
-        size_t N_batch  = y_i.shape(0);
-        std::vector<Scalar> default_dy(N_batch, 1.0);  // (N_batch, 1)
-        const Scalar *dy_ptr = default_dy.data();
-        bool broadcast_dy    = true;
+        const auto &t_i      = t_list[i];
+        const auto &y_i      = y_list[i];
+        size_t N_d           = t_i.shape(0);
+        size_t N_batch       = y_i.shape(0);
+        const Scalar *dy_ptr = nullptr;
+        bool broadcast_dy    = false;
         if (dy_list.has_value()) {
             const auto &dy_i = dy_list.value()[i];
             dy_ptr           = dy_i.data();

@@ -95,7 +95,9 @@ def lombscargle_heterobatch(
     broadcased_dy_list = broadcast_dy_list(y_list=y_list, dy_list=dy_list)
     for i in range(N_series):
         same_dtype_or_raise(
-            t=t_list[i], y=y_list[i], dy=broadcased_dy_list[i] if dy_list else dy_list
+            t=t_list[i],
+            y=y_list[i],
+            dy=broadcased_dy_list[i] if broadcased_dy_list else broadcased_dy_list,
         )
     dtype = t_list[0].dtype
 

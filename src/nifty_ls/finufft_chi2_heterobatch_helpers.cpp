@@ -311,33 +311,6 @@ void process_chi2_hetero_batch(
         );
     }
 
-    // Create dy_filled if dy_list is not provided
-    std::vector<nifty_arr_2d<const Scalar>> dy_filled;
-    if (!dy_list.has_value()) {
-        dy_filled.reserve(N_series);
-        for (size_t i = 0; i < N_series; ++i) {
-            const auto &y_i = y_list[i];
-            const auto &t_i = t_list[i];
-            size_t N_batch  = y_i.shape(0);
-            size_t N_d      = t_i.shape(0);
-
-            auto *data_ptr = new Scalar[N_batch * N_d];  // (N_batch, N_d)
-            std::fill(data_ptr, data_ptr + N_batch * N_d, Scalar(1));
-
-            size_t shape[2] = {N_batch, N_d};
-            nifty_arr_2d<const Scalar> dy_ones(
-               data_ptr,
-               2,  //(ndim)
-               shape,
-               nb::capsule(data_ptr, [](void *p) noexcept {
-                   delete[] static_cast<Scalar *>(p);
-               })
-            );
-            dy_filled.push_back(dy_ones);
-        }
-    }
-    const auto &dy_values = dy_list.has_value() ? *dy_list : dy_filled;
-
     // Set up finufft options
     finufft_opts opts;
     finufft_default_opts(&opts);
@@ -375,18 +348,19 @@ void process_chi2_hetero_batch(
 #endif
     for (size_t i = 0; i < N_series; ++i) {
         // Data for single series
-        const auto &t_i  = t_list[i];
-        const auto &y_i  = y_list[i];
-        const auto &dy_i = dy_values[i];
-        size_t N_d       = t_i.shape(0);
-        size_t N_batch   = y_i.shape(0);
+        const auto &t_i      = t_list[i];
+        const auto &y_i      = y_list[i];
+        const Scalar *dy_ptr = nullptr;
+        if (dy_list.has_value()) { dy_ptr = (*dy_list)[i].data(); }
+        size_t N_d     = t_i.shape(0);
+        size_t N_batch = y_i.shape(0);
 
         auto &power = powers[i];
 
         process_chi2_single_series(
            t_i.data(),
            y_i.data(),
-           dy_i.data(),
+           dy_ptr,
            center_data,
            fit_mean,
            fmin_list[i],
