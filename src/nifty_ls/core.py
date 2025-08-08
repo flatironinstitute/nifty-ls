@@ -278,7 +278,7 @@ def lombscargle_heterobatch(
                 backend = 'finufft_chi2_heterobatch'
             else:
                 raise ValueError(
-                    'Please install and select the "cufinufft_chi2_heterobatch" or "finufft_chi2_heterobatch" backend when nterms > 1.'
+                    'Please select the "cufinufft_chi2_heterobatch" or "finufft_chi2_heterobatch" backend when nterms > 1.'
                 )
         elif 'cufinufft_heterobatch' in AVAILABLE_BACKENDS:
             backend = 'cufinufft_heterobatch'

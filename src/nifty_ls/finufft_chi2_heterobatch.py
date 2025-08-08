@@ -35,18 +35,18 @@ def lombscargle_heterobatch(
 
     Parameters
     ----------
-    t_list : List of array-like
+    t_list : list of array-like
         The time values, shape (N_series, N_d_i) for i in [0..N_series-1]
-    y_list : List of array-like
+    y_list : list of array-like
         The data values, shape (N_series, N_y_i, N_t_i) or (N_series, N_t_i)
         for i in [0..N_series-1].
-    fmin_list : List of float
+    fmin_list : list of float
         The minimum frequency for each series.
-    df_list : List of float
+    df_list : list of float
         The frequency bin width for each series.
-    Nf_list : List of int
+    Nf_list : list of int
         The number of frequency bins for each series.
-    dy_list : List of array-like, optional
+    dy_list : list of array-like, optional
         Measurement uncertainties for the data values. Can be provided as:
         - A single scalar (uniform uncertainty for all data points across all series)
         - A list of scalars (one uncertainty value per series)
@@ -75,7 +75,7 @@ def lombscargle_heterobatch(
 
     Returns
     -------
-    powers : List of array-like
+    powers : list of array-like
         A list of computed periodogram arrays, one for each input series.
     """
 

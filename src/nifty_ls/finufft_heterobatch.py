@@ -40,18 +40,18 @@ def lombscargle_heterobatch(
 
     Parameters
     ----------
-    t_list : List of array-like
+    t_list : list of array-like
         The time values, shape (N_series, N_d_i) for i in [0..N_series-1]
-    y_list : List of array-like
+    y_list : list of array-like
         The data values, shape (N_series, N_t_i) or (N_series, N_y, N_t_i)
         for i in [0..N_series-1].
-    fmin_list : List of float, optional
+    fmin_list : list of float, optional
         The minimum frequency of the periodogram. If not provided, it will be chosen automatically.
-    df_list : List of float, optional
+    df_list : list of float, optional
         The frequency bin width of the periodogram.
-    Nf_list : List of int, optional
+    Nf_list : list of int, optional
         The number of frequency bins. If not provided, it will be chosen automatically.
-    dy_list : List of array-like, optional
+    dy_list : list of array-like, optional
         List of the uncertainties of the data values, broadcastable to `y`.
     nthreads : int, optional
         The number of threads to use. The default behavior is to use maximum threads
