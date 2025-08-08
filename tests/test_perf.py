@@ -14,7 +14,7 @@ import pytest
 
 import nifty_ls
 import nifty_ls.backends
-from nifty_ls.test_helpers.utils import gen_data, astropy_ls, astropy_ls_fastchi2
+from nifty_ls.test_helpers.utils import gen_data, astropy_ls
 
 
 @pytest.fixture(scope='module')
@@ -82,16 +82,7 @@ class TestPerf:
     @pytest.mark.parametrize('Nf', [10_000])
     def test_chi2_nterms4(self, bench_data, Nf, benchmark, chi2_backend):
         """Benchmark chi2 backends with nterms=4 and fixed Nf=10000."""
-        if chi2_backend == 'astropy_fastchi2':
-            benchmark(astropy_ls_fastchi2, **bench_data, Nf=Nf, nterms=4)
-        else:
-            benchmark(
-                nifty_ls.lombscargle,
-                **bench_data,
-                Nf=Nf,
-                backend=chi2_backend,
-                nterms=4,
-            )
+        benchmark(astropy_ls, **bench_data, Nf=Nf, nterms=4)
 
 
 @pytest.mark.benchmark(group='batched_standard')
@@ -229,7 +220,7 @@ class TestBatchedPerf:
 class TestChi2BatchedPerf:
     @pytest.mark.parametrize(
         'chi2_backend',
-        set(nifty_ls.backends.CHI2_BACKEND_NAMES),
+        nifty_ls.backends.CHI2_BACKEND_NAMES,
         indirect=True,
     )
     def test_batched_chi2(self, batched_bench_data, Nf, benchmark, chi2_backend):
@@ -243,7 +234,7 @@ class TestChi2BatchedPerf:
 
     @pytest.mark.parametrize(
         'chi2_backend',
-        nifty_ls.backends.CHI2_BACKEND_NAMES + ['astropy_fastchi2'],
+        nifty_ls.backends.CHI2_BACKEND_NAMES,
         indirect=True,
     )
     def test_unbatched_chi2(self, batched_bench_data, Nf, benchmark, chi2_backend):
@@ -268,7 +259,7 @@ class TestChi2BatchedPerf:
 
         def _astropy_fastchi2():
             for i in range(len(y_batch)):
-                astropy_ls_fastchi2(
+                astropy_ls(
                     t,
                     y_batch[i],
                     dy_batch[i],

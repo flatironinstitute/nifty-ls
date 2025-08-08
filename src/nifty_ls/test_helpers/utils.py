@@ -1,6 +1,7 @@
 """nifty-ls test helpers"""
 
 from __future__ import annotations
+from functools import partial
 
 import numpy as np
 
@@ -97,12 +98,24 @@ def astropy_ls(
     center_data=True,
     use_fft=False,
     normalization='standard',
+    nterms=None,
 ):
-    from astropy.timeseries.periodograms.lombscargle.implementations import fast_impl
+    if nterms is not None:
+        from astropy.timeseries.periodograms.lombscargle.implementations import (
+            fastchi2_impl,
+        )
+
+        astropy_func = partial(fastchi2_impl.lombscargle_fastchi2, nterms=nterms)
+    else:
+        from astropy.timeseries.periodograms.lombscargle.implementations import (
+            fast_impl,
+        )
+
+        astropy_func = fast_impl.lombscargle_fast
 
     df = (fmax - fmin) / (Nf - 1)
 
-    power = fast_impl.lombscargle_fast(
+    power = astropy_func(
         t,
         y,
         dy,
@@ -113,42 +126,6 @@ def astropy_ls(
         fit_mean=fit_mean,
         normalization=normalization,
         use_fft=use_fft,
-    )
-
-    return power
-
-
-def astropy_ls_fastchi2(
-    t,
-    y,
-    dy,
-    fmin,
-    fmax,
-    Nf,
-    fit_mean=True,
-    center_data=True,
-    use_fft=False,
-    normalization='standard',
-    nterms=1,
-):
-    from astropy.timeseries.periodograms.lombscargle.implementations import (
-        fastchi2_impl,
-    )
-
-    df = (fmax - fmin) / (Nf - 1)
-
-    power = fastchi2_impl.lombscargle_fastchi2(
-        t,
-        y,
-        dy,
-        fmin,
-        df,
-        Nf,
-        center_data=center_data,
-        fit_mean=fit_mean,
-        normalization=normalization,
-        use_fft=use_fft,
-        nterms=nterms,
     )
 
     return power
