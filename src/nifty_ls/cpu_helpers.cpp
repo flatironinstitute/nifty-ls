@@ -16,18 +16,6 @@
 #include "utils_helpers.hpp"
 using utils_helpers::NormKind;
 
-namespace nb = nanobind;
-using namespace nb::literals;
-
-template <typename Scalar>
-using nifty_arr_1d = nb::ndarray<Scalar, nb::ndim<1>, nb::device::cpu>;
-
-template <typename Scalar>
-using nifty_arr_2d = nb::ndarray<Scalar, nb::ndim<2>, nb::device::cpu>;
-
-template <typename Scalar>
-using Complex = std::complex<Scalar>;
-
 template <typename Scalar>
 void process_finufft_inputs(
    nifty_arr_1d<Scalar> t1_,
@@ -53,13 +41,9 @@ void process_finufft_inputs(
     std::complex<Scalar> *w  = w_.data();
     std::complex<Scalar> *w2 = w2_.data();
     Scalar *norm             = norm_.data();
-    const Scalar *t          = t_.data();
-    const Scalar *y          = y_.data();
-    const Scalar *dy         = dy_.data();
 
-    size_t Nbatch     = y_.shape(0);
-    size_t N          = y_.shape(1);
-    bool broadcast_dy = dy_.shape(1) == 1;
+    size_t Nbatch = y_.shape(0);
+    size_t N      = y_.shape(1);
 
     process_finufft_inputs_raw(
        t1,
@@ -68,10 +52,9 @@ void process_finufft_inputs(
        w,
        w2,
        norm,
-       t,
-       y,
-       dy,
-       broadcast_dy,
+       t_,
+       y_,
+       dy_,
        fmin,
        df,
        Nf,

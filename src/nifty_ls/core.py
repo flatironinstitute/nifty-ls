@@ -179,7 +179,7 @@ def lombscargle(
 def lombscargle_heterobatch(
     t_list: list[npt.NDArray[np.floating]],
     y_list: list[npt.NDArray[np.floating]],
-    dy_list: Optional[list[npt.NDArray[np.floating]]] = None,
+    dy_list: Optional[list[Optional[npt.NDArray[np.floating]]]] = None,
     fmin_list: Optional[list[float]] = None,
     fmax_list: Optional[list[float]] = None,
     Nf_list: Optional[list[float]] = None,

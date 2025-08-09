@@ -19,26 +19,11 @@
 #include "finufft_wrapper.hpp"
 #include "utils_helpers.hpp"
 
-namespace nb = nanobind;
-using namespace nb::literals;
-
-template <typename Scalar>
-using nifty_arr_1d = nb::ndarray<Scalar, nb::ndim<1>, nb::device::cpu>;
-
-template <typename Scalar>
-using nifty_arr_2d = nb::ndarray<Scalar, nb::ndim<2>, nb::device::cpu>;
-
-using utils_helpers::NormKind;
-
-template <typename Scalar>
-using Complex = std::complex<Scalar>;
-
 template <typename Scalar>
 void process_single_series(
-   const Scalar *t,   // (N_d)
-   const Scalar *y,   // (N_batch, N_d)
-   const Scalar *dy,  // (N_batch, N_d) / (N_batch) / nullptr
-   const bool broadcast_dy,
+   const nifty_arr_1d<const Scalar> &t,   // (N_d)
+   const nifty_arr_2d<const Scalar> &y,   // (N_batch, N_d)
+   const nifty_arr_2d<const Scalar> &dy,  // (N_batch, N_d)
    const bool center_data,
    const bool fit_mean,
    const Scalar fmin,
@@ -69,7 +54,6 @@ void process_single_series(
        t,   // input
        y,   // input
        dy,  // input
-       broadcast_dy,
        fmin,
        df,
        Nf,
@@ -211,12 +195,12 @@ template <typename Scalar>
 void process_hetero_batch(
    const std::vector<nifty_arr_1d<const Scalar>> &t_list,
    const std::vector<nifty_arr_2d<const Scalar>> &y_list,
-   const std::optional<std::vector<std::optional<nifty_arr_2d<const Scalar>>>> &dy_list,
+   const std::vector<nifty_arr_2d<const Scalar>> &dy_list,
    const std::vector<Scalar> &fmin_list,
    const std::vector<Scalar> &df_list,
    const std::vector<size_t> &Nf_list,
    std::vector<nifty_arr_2d<Scalar>> &powers,  // output
-   const std::string &normalization,
+   const NormKind normalization,
    int nthreads,
    const bool center_data,
    const bool fit_mean,
@@ -256,27 +240,7 @@ void process_hetero_batch(
     opts.upsampfac = upsampfac;
     opts.fftw      = fftw;
 
-    // Normalization kind
-    static const std::unordered_map<std::string, NormKind> norm_map = {
-       {"standard", NormKind::Standard},
-       {"model", NormKind::Model},
-       {"log", NormKind::Log},
-       {"psd", NormKind::PSD}
-    };
-
-    std::string norm_lower = normalization;
-    std::transform(
-       norm_lower.begin(), norm_lower.end(), norm_lower.begin(), [](unsigned char c) {
-           return std::tolower(c);
-       }
-    );
-
-    NormKind norm_kind;
-    try {
-        norm_kind = norm_map.at(norm_lower);
-    } catch (const std::out_of_range &e) {
-        throw std::invalid_argument("Unknown normalization type: " + norm_lower);
-    }
+    bool broadcast_dy_list = dy_list.size() == 1;
 
     // Start OMP
 #ifdef _OPENMP
@@ -285,30 +249,25 @@ void process_hetero_batch(
     for (size_t i = 0; i < N_series; ++i) {
 
         // Data for single series
-        const auto &t_i      = t_list[i];
-        const auto &y_i      = y_list[i];
-        size_t N_d           = t_i.shape(0);
-        size_t N_batch       = y_i.shape(0);
-        const Scalar *dy_ptr = nullptr;
-        bool broadcast_dy    = false;
-        if (dy_list && (*dy_list)[i].has_value()) {
-            const auto &dy_arr_i = *(*dy_list)[i];
-            dy_ptr               = dy_arr_i.data();
-            broadcast_dy         = (dy_arr_i.shape(1) == 1);
-        }
+        const auto &t_i  = t_list[i];
+        const auto &y_i  = y_list[i];
+        const auto &dy_i = broadcast_dy_list ? dy_list[0] : dy_list[i];
+
+        size_t N_d     = t_i.shape(0);
+        size_t N_batch = y_i.shape(0);
+
         auto &power = powers[i];
 
         process_single_series(
-           t_i.data(),
-           y_i.data(),
-           dy_ptr,
-           broadcast_dy,
+           t_i,
+           y_i,
+           dy_i,
            center_data,
            fit_mean,
            fmin_list[i],
            df_list[i],
            Nf_list[i],
-           norm_kind,
+           normalization,
            power.data(),
            N_batch,
            N_d,
@@ -329,7 +288,7 @@ NB_MODULE(finufft_heterobatch_helpers, m) {
        &process_hetero_batch<float>,
        "t_list"_a,
        "y_list"_a,
-       "dy_list"_a.none(),
+       "dy_list"_a,
        "fmin_list"_a,
        "df_list"_a,
        "Nf_list"_a,
@@ -348,7 +307,7 @@ NB_MODULE(finufft_heterobatch_helpers, m) {
        &process_hetero_batch<double>,
        "t_list"_a,
        "y_list"_a,
-       "dy_list"_a.none(),
+       "dy_list"_a,
        "fmin_list"_a,
        "df_list"_a,
        "Nf_list"_a,

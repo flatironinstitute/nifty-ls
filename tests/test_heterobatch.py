@@ -321,10 +321,9 @@ def test_dy_mix_type(data, nifty_backend, nterms, Nf=1000):
     y_list = data['y']
     fmin_list = data['fmin']
     Nf_list = [Nf] * len(t_list)
+    dtype = t_list[0].dtype
 
-    scalar_dy_list = [0.5 * (i + 1) for i in range(len(t_list))]
-    mid = len(scalar_dy_list) // 2
-    scalar_dy_list[mid] = data['dy'][mid]
+    scalar_dy_list = [dtype.type(0.5 * (i + 1)) for i in range(len(t_list))]
 
     heterobatch_results = nifty_backend[1](
         t_list=t_list,
@@ -364,9 +363,9 @@ def test_dy_mix_type(data, nifty_backend, nterms, Nf=1000):
 def test_mixed_dtypes(data, nifty_backend, nterms):
     """Test that mixed dtypes raise an appropriate error"""
     data_mixed = {}
-    data_mixed['t_list'] = [data['t'][0].astype(np.float32)]
-    data_mixed['y_list'] = [data['y'][-1].astype(np.float64)]
-    data_mixed['dy_list'] = [data['dy'][len(data['dy']) // 2].astype(np.float64)]
+    data_mixed['t_list'] = [t.astype(np.float64) for t in data['t']]
+    data_mixed['y_list'] = [y.astype(np.float32) for y in data['y']]
+    data_mixed['dy_list'] = [dy.astype(np.float32) for dy in data['dy']]
 
     with pytest.raises(ValueError, match='dtype'):
         nifty_backend[1](**data_mixed, nterms=nterms)

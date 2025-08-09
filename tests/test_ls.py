@@ -282,14 +282,13 @@ def test_center_data(data, center_data, nterms, nifty_backend, Nf=1000):
         **data, Nf=Nf, nterms=nterms, center_data=center_data
     ).power
 
-    if backend_name == 'finufft_chi2' or backend_name == 'cufinufft_chi2':
-        center_astropy = astropy_ls(
-            **data,
-            Nf=Nf,
-            nterms=nterms,
-            use_fft=False,
-            center_data=center_data,
-        )
+    center_astropy = astropy_ls(
+        **data,
+        Nf=Nf,
+        nterms=nterms,
+        use_fft=False,
+        center_data=center_data,
+    )
     dtype = data['t'].dtype
 
     np.testing.assert_allclose(center_nifty, center_astropy, rtol=rtol(dtype, Nf))

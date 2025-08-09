@@ -101,9 +101,7 @@ def same_dtype_or_raise(**arrays):
     """
     Check if all arrays have the same dtype, raise ValueError if not.
     """
-    dtypes = {
-        n: a.dtype for (n, a) in arrays.items() if a is not None and not np.isscalar(a)
-    }
+    dtypes = {n: a.dtype for (n, a) in arrays.items() if a is not None}
     names = list(dtypes.keys())
 
     for n in names[1:]:
@@ -117,23 +115,36 @@ def same_dtype_or_raise(**arrays):
 def broadcast_dy_list(y_list, dy_list):
     """
     Handle and check uncertainty values (dy) to match shapes of observation arrays.
+
+    To simplify C++-side handling, we will broadcast everything to a list of 2D array (nbatch,nobs).
+    The list may be length 1 and require broadcasting in C++.
     """
 
-    # Handle dy_list is None
-    if not dy_list:
-        return dy_list
+    # dy_list could be None or scalar
+    if not isinstance(dy_list, (list, tuple)):
+        dy_list = [dy_list]
 
-    # Handle scalar
-    if np.isscalar(dy_list):
-        return None
+    dtype = y_list[0].dtype
+    dy_res = []
+    for dy, y in zip(dy_list, y_list):
+        if dy is None:
+            dy = np.ones(1, dtype=dtype)
+        # Doing something tricky here! This may produce a zero-stride array
+        # of the desired shape, achieving automatic broadcasting via nb::ndarray in C++
+        dy = np.broadcast_to(dy, y.shape)
+        dy_res.append(dy)
 
-    # Handle list of scalar
-    elif np.isscalar(dy_list[0]):
-        if len(dy_list) != len(y_list):
-            raise ValueError(
-                f'Length mismatch: y_list has {len(y_list)} elements but dy_list has {len(dy_list)} elements'
-            )
-        for i in range(len(y_list)):
-            if np.isscalar(dy_list[i]):
-                dy_list[i] = None
-    return dy_list
+    return dy_res
+
+
+def get_norm_enum(norm: str):
+    from .cpu_helpers import NormKind
+
+    norm_enum = dict(
+        standard=NormKind.Standard,
+        model=NormKind.Model,
+        log=NormKind.Log,
+        psd=NormKind.PSD,
+    )[norm.lower()]
+
+    return norm_enum

@@ -14,7 +14,7 @@ find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED ${SKB
 find_package(nanobind CONFIG REQUIRED)
 
 option(NIFTY_LS_OPENMP "Enable OpenMP support in the compiled extensions" ON)
-option(NIFTY_LS_HETEROBATCH "Enable heterobatch support with finufft" On)
+option(NIFTY_LS_HETEROBATCH "Enable heterobatch support with finufft" ON)
 
 if(NIFTY_LS_OPENMP)
     find_package(OpenMP REQUIRED)

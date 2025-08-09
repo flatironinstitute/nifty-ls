@@ -17,32 +17,20 @@
 #include "utils_helpers.hpp"
 using utils_helpers::NormKind;
 
-namespace nb = nanobind;
-using namespace nb::literals;
-
-const double PI = 3.14159265358979323846;
-
-template <typename Scalar>
-using nifty_arr_1d = nb::ndarray<Scalar, nb::ndim<1>, nb::device::cpu>;
-
-template <typename Scalar>
-using nifty_arr_2d = nb::ndarray<Scalar, nb::ndim<2>, nb::device::cpu>;
-
 template <typename Scalar>
 using Complex = std::complex<Scalar>;
 
 template <typename Scalar>
 void process_finufft_inputs_raw(
-   Scalar *t1,               // (N)
-   Scalar *t2,               // (N)
-   Complex<Scalar> *yw,      // (Nbatch, N)
-   Complex<Scalar> *w,       // (Nbatch, N)
-   Complex<Scalar> *w2,      // (Nbatch, N)
-   Scalar *norm,             // (Nbatch)
-   const Scalar *t,          // input, (N)
-   const Scalar *y,          // input, (Nbatch, N)
-   const Scalar *dy,         // input, (Nbatch, N)
-   const bool broadcast_dy,  // input
+   Scalar *t1,                             // (N)
+   Scalar *t2,                             // (N)
+   Complex<Scalar> *yw,                    // (Nbatch, N)
+   Complex<Scalar> *w,                     // (Nbatch, N)
+   Complex<Scalar> *w2,                    // (Nbatch, N)
+   Scalar *norm,                           // (Nbatch)
+   const nifty_arr_1d<const Scalar> &t_,   // input, (N)
+   const nifty_arr_2d<const Scalar> &y_,   // input, (Nbatch, N)
+   const nifty_arr_2d<const Scalar> &dy_,  // input, (Nbatch, N)
    const Scalar fmin,
    const Scalar df,
    const size_t Nf,
@@ -71,45 +59,29 @@ void process_finufft_inputs_raw(
     (void) nthreads;  // suppress unused variable warning
 #endif
 
+    const auto t  = t_.view();   // read-only
+    const auto y  = y_.view();   // read-only
+    const auto dy = dy_.view();  // read-only, maybe zero-stride
+
     // w2 = dy**-2.
     std::vector<double> wsum(Nbatch, 0.);  // use double for stability
     std::vector<double> yoff(Nbatch, 0.);
 
-    if (!broadcast_dy) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2) \
    reduction(vsum : wsum) reduction(vsum : yoff) if (nthreads > 1)
 #endif
-        // w2 = dy**-2.
-        for (size_t i = 0; i < Nbatch; ++i) {
-            for (size_t j = 0; j < N; ++j) {
-                if (dy == nullptr) {
-                    w2[i * N + j] = 1;
-                } else {
-                    w2[i * N + j] = 1 / (dy[i * N + j] * dy[i * N + j]);
-                }
-                if (center_data || fit_mean) {
-                    yoff[i] += w2[i * N + j].real() * y[i * N + j];
-                }
-                wsum[i] += w2[i * N + j].real();
-            }
-        }
-    } else {
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2) \
-   reduction(vsum : yoff) if (nthreads > 1)
-#endif
-        for (size_t i = 0; i < Nbatch; ++i) {
-            for (size_t j = 0; j < N; ++j) {
-                w2[i * N + j] = Scalar(1);
-                if (center_data || fit_mean) { yoff[i] += y[i * N + j]; }
-            }
+    // w2 = dy**-2.
+    for (size_t i = 0; i < Nbatch; ++i) {
+        for (size_t j = 0; j < N; ++j) {
+            w2[i * N + j] = 1 / (dy(i, j) * dy(i, j));
+            if (center_data || fit_mean) { yoff[i] += w2[i * N + j].real() * y(i, j); }
+            wsum[i] += w2[i * N + j].real();
         }
     }
     // Not taskified — dynamic scheduling overhead outweighs benefits
     //  norm = (w2 * y**2).sum(axis=-1)
     for (size_t i = 0; i < Nbatch; ++i) {
-        if (broadcast_dy) { wsum[i] = N; }
         if (psd_norm) {
             norm[i] = wsum[i];
         } else {
@@ -124,8 +96,8 @@ void process_finufft_inputs_raw(
         for (size_t j = 0; j < N; ++j) {
             w2[i * N + j].real(w2[i * N + j].real() / wsum[i]);  // w2 /= sum
             if (!psd_norm) {
-                normi += w2[i * N + j].real() * (y[i * N + j] - yoff[i])
-                         * (y[i * N + j] - yoff[i]);
+                normi +=
+                   w2[i * N + j].real() * (y(i, j) - yoff[i]) * (y(i, j) - yoff[i]);
             }
         }
         norm[i] = normi;
@@ -139,11 +111,11 @@ void process_finufft_inputs_raw(
 #pragma omp parallel for num_threads(nthreads) schedule(static) if (nthreads > 1)
 #endif
     for (size_t j = 0; j < N; ++j) {
-        t1[j] = TWO_PI * df * t[j];
+        t1[j] = TWO_PI * df * t(j);
         t2[j] = 2 * t1[j];
         for (size_t i = 0; i < Nbatch; ++i) {
-            yw[i * N + j] = (y[i * N + j] - static_cast<Scalar>(yoff[i]))
-                            * w2[i * N + j] * std::exp(phase_shift * t1[j]);
+            yw[i * N + j] = (y(i, j) - static_cast<Scalar>(yoff[i])) * w2[i * N + j]
+                            * std::exp(phase_shift * t1[j]);
             if (fit_mean) {
                 w[i * N + j] = w2[i * N + j] * std::exp(phase_shift * t1[j]);
             }

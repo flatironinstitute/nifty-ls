@@ -6,7 +6,7 @@ import numpy as np
 
 from nifty_ls.finufft_heterobatch_helpers import process_hetero_batch
 from nifty_ls.finufft import FFTW_ESTIMATE
-from .utils import same_dtype_or_raise, broadcast_dy_list
+from .utils import same_dtype_or_raise, broadcast_dy_list, get_norm_enum
 from .finufft import get_finufft_max_threads
 
 
@@ -90,12 +90,12 @@ def lombscargle_heterobatch(
     # Verify variable sizes and dtypes
     if len(y_list) != N_series:
         raise ValueError('Time series(t), observation(y) should have same length')
-    broadcased_dy_list = broadcast_dy_list(y_list=y_list, dy_list=dy_list)
+    dy_list = broadcast_dy_list(y_list=y_list, dy_list=dy_list)
     for i in range(N_series):
         same_dtype_or_raise(
             t=t_list[i],
             y=y_list[i],
-            dy=broadcased_dy_list[i] if broadcased_dy_list else broadcased_dy_list,
+            dy=dy_list[i] if i < len(dy_list) else None,
         )
     dtype = t_list[0].dtype
 
@@ -104,6 +104,8 @@ def lombscargle_heterobatch(
             eps = 1e-5
         else:
             eps = 1e-9
+
+    normalization = get_norm_enum(normalization)
 
     # Pre-allocate space for powers
     powers = []
@@ -115,7 +117,7 @@ def lombscargle_heterobatch(
     process_hetero_batch(
         t_list,
         y_list,
-        broadcased_dy_list,
+        dy_list,
         fmin_list,
         df_list,
         Nf_list,

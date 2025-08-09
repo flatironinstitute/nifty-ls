@@ -4,6 +4,28 @@
 #include <algorithm>
 #include <vector>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/complex.h>
+#include <nanobind/stl/vector.h>
+
+const double PI = 3.14159265358979323846;
+
+namespace nb = nanobind;
+using namespace nb::literals;
+
+template <typename Scalar>
+using nifty_arr_1d = nb::ndarray<Scalar, nb::ndim<1>, nb::device::cpu>;
+
+template <typename Scalar>
+using nifty_arr_2d = nb::ndarray<Scalar, nb::ndim<2>, nb::device::cpu>;
+
+template <typename Scalar>
+using nifty_arr_3d = nb::ndarray<Scalar, nb::ndim<3>, nb::device::cpu>;
+
+template <typename Scalar>
+using Complex = std::complex<Scalar>;
+
 #ifdef _OPENMP
 #include <omp.h>
 // Declare a reduction for std::vector<double> using std::transform

@@ -11,27 +11,10 @@
 #include <cmath>
 #include <stdexcept>
 
-#include <nanobind/nanobind.h>
-#include <nanobind/ndarray.h>
-#include <nanobind/stl/complex.h>
-#include <nanobind/stl/vector.h>
-
 #include "chi2_helpers.hpp"
 #include "utils_helpers.hpp"
 using utils_helpers::NormKind;
 using utils_helpers::TermType;
-
-namespace nb = nanobind;
-using namespace nb::literals;
-
-template <typename Scalar>
-using nifty_arr_1d = nb::ndarray<Scalar, nb::ndim<1>, nb::device::cpu>;
-
-template <typename Scalar>
-using nifty_arr_2d = nb::ndarray<Scalar, nb::ndim<2>, nb::device::cpu>;
-
-template <typename Scalar>
-using nifty_arr_3d = nb::ndarray<Scalar, nb::ndim<3>, nb::device::cpu>;
 
 template <typename Scalar>
 using Complex = std::complex<Scalar>;
@@ -48,9 +31,9 @@ void process_chi2_inputs(
    nifty_arr_3d<Scalar> Cw_,
    nifty_arr_3d<Scalar> Syw_,
    nifty_arr_3d<Scalar> Cyw_,
-   nifty_arr_1d<const Scalar> t_,
-   nifty_arr_2d<const Scalar> y_,
-   nifty_arr_2d<const Scalar> dy_,
+   const nifty_arr_1d<const Scalar> &t,
+   const nifty_arr_2d<const Scalar> &y,
+   const nifty_arr_2d<const Scalar> &dy,
    const Scalar df,
    const bool center_data,
    const bool fit_mean,
@@ -67,12 +50,9 @@ void process_chi2_inputs(
     Scalar *Cw          = Cw_.data();
     Scalar *Syw         = Syw_.data();
     Scalar *Cyw         = Cyw_.data();
-    const Scalar *t     = t_.data();
-    const Scalar *y     = y_.data();
-    const Scalar *dy    = dy_.data();
 
-    size_t Nbatch = y_.shape(0);
-    size_t N      = y_.shape(1);
+    size_t Nbatch = y.shape(0);
+    size_t N      = y.shape(1);
     size_t Nf     = Sw_.shape(2);
     size_t nSW    = Sw_.shape(1);
     size_t nSY    = Syw_.shape(1);

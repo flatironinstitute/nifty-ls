@@ -8,7 +8,7 @@ import finufft
 import numpy as np
 
 from . import cpu_helpers
-from .utils import same_dtype_or_raise
+from .utils import same_dtype_or_raise, get_norm_enum
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
@@ -110,7 +110,7 @@ def lombscargle(
     # treat 1D arrays as a batch of size 1
     squeeze_output = y.ndim == 1
     y = np.atleast_2d(y)
-    dy = np.atleast_2d(dy)
+    dy = np.broadcast_to(dy, y.shape)  # maybe zero-stride!
 
     # If fit_mean, we need to transform (t,yw) and (t,w),
     # so we stack yw and w into a single array to allow a batched transform.
@@ -255,12 +255,7 @@ def lombscargle(
 
     t_helpers -= timer()
     if not _no_cpp_helpers:
-        norm_enum = dict(
-            standard=cpu_helpers.NormKind.Standard,
-            model=cpu_helpers.NormKind.Model,
-            log=cpu_helpers.NormKind.Log,
-            psd=cpu_helpers.NormKind.PSD,
-        )[normalization.lower()]
+        norm_enum = get_norm_enum(normalization)
 
         power = np.empty(f1.shape, dtype=dtype)
         cpu_helpers.process_finufft_outputs(

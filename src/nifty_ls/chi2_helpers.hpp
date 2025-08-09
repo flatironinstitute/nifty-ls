@@ -25,26 +25,24 @@ using utils_helpers::TermType;
 namespace nb = nanobind;
 using namespace nb::literals;
 
-const double PI = 3.14159265358979323846;
-
 template <typename Scalar>
 using Complex = std::complex<Scalar>;
 
 template <typename Scalar>
 void process_chi2_inputs_raw(
-   Scalar *t1,           // (N)
-   Complex<Scalar> *yw,  // (Nbatch, N)
-   Complex<Scalar> *w,   // (Nbatch, N)
-   Scalar *w2s,          // (Nbatch, 1)
-   Scalar *norm,         // (Nbatch, 1)
-   Scalar *yws,          // (Nbatch, 1)
-   Scalar *Sw,           // (Nbatch, nSW, Nf)
-   Scalar *Cw,           // (Nbatch, nSW, Nf)
-   Scalar *Syw,          // (Nbatch, nSY, Nf)
-   Scalar *Cyw,          // (Nbatch, nSY, Nf)
-   const Scalar *t,      // input, (N)
-   const Scalar *y,      // input, (Nbatch, N)
-   const Scalar *dy,     // input, (Nbatch, N)
+   Scalar *t1,                            // (N)
+   Complex<Scalar> *yw,                   // (Nbatch, N)
+   Complex<Scalar> *w,                    // (Nbatch, N)
+   Scalar *w2s,                           // (Nbatch, 1)
+   Scalar *norm,                          // (Nbatch, 1)
+   Scalar *yws,                           // (Nbatch, 1)
+   Scalar *Sw,                            // (Nbatch, nSW, Nf)
+   Scalar *Cw,                            // (Nbatch, nSW, Nf)
+   Scalar *Syw,                           // (Nbatch, nSY, Nf)
+   Scalar *Cyw,                           // (Nbatch, nSY, Nf)
+   const nifty_arr_1d<const Scalar> &t,   // (N_d)
+   const nifty_arr_2d<const Scalar> &y,   // (N_batch, N_d)
+   const nifty_arr_2d<const Scalar> &dy,  // (N_batch, N_d)
    const size_t Nbatch,
    const size_t N,
    const size_t Nf,
@@ -77,7 +75,7 @@ void process_chi2_inputs_raw(
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(nthreads) if (nthreads > 1)
 #endif
-    for (size_t j = 0; j < N; ++j) { t1[j] = TWO_PI * df * t[j]; }
+    for (size_t j = 0; j < N; ++j) { t1[j] = TWO_PI * df * t(j); }
 
     // Process each batch serially, but parallelize inner loops
     for (size_t i = 0; i < Nbatch; ++i) {
@@ -96,15 +94,10 @@ void process_chi2_inputs_raw(
             // 1. compute sum_w, yoff and fill w2s
             for (size_t j = 0; j < N; ++j) {
                 // If dy is None, use unit weights
-                Scalar wt;
-                if (dy == nullptr) {
-                    wt = Scalar(1);
-                } else {
-                    Scalar d = dy[i * N + j];
-                    wt       = Scalar(1) / (d * d);
-                }
+                Scalar d  = dy(i, j);
+                Scalar wt = Scalar(1) / (d * d);
                 sum_w += wt;
-                yoff += wt * y[i * N + j];
+                yoff += wt * y(i, j);
             }
 #ifdef _OPENMP
 #pragma omp single
@@ -124,14 +117,9 @@ void process_chi2_inputs_raw(
 #endif
             // 2. compute norm, yws, and fill yw, w
             for (size_t m = 0; m < N; ++m) {
-                Scalar wt;
-                if (dy == nullptr) {
-                    wt = Scalar(1);
-                } else {
-                    Scalar d = dy[i * N + m];
-                    wt       = Scalar(1) / (d * d);
-                }
-                Scalar ym = y[i * N + m] - yoff;
+                Scalar d  = dy(i, m);
+                Scalar wt = Scalar(1) / (d * d);
+                Scalar ym = y(i, m) - yoff;
                 sum_norm += wt * (ym * ym);
                 sum_yw2 += ym * wt;
 

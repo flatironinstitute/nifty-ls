@@ -9,11 +9,11 @@ from nifty_ls.finufft import FFTW_ESTIMATE
 
 import numpy as np
 
-from . import cpu_helpers, chi2_helpers
+from . import chi2_helpers
 
 from itertools import chain
 
-from .utils import same_dtype_or_raise
+from .utils import same_dtype_or_raise, get_norm_enum
 
 
 def lombscargle(
@@ -366,12 +366,7 @@ def _lombscargle_compute(
     order.extend(chain(*([('S', i), ('C', i)] for i in range(1, nterms + 1))))
 
     if not _no_cpp_helpers:
-        norm_enum = dict(
-            standard=cpu_helpers.NormKind.Standard,
-            model=cpu_helpers.NormKind.Model,
-            log=cpu_helpers.NormKind.Log,
-            psd=cpu_helpers.NormKind.PSD,
-        )[normalization.lower()]
+        norm_enum = get_norm_enum(normalization)
 
         power = np.zeros((Nbatch, Nf), dtype=dtype)
 
