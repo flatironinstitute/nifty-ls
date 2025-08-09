@@ -82,7 +82,16 @@ class TestPerf:
     @pytest.mark.parametrize('Nf', [10_000])
     def test_chi2_nterms4(self, bench_data, Nf, benchmark, chi2_backend):
         """Benchmark chi2 backends with nterms=4 and fixed Nf=10000."""
-        benchmark(astropy_ls, **bench_data, Nf=Nf, nterms=4)
+        if chi2_backend == 'astropy_fastchi2':
+            benchmark(astropy_ls, **bench_data, Nf=Nf, nterms=4)
+        else:
+            benchmark(
+                nifty_ls.lombscargle,
+                **bench_data,
+                Nf=Nf,
+                backend=chi2_backend,
+                nterms=4,
+            )
 
 
 @pytest.mark.benchmark(group='batched_standard')
