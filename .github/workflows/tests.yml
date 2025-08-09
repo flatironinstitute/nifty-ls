@@ -34,6 +34,9 @@ jobs:
             python-version: "3.14t"
           - os: macos-14
             python-version: "3.13"
+          - os: ubuntu-24.04
+            python-version: "3.13"
+            sanitizers: true
     env:
       UV_PYTHON: ${{ matrix.python-version }}
 
@@ -75,11 +78,20 @@ jobs:
       run: |
         brew install fftw
 
+    - name: Setup sanitizers
+      if: matrix.sanitizers == 'true'
+      run: |
+        echo "SKBUILD_CMAKE_ARGS=-DNIFTY_LS_SANITIZERS=ON" >> $GITHUB_ENV
+        echo "SKBUILD_CMAKE_BUILD_TYPE=Debug" >> $GITHUB_ENV
+        echo "LD_PRELOAD=libasan.so:libubsan.so" >> $GITHUB_ENV
+        echo "ASAN_OPTIONS=halt_on_error=1:detect_leaks=0" >> $GITHUB_ENV
+        echo "UBSAN_OPTIONS=halt_on_error=1" >> $GITHUB_ENV
+
     - name: Install from source
       run: |
         uv sync -v \
           -Ccmake.verbose=true \
-          -Ccmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON
+          -Ccmake.define.NIFTY_LS_COMPILE_WARNING_AS_ERROR=ON
 
     - name: Run tests
       run: |

@@ -15,6 +15,8 @@ find_package(nanobind CONFIG REQUIRED)
 
 option(NIFTY_LS_OPENMP "Enable OpenMP support in the compiled extensions" ON)
 option(NIFTY_LS_HETEROBATCH "Enable heterobatch support with finufft" ON)
+option(NIFTY_LS_SANITIZERS "Enable sanitizers for debugging" OFF)
+option(NIFTY_LS_COMPILE_WARNING_AS_ERROR "Treat compiler warnings as errors" OFF)
 
 if(NIFTY_LS_OPENMP)
     find_package(OpenMP REQUIRED)
@@ -22,6 +24,16 @@ endif()
 
 # until https://github.com/wjakob/nanobind/pull/1092 is published
 add_compile_options(-Wno-deprecated-literal-operator)
+
+if(NIFTY_LS_SANITIZERS)
+    message(STATUS "Enabling nifty-ls sanitizers")
+    add_compile_options(-fsanitize=address,undefined)
+    add_link_options(-fsanitize=address,undefined)
+
+    if(NOT DEFINED FINUFFT_ENABLE_SANITIZERS)
+        set(FINUFFT_ENABLE_SANITIZERS ON CACHE BOOL "Enable sanitizers in finufft" FORCE)
+    endif()
+endif()
 
 set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
 
@@ -39,7 +51,7 @@ if(NIFTY_LS_HETEROBATCH)
         GITHUB_REPOSITORY flatironinstitute/finufft
         GIT_TAG v2.4.1
         OPTIONS
-            "FINUFFT_USE_OPENMP OFF"
+            "FINUFFT_USE_OPENMP ON"
             "FINUFFT_USE_CPU ON"
             "FINUFFT_STATIC_LINKING ON"
             "FINUFFT_POSITION_INDEPENDENT_CODE ON"
@@ -57,6 +69,10 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     target_compile_options(${MODULE_NAME} PRIVATE
         -Wall -Wextra -std=c++17
     )
+
+    if(NIFTY_LS_COMPILE_WARNING_AS_ERROR)
+        set_target_properties(${MODULE_NAME} PROPERTIES COMPILE_WARNING_AS_ERROR TRUE)
+    endif()
 
     if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
         set(OPT_VARS -O3 -ffast-math)

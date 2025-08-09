@@ -20,7 +20,7 @@ def data(request):
     """Generate test data with specified N data points and N_batch series"""
     # Check if this is a parametrized call
     if hasattr(request, 'param'):
-        N_series = request.param.get('N_series', 10_000)
+        N_series = request.param.get('N_series', 100)
         N_d = request.param.get('N', 100)
         N_batch = request.param.get('N_batch', 10)
     else:
@@ -47,8 +47,8 @@ def nifty_backend(request):
 @pytest.mark.parametrize(
     'data',
     [
-        {'N_series': 1000, 'N': 100, 'N_batch': 5},
-        {'N_series': 10_000, 'N': 100, 'N_batch': 1},
+        {'N_series': 100, 'N': 100, 'N_batch': 4},
+        {'N_series': 1000, 'N': 100, 'N_batch': 1},
     ],
     indirect=['data'],
 )
