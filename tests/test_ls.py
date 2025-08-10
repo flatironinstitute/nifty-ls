@@ -13,7 +13,7 @@ import pytest
 import nifty_ls
 import nifty_ls.backends
 import nifty_ls.utils
-from nifty_ls.test_helpers.utils import gen_data, astropy_ls, astropy_ls_fastchi2
+from nifty_ls.test_helpers.utils import gen_data, astropy_ls
 
 
 def rtol(dtype, Nf):
@@ -58,10 +58,7 @@ def test_auto_backend_selection(data, nifty_backend, nterms, Nf=1000):
     backend_fn, _ = nifty_backend
     nifty_res = backend_fn(**data, Nf=Nf, nterms=nterms).power
 
-    if nterms and nterms > 1:
-        brute_res = astropy_ls_fastchi2(**data, nterms=nterms, Nf=Nf, use_fft=False)
-    else:
-        brute_res = astropy_ls(**data, Nf=Nf, use_fft=False)
+    brute_res = astropy_ls(**data, nterms=nterms, Nf=Nf, use_fft=False)
     dtype = data['t'].dtype
 
     np.testing.assert_allclose(
@@ -104,10 +101,7 @@ def test_lombscargle(data, Nf, nifty_backend, nterms):
 
     backend_fn, backend_name = nifty_backend
     nifty_res = backend_fn(**data, Nf=Nf, nterms=nterms).power
-    if backend_name == 'cufinufft_chi2' or backend_name == 'finufft_chi2':
-        brute_res = astropy_ls_fastchi2(**data, nterms=nterms, Nf=Nf, use_fft=False)
-    else:
-        brute_res = astropy_ls(**data, Nf=Nf, use_fft=False)
+    brute_res = astropy_ls(**data, nterms=nterms, Nf=Nf, use_fft=False)
     dtype = data['t'].dtype
 
     np.testing.assert_allclose(
@@ -144,14 +138,9 @@ def test_batched(batched_data, nifty_backend, nterms, Nf=1000):
 
     brute_res = np.empty((len(y_batch), Nf), dtype=y_batch.dtype)
     for i in range(len(y_batch)):
-        if backend_name == 'finufft_chi2' or backend_name == 'cufinufft_chi2':
-            brute_res[i] = astropy_ls_fastchi2(
-                t, y_batch[i], dy_batch[i], fmin, fmax, Nf, nterms=nterms, use_fft=False
-            )
-        else:
-            brute_res[i] = astropy_ls(
-                t, y_batch[i], dy_batch[i], fmin, fmax, Nf, use_fft=False
-            )
+        brute_res[i] = astropy_ls(
+            t, y_batch[i], dy_batch[i], fmin, fmax, Nf, nterms=nterms, use_fft=False
+        )
 
     dtype = t.dtype
 
@@ -186,21 +175,13 @@ def test_normalization(data, nifty_backend, nterms, Nf=1000):
             nterms=nterms,
             normalization=norm,
         ).power
-        if backend_name == 'finufft_chi2' or backend_name == 'cufinufft_chi2':
-            astropy_res = astropy_ls_fastchi2(
-                **data,
-                Nf=Nf,
-                nterms=nterms,
-                use_fft=False,
-                normalization=norm,
-            )
-        else:
-            astropy_res = astropy_ls(
-                **data,
-                Nf=Nf,
-                use_fft=False,
-                normalization=norm,
-            )
+        astropy_res = astropy_ls(
+            **data,
+            Nf=Nf,
+            nterms=nterms,
+            use_fft=False,
+            normalization=norm,
+        )
         dtype = data['t'].dtype
         np.testing.assert_allclose(nifty_res, astropy_res, rtol=rtol(dtype, Nf))
 
@@ -301,21 +282,13 @@ def test_center_data(data, center_data, nterms, nifty_backend, Nf=1000):
         **data, Nf=Nf, nterms=nterms, center_data=center_data
     ).power
 
-    if backend_name == 'finufft_chi2' or backend_name == 'cufinufft_chi2':
-        center_astropy = astropy_ls_fastchi2(
-            **data,
-            Nf=Nf,
-            nterms=nterms,
-            use_fft=False,
-            center_data=center_data,
-        )
-    else:
-        center_astropy = astropy_ls(
-            **data,
-            Nf=Nf,
-            use_fft=False,
-            center_data=center_data,
-        )
+    center_astropy = astropy_ls(
+        **data,
+        Nf=Nf,
+        nterms=nterms,
+        use_fft=False,
+        center_data=center_data,
+    )
     dtype = data['t'].dtype
 
     np.testing.assert_allclose(center_nifty, center_astropy, rtol=rtol(dtype, Nf))
@@ -337,21 +310,13 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
 
     fitmean_nifty = backend_fn(**data, Nf=Nf, fit_mean=fit_mean, nterms=nterms).power
 
-    if backend_name == 'finufft_chi2' or backend_name == 'cufinufft_chi2':
-        fitmean_astropy = astropy_ls_fastchi2(
-            **data,
-            Nf=Nf,
-            nterms=nterms,
-            fit_mean=fit_mean,
-            use_fft=False,
-        )
-    else:
-        fitmean_astropy = astropy_ls(
-            **data,
-            Nf=Nf,
-            fit_mean=fit_mean,
-            use_fft=False,
-        )
+    fitmean_astropy = astropy_ls(
+        **data,
+        Nf=Nf,
+        nterms=nterms,
+        fit_mean=fit_mean,
+        use_fft=False,
+    )
 
     dtype = data['t'].dtype
 
@@ -378,10 +343,7 @@ def test_dy_none(data, batched_data, nifty_backend, nterms, Nf=1000):
     data['dy'] = None
     nifty_res = backend_fn(**data, Nf=Nf, nterms=nterms).power
 
-    if backend_name == 'finufft_chi2' or backend_name == 'cufinufft_chi2':
-        astropy_res = astropy_ls_fastchi2(**data, Nf=Nf, nterms=nterms, use_fft=False)
-    else:
-        astropy_res = astropy_ls(**data, Nf=Nf, use_fft=False)
+    astropy_res = astropy_ls(**data, Nf=Nf, nterms=nterms, use_fft=False)
 
     dtype = data['t'].dtype
 
@@ -396,27 +358,16 @@ def test_dy_none(data, batched_data, nifty_backend, nterms, Nf=1000):
 
     astropy_res = np.empty((len(batched_data['y']), Nf), dtype=batched_data['y'].dtype)
     for i in range(len(batched_data['y'])):
-        if backend_name == 'finufft_chi2' or backend_name == 'cufinufft_chi2':
-            astropy_res[i] = astropy_ls_fastchi2(
-                batched_data['t'],
-                batched_data['y'][i],
-                None,
-                batched_data['fmin'],
-                batched_data['fmax'],
-                Nf,
-                nterms=nterms,
-                use_fft=False,
-            )
-        else:
-            astropy_res[i] = astropy_ls(
-                batched_data['t'],
-                batched_data['y'][i],
-                None,
-                batched_data['fmin'],
-                batched_data['fmax'],
-                Nf,
-                use_fft=False,
-            )
+        astropy_res[i] = astropy_ls(
+            batched_data['t'],
+            batched_data['y'][i],
+            None,
+            batched_data['fmin'],
+            batched_data['fmax'],
+            Nf,
+            nterms=nterms,
+            use_fft=False,
+        )
 
     dtype = batched_data['t'].dtype
 
@@ -428,7 +379,10 @@ def test_backends(data, nterms=1, Nf=1000):
     without reference to astropy
     """
 
-    backends = nifty_ls.core.AVAILABLE_BACKENDS
+    backends = list(
+        set(nifty_ls.backends.STANDARD_BACKEND_NAMES)
+        & set(nifty_ls.core.AVAILABLE_BACKENDS)
+    )
     if len(backends) < 2:
         pytest.skip('Need more than one backend to compare')
 
@@ -450,7 +404,10 @@ def test_backends(data, nterms=1, Nf=1000):
 # GH #58
 def test_mixed_dtypes(data):
     """Test that calling lombscargle with mixed dtypes raises an exception."""
-    backends = nifty_ls.core.AVAILABLE_BACKENDS
+    backends = list(
+        set(nifty_ls.backends.STANDARD_BACKEND_NAMES)
+        & set(nifty_ls.core.AVAILABLE_BACKENDS)
+    )
 
     data_mixed = data.copy()
     data_mixed['t'] = data_mixed['t'].astype(np.float32)

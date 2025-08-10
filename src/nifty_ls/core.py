@@ -8,11 +8,17 @@ import numpy as np
 import numpy.typing as npt
 
 from . import utils
-from .backends import available_backends, BACKEND_TYPE
+from .backends import (
+    available_backends,
+    BACKEND_TYPE,
+    HETEROBATCH_BACKEND_TYPE,
+)
 
 __all__ = [
     'lombscargle',
+    'lombscargle_heterobatch',
     'NiftyResult',
+    'NiftyHeteroBatchResult',
     'NORMALIZATION_TYPE',
     'AVAILABLE_BACKENDS',
 ]
@@ -124,9 +130,7 @@ def lombscargle(
         elif 'finufft' in AVAILABLE_BACKENDS:
             backend = 'finufft'
         else:
-            raise ValueError(
-                f'No valid backends available. AVAILABLE_BACKENDS = {AVAILABLE_BACKENDS}'
-            )
+            raise ValueError(f'No valid backends available. {AVAILABLE_BACKENDS = }')
     if backend not in AVAILABLE_BACKENDS:
         raise ValueError(
             f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_BACKENDS}'
@@ -172,6 +176,162 @@ def lombscargle(
     return nifty_result
 
 
+def lombscargle_heterobatch(
+    t_list: list[npt.NDArray[np.floating]],
+    y_list: list[npt.NDArray[np.floating]],
+    dy_list: Optional[list[Optional[npt.NDArray[np.floating]]]] = None,
+    fmin_list: Optional[list[float]] = None,
+    fmax_list: Optional[list[float]] = None,
+    Nf_list: Optional[list[float]] = None,
+    center_data: bool = True,
+    fit_mean: bool = True,
+    normalization: NORMALIZATION_TYPE = 'standard',
+    assume_sorted_t: bool = True,
+    samples_per_peak: int = 5,
+    nyquist_factor: int = 5,
+    backend: HETEROBATCH_BACKEND_TYPE = 'auto',
+    nterms: int = 1,
+    **backend_kwargs: Optional[dict],
+) -> NiftyHeteroBatchResult:
+    """
+    Compute multiple series of Lomb-Scargle periodograms, or a batch of periodograms if `y` and `dy` are 2D arrays.
+
+    This function supports "heterogeneous batches," meaning that each time series `t`, observations `y` and noissy `dy` can have
+    a different length. Unlike traditional batched interfaces that require uniform array sizes, this function dynamically
+    dispatches each time series to worker threads at the C++ level. This makes it efficient even for small or unevenly sized inputs.
+
+    It supports multiple backends, including 'finufft_heterobatch', and is designed with future support for CUDA acceleration.
+
+    The result is a `NiftyHeteroBatchResult` dataclass, which contains the computed periodogram(s), frequency grid parameters,
+    and other metadata. You can retrieve the actual frequency grid by calling `freq()` on the result.
+
+    The meanings of these parameters conform to the Lomb-Scargle implementation in Astropy:
+    https://docs.astropy.org/en/stable/timeseries/lombscargle.html
+
+    Parameters
+    ----------
+    t_list : list of array-like
+        The time values, shape (N_series, N_d_i) for i in [0..N_series-1]
+    y_list : list of array-like
+        The data values, shape (N_series, N_t_i) or (N_series, N_y, N_t_i)
+        for i in [0..N_series-1].
+    dy_list : list of array-like, optional
+        Measurement uncertainties for the data values. Can be provided as:
+        - A single scalar (uniform uncertainty for all data points across all series)
+        - A list of scalars (one uncertainty value per series)
+        - A list of arrays (element-wise uncertainties matching shapes of corresponding y_list entries)
+    fmin_list : list of float, optional
+        The minimum frequency of the periodogram. If not provided, it will be chosen automatically.
+    fmax_list : list of float, optional
+        The maximum frequency of the periodogram. If not provided, it will be chosen automatically.
+    Nf_list : list of int, optional
+        The number of frequency bins. If not provided, it will be chosen automatically.
+    center_data : bool, optional
+        Whether to center the data before computing the periodogram. Default is True.
+    fit_mean : bool, optional
+        Whether to fit a mean value to the data before computing the periodogram. Default is True.
+    normalization : str, optional
+        The normalization method to use. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
+    assume_sorted_t : bool, optional
+        Whether to assume that the time values are sorted in ascending order, allowing for a performance
+        optimization in determining the frequency grid.  Default is True.
+    samples_per_peak : int, optional
+        The number of samples per peak to use when determining the frequency grid. Default is 5.
+    nyquist_factor : int, optional
+        The factor by which to multiply the Nyquist frequency when determining the frequency grid. Default is 5.
+    backend : str, optional
+        The backend to use for the computation. Default is 'auto' which selects the best available backend.
+    nterms : int, optional
+        The number of terms to use in the Lomb-Scargle computation. Must be at least 1.
+        If greater than 1, the 'cufinufft_chi2_heterobatch' or 'finufft_chi2' should be used for backend.
+    backend_kwargs : dict, optional
+        Additional keyword arguments to pass to the backend.
+
+    Returns
+    -------
+    nifty_result : NiftyHeteroBatchResult
+        A dataclass containing the computed periodogram(s), frequency grid parameters, and other.
+        `nifty_result.power_list` will be an list of ndarrays of shape (Nf,) or (N_y, Nf) if `y` is 2D.
+    """
+    fmin_list, df_list, Nf_list = utils.validate_frequency_grid_mp(
+        fmin_list,
+        fmax_list,
+        Nf_list,
+        t_list,
+        assume_sorted_t=assume_sorted_t,
+        samples_per_peak=samples_per_peak,
+        nyquist_factor=nyquist_factor,
+    )
+    # Nterm verification
+    if nterms is None:
+        nterms = 1
+    if nterms < 1:
+        raise ValueError(f'nterms must be at least 1, got {nterms}.')
+
+    # Backend selection
+    if backend == 'auto':
+        if nterms > 1:
+            if 'cufinufft_chi2_heterobatch' in AVAILABLE_BACKENDS:
+                backend = 'cufinufft_chi2_heterobatch'
+            elif 'finufft_chi2_heterobatch' in AVAILABLE_BACKENDS:
+                backend = 'finufft_chi2_heterobatch'
+            else:
+                raise ValueError(
+                    'Please select the "cufinufft_chi2_heterobatch" or "finufft_chi2_heterobatch" backend when nterms > 1.'
+                )
+        elif 'cufinufft_heterobatch' in AVAILABLE_BACKENDS:
+            backend = 'cufinufft_heterobatch'
+        elif 'finufft_heterobatch' in AVAILABLE_BACKENDS:
+            backend = 'finufft_heterobatch'
+        else:
+            raise ValueError(f'No valid backends available. {AVAILABLE_BACKENDS = }')
+    if backend not in AVAILABLE_BACKENDS:
+        raise ValueError(
+            f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_BACKENDS}'
+        )
+    if backend in ('finufft_heterobatch', 'cufinufft_heterobatch') and nterms > 1:
+        raise ValueError(
+            f'Backend "{backend}" only supports nterms == 1. '
+            'Use "cufinufft_chi2_heterobatch" or "finufft_chi2_heterobatch" for nterms > 1.'
+        )
+    if backend == 'cufinufft_chi2_heterobatch' or backend == 'finufft_chi2_heterobatch':
+        # Add nterms to backend_kwargs and pass it to the backend
+        backend_kwargs.setdefault('nterms', nterms)
+
+    backend_module = importlib.import_module(f'.{backend}', __package__)
+
+    powers = backend_module.lombscargle_heterobatch(
+        t_list=t_list,
+        y_list=y_list,
+        dy_list=dy_list,
+        fmin_list=fmin_list,
+        df_list=df_list,
+        Nf_list=Nf_list,
+        center_data=center_data,
+        fit_mean=fit_mean,
+        normalization=normalization,
+        **backend_kwargs,
+    )
+
+    fmax_list = [
+        fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))
+    ]
+    nifty_results = NiftyHeteroBatchResult(
+        power_list=powers,
+        fmin_list=fmin_list,
+        df_list=df_list,
+        Nf_list=Nf_list,
+        fmax_list=fmax_list,
+        center_data=center_data,
+        fit_mean=fit_mean,
+        normalization=normalization,
+        backend=backend,
+        backend_kwargs=backend_kwargs,
+    )
+
+    return nifty_results
+
+
 @dataclass
 class NiftyResult:
     power: npt.NDArray[np.floating]
@@ -187,3 +347,23 @@ class NiftyResult:
 
     def freq(self) -> npt.NDArray[np.floating]:
         return self.fmin + self.df * np.arange(self.Nf)
+
+
+@dataclass
+class NiftyHeteroBatchResult:
+    power_list: list[npt.NDArray[np.floating]]
+    fmin_list: list[float]
+    df_list: list[float]
+    Nf_list: list[float]
+    fmax_list: list[float]
+    center_data: bool
+    fit_mean: bool
+    normalization: NORMALIZATION_TYPE
+    backend: BACKEND_TYPE
+    backend_kwargs: Optional[dict]
+
+    def freq_list(self) -> list[npt.NDArray[np.floating]]:
+        return [
+            fmin_i + df_i * np.arange(Nf_i)
+            for fmin_i, df_i, Nf_i in zip(self.fmin_list, self.df_list, self.Nf_list)
+        ]
