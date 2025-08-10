@@ -251,8 +251,7 @@ def lombscargle_heterobatch(
     -------
     nifty_result : NiftyHeteroBatchResult
         A dataclass containing the computed periodogram(s), frequency grid parameters, and other.
-        The fields are 'powers', 'fmin', 'df', 'Nf', and 'fmax'.
-        `nifty_result.powers` will be an list of ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
+        `nifty_result.power_list` will be an list of ndarrays of shape (Nf,) or (N_y, Nf) if `y` is 2D.
     """
     fmin_list, df_list, Nf_list = utils.validate_frequency_grid_mp(
         fmin_list,
@@ -318,7 +317,7 @@ def lombscargle_heterobatch(
         fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))
     ]
     nifty_results = NiftyHeteroBatchResult(
-        powers=powers,
+        power_list=powers,
         fmin_list=fmin_list,
         df_list=df_list,
         Nf_list=Nf_list,
@@ -352,7 +351,7 @@ class NiftyResult:
 
 @dataclass
 class NiftyHeteroBatchResult:
-    powers: list[npt.NDArray[np.floating]]
+    power_list: list[npt.NDArray[np.floating]]
     fmin_list: list[float]
     df_list: list[float]
     Nf_list: list[float]
@@ -363,7 +362,7 @@ class NiftyHeteroBatchResult:
     backend: BACKEND_TYPE
     backend_kwargs: Optional[dict]
 
-    def freqs(self) -> list[npt.NDArray[np.floating]]:
+    def freq_list(self) -> list[npt.NDArray[np.floating]]:
         return [
             fmin_i + df_i * np.arange(Nf_i)
             for fmin_i, df_i, Nf_i in zip(self.fmin_list, self.df_list, self.Nf_list)

@@ -110,16 +110,14 @@ def lombscargle_heterobatch(
 
     normalization = get_norm_enum(normalization)
 
+    squeeze_output = [y.ndim == 1 for y in y_list]
+    y_list = [np.atleast_2d(y) for y in y_list]
+    dy_list = [np.atleast_2d(dy) for dy in dy_list]
+
     # Pre-allocate space for powers
     powers = []
     for i in range(len(t_list)):
-        # Make sure y is at least 2D
-        y_shape = y_list[i].shape
-        if len(y_shape) == 1:
-            y_list[i] = y_list[i].reshape(1, -1)
-            y_shape = y_list[i].shape
-
-        power = np.empty((y_shape[0], Nf_list[i]), dtype=dtype)
+        power = np.empty((y_list[i].shape[0], Nf_list[i]), dtype=dtype)
         powers.append(power)
 
     # Call C++ function
@@ -141,5 +139,9 @@ def lombscargle_heterobatch(
         nterms,
         verbose,
     )
+
+    for i in range(len(powers)):
+        if squeeze_output[i]:
+            powers[i] = np.squeeze(powers[i], axis=0)
 
     return powers

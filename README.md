@@ -290,8 +290,35 @@ Note that this computes multiple periodograms simultaneously on a set of time
 series with the same observation times.  This approach is particularly efficient
 for short time series, and/or when using the GPU.
 
-Batching multiple time series with distinct observation times is not directly supported
-currently, but a similar effect can be achieved with [free-threaded Python](#free-threaded-parallelism).
+#### Heterogeneous Batched Periodograms
+Parallel processing of periodograms with different observation times ("heterogeneous batches") is supported through a separate interface called `heterobatch`. This interface dynamically dispatches individual periodograms to finufft at the C++ level with an OpenMP thread pool. Thus, it is very efficient for short or unevenly-sized periodograms.
+
+Use `nifty_ls.lombscargle_heterobatch()` to access this functionality. For example:
+```python
+import nifty_ls
+import numpy as np
+
+N_t_mean = 100
+N_obj = 10
+
+rng = np.random.default_rng()
+
+# Each t has a different length!
+t_list = [np.sort(rng.random(N_t)) for N_t in rng.poisson(N_t_mean, size=N_obj)]
+
+obj_freqs = rng.random(N_obj)
+y_list = [np.sin(f * t) for (f, t) in zip(obj_freqs, t_list)]
+dy_list = [rng.random(t.shape) for t in t_list]
+
+batched = nifty_ls.lombscargle_heterobatch(t_list, y_list, dy_list)
+
+# list of length 10 of different-length power arrays
+print(batched.power_list)
+```
+
+Individual periodograms in the heterobatch interface can have uniform batching; just pass a 2D `y` and `dy` array as a list element. Heterobatch also supports chi2, but not CUDA (yet).
+
+A similar dynamic dispatch effect can be achieved with [free-threaded Python](#free-threaded-parallelism), but as the dispatch is still done in Python, it will likely not be as performant as heterobatch.
 
 ### Free-Threaded Parallelism
 nifty-ls supports [free-threaded Python](https://docs.python.org/3/howto/free-threading-python.html)
@@ -460,66 +487,79 @@ The tests are defined in the `tests/` directory, and include a mini-benchmark of
 nifty-ls and Astropy, shown below:
 
 ```
-$ pytest
-============================= test session starts ==============================
-platform linux -- Python 3.10.13, pytest-8.4.0, pluggy-1.6.0
-benchmark: 5.1.0 (defaults: timer=time.perf_counter disable_gc=True min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
-rootdir: /mnt/home/psun1/nifty_ls_nterm_support/nifty-ls
+❯ pytest
+================================= test session starts ==================================
+platform linux -- Python 3.11.11, pytest-8.4.1, pluggy-1.6.0
+benchmark: 5.1.0 (defaults: timer=time.perf_counter disable_gc=True min_rounds=3 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /mnt/home/lgarrison/nifty-ls/nifty-ls
 configfile: pyproject.toml
-plugins: asdf-4.3.0, benchmark-5.1.0
-collected 82 items
+plugins: benchmark-5.1.0
+collected 112 items                                                                    
 
-tests/test_ls.py ....................................................... [ 67%]
-..........                                                               [ 79%]
-tests/test_perf.py .................                                     [100%]
+tests/test_freethreaded.py s                                                     [  0%]
+tests/test_heterobatch.py ........................                               [ 22%]
+tests/test_ls.py ............................................................... [ 78%]
+..                                                                               [ 80%]
+tests/test_perf.py ......................                                        [100%]
 
 
------------------------------------- benchmark 'batched_standard Nf=1000': 5 tests -------------------------------------
-Name (time in ms)                                Min                Mean            StdDev            Rounds  Iterations
-------------------------------------------------------------------------------------------------------------------------
-test_batched_standard[cufinufft-1000]         6.1639 (1.0)        6.6860 (1.0)      0.4799 (4.07)         83           1
-test_batched_standard[finufft-1000]          17.5466 (2.85)      26.0489 (3.90)     7.5615 (64.16)        40           1
-test_unbatched_standard[finufft-1000]       140.0611 (22.72)    140.2554 (20.98)    0.1179 (1.0)           8           1
-test_unbatched_standard[astropy-1000]       201.8929 (32.75)    202.0876 (30.23)    0.2012 (1.71)          5           1
-test_unbatched_standard[cufinufft-1000]     300.5980 (48.77)    305.7871 (45.74)    4.1439 (35.16)         5           1
-------------------------------------------------------------------------------------------------------------------------
+----------------------------------------- benchmark 'batched_chi2 Nf=1000': 4 tests -----------------------------------------
+Name (time in ms)                                 Min                  Mean              StdDev            Rounds  Iterations
+-----------------------------------------------------------------------------------------------------------------------------
+test_batched_chi2[cufinufft_chi2-1000]        20.8600 (1.0)         21.6833 (1.0)        1.3422 (1.0)          37           1
+test_batched_chi2[finufft_chi2-1000]         164.4364 (7.88)       197.7773 (9.12)      20.1932 (15.05)         5           1
+test_unbatched_chi2[finufft_chi2-1000]       387.9961 (18.60)      389.4745 (17.96)      1.4730 (1.10)          3           1
+test_unbatched_chi2[cufinufft_chi2-1000]     895.2992 (42.92)    1,024.3081 (47.24)    222.7861 (165.99)        3           1
+-----------------------------------------------------------------------------------------------------------------------------
 
------------------------------------------ benchmark 'chi2_nterms4 Nf=10000': 3 tests -----------------------------------------
-Name (time in ms)                                    Min                  Mean            StdDev            Rounds  Iterations
-------------------------------------------------------------------------------------------------------------------------------
-test_chi2_nterms4[cufinufft_chi2-10000]          10.1617 (1.0)         10.2186 (1.0)      0.1002 (2.51)         85           1
-test_chi2_nterms4[finufft_chi2-10000]            11.9403 (1.18)        11.9854 (1.17)     0.0399 (1.0)          78           1
-test_chi2_nterms4[astropy_fastchi2-10000]     9,430.5506 (928.05)   9,437.9781 (923.61)   5.2359 (131.36)        5           1
-------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------ benchmark 'batched_standard Nf=1000': 6 tests -------------------------------------------
+Name (time in ms)                                            Min                Mean            StdDev            Rounds  Iterations
+------------------------------------------------------------------------------------------------------------------------------------
+test_batched_standard[cufinufft-1000]                     5.6997 (1.0)        6.1075 (1.0)      0.4922 (10.87)        94           1
+test_heterobatch_standard[finufft_heterobatch-1000]       9.1420 (1.60)       9.6008 (1.57)     0.2600 (5.74)         91           1
+test_batched_standard[finufft-1000]                      15.9838 (2.80)      24.1990 (3.96)     4.7521 (105.00)       44           1
+test_unbatched_standard[finufft-1000]                   131.9397 (23.15)    132.2553 (21.65)    0.1672 (3.69)          8           1
+test_unbatched_standard[astropy-1000]                   153.7311 (26.97)    153.8238 (25.19)    0.0453 (1.0)           7           1
+test_unbatched_standard[cufinufft-1000]                 265.6694 (46.61)    269.3043 (44.09)    2.4806 (54.81)         4           1
+------------------------------------------------------------------------------------------------------------------------------------
+
+------------------------------------------ benchmark 'chi2_nterms4 Nf=10000': 3 tests -----------------------------------------
+Name (time in ms)                                    Min                  Mean             StdDev            Rounds  Iterations
+-------------------------------------------------------------------------------------------------------------------------------
+test_chi2_nterms4[cufinufft_chi2-10000]           8.6712 (1.0)         11.5653 (1.0)      16.2343 (82.95)        99           1
+test_chi2_nterms4[finufft_chi2-10000]            11.5150 (1.33)        11.8576 (1.03)      0.1957 (1.0)          82           1
+test_chi2_nterms4[astropy_fastchi2-10000]     9,186.0875 (>1000.0)  9,191.7857 (794.77)    5.7893 (29.58)         3           1
+-------------------------------------------------------------------------------------------------------------------------------
 
 ---------------------------------- benchmark 'standard Nf=10000': 3 tests ---------------------------------
 Name (time in ms)                     Min              Mean            StdDev            Rounds  Iterations
 -----------------------------------------------------------------------------------------------------------
-test_standard[finufft-10000]       2.3321 (1.0)      2.3486 (1.0)      0.0084 (1.0)         391           1
-test_standard[cufinufft-10000]     2.8325 (1.21)     2.8743 (1.22)     0.0229 (2.72)        268           1
-test_standard[astropy-10000]       5.7358 (2.46)     5.7815 (2.46)     0.1054 (12.54)       150           1
+test_standard[finufft-10000]       1.9857 (1.0)      2.0048 (1.0)      0.0087 (1.0)         396           1
+test_standard[cufinufft-10000]     2.5375 (1.28)     2.5875 (1.29)     0.1306 (15.02)       262           1
+test_standard[astropy-10000]       5.5920 (2.82)     5.6105 (2.80)     0.0149 (1.72)        152           1
 -----------------------------------------------------------------------------------------------------------
 
 ---------------------------------- benchmark 'standard Nf=100000': 3 tests -----------------------------------
 Name (time in ms)                       Min               Mean            StdDev            Rounds  Iterations
 --------------------------------------------------------------------------------------------------------------
-test_standard[cufinufft-100000]      3.6294 (1.0)       3.6634 (1.0)      0.0608 (1.0)         237           1
-test_standard[finufft-100000]        8.0218 (2.21)      8.9424 (2.44)     2.0032 (32.93)        74           1
-test_standard[astropy-100000]       45.1638 (12.44)    45.5427 (12.43)    0.4489 (7.38)         19           1
+test_standard[cufinufft-100000]      3.2089 (1.0)       3.2486 (1.0)      0.0401 (1.0)         283           1
+test_standard[finufft-100000]        7.6493 (2.38)      8.9735 (2.76)     1.9182 (47.82)        61           1
+test_standard[astropy-100000]       49.5084 (15.43)    49.6754 (15.29)    0.0869 (2.17)         18           1
 --------------------------------------------------------------------------------------------------------------
 
--------------------------------------- benchmark 'standard Nf=1000000': 3 tests --------------------------------------
-Name (time in ms)                           Min                  Mean             StdDev            Rounds  Iterations
-----------------------------------------------------------------------------------------------------------------------
-test_standard[cufinufft-1000000]         5.5406 (1.0)          5.6519 (1.0)       0.1557 (1.0)         146           1
-test_standard[finufft-1000000]          80.2681 (14.49)       90.6020 (16.03)    11.3134 (72.67)        10           1
-test_standard[astropy-1000000]       1,207.3889 (217.92)   1,210.8376 (214.23)    4.5923 (29.50)         5           1
-----------------------------------------------------------------------------------------------------------------------
+-------------------------------------- benchmark 'standard Nf=1000000': 3 tests -------------------------------------
+Name (time in ms)                           Min                  Mean            StdDev            Rounds  Iterations
+---------------------------------------------------------------------------------------------------------------------
+test_standard[cufinufft-1000000]         5.7563 (1.0)          5.8461 (1.0)      0.1300 (1.0)         118           1
+test_standard[finufft-1000000]          82.1395 (14.27)       86.9484 (14.87)    3.0073 (23.12)         9           1
+test_standard[astropy-1000000]       1,205.6845 (209.46)   1,206.2008 (206.33)   0.4522 (3.48)          3           1
+---------------------------------------------------------------------------------------------------------------------
 
 Legend:
   Outliers: 1 Standard Deviation from Mean; 1.5 IQR (InterQuartile Range) from 1st Quartile and 3rd Quartile.
   OPS: Operations Per Second, computed as 1 / Mean
-======================== 82 passed in 167.49s (0:02:47) ========================
+====================== 111 passed, 1 skipped in 145.63s (0:02:25) ======================
+
 ```
 
 The results were obtained using 16 cores of an Intel Icelake CPU and 1 NVIDIA A100 GPU.

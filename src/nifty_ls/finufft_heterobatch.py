@@ -32,9 +32,6 @@ def lombscargle_heterobatch(
     This function can dispatch to multiple backends, including 'finufft_heterobatch'. Plan to implement CUDA
     version latter.
 
-    The result is a `NiftyHeteroBatchResult` dataclass containing the computed periodogram(s), frequency grid parameters,
-    and other metadata. The actual frequency grid can be obtained by calling `freq()` on the result.
-
     The meanings of these parameters conform to the Lomb-Scargle implementation in Astropy:
     https://docs.astropy.org/en/stable/timeseries/lombscargle.html
 
@@ -74,10 +71,7 @@ def lombscargle_heterobatch(
 
     Returns
     -------
-    nifty_result : NiftyHeteroBatchResult
-        A dataclass containing the computed periodogram(s), frequency grid parameters, and other.
-        The fields are 'powers', 'fmin', 'df', 'Nf', and 'fmax'.
-        `nifty_result.powers` will be an ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
+    power: list of npt.NDArray[np.floating]
     """
 
     # Use max threads
@@ -107,6 +101,10 @@ def lombscargle_heterobatch(
 
     normalization = get_norm_enum(normalization)
 
+    squeeze_output = [y.ndim == 1 for y in y_list]
+    y_list = [np.atleast_2d(y) for y in y_list]
+    dy_list = [np.atleast_2d(dy) for dy in dy_list]
+
     # Pre-allocate space for powers
     powers = []
     for i in range(len(t_list)):
@@ -131,5 +129,9 @@ def lombscargle_heterobatch(
         fftw,
         verbose,
     )
+
+    for i in range(len(powers)):
+        if squeeze_output[i]:
+            powers[i] = np.squeeze(powers[i], axis=0)
 
     return powers

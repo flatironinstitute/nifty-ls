@@ -79,7 +79,7 @@ jobs:
         brew install fftw
 
     - name: Setup sanitizers
-      if: matrix.sanitizers == 'true'
+      if: matrix.sanitizers
       run: |
         echo "SKBUILD_CMAKE_ARGS=-DNIFTY_LS_SANITIZERS=ON" >> $GITHUB_ENV
         echo "SKBUILD_CMAKE_BUILD_TYPE=Debug" >> $GITHUB_ENV

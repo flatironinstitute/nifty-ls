@@ -41,6 +41,7 @@ def gen_data_mp(N_series=100_000, N_batch=None, N_d=100, dtype=np.float64, seed=
     y_list = []
     dy_list = []
 
+    squeeze = N_batch is None
     N_batch = N_batch if N_batch else 1
 
     for _ in range(N_series):
@@ -48,13 +49,16 @@ def gen_data_mp(N_series=100_000, N_batch=None, N_d=100, dtype=np.float64, seed=
         N_d_i = rng.integers(min_len, max_len + 1)
         t_i = np.sort(rng.random(N_d_i, dtype=dtype)) * 123
 
-        if N_batch:
-            freqs = rng.random((N_batch, 1), dtype=dtype) * 10 + 1
-            # broadcast over time: (N_batch, N_d_i)
-            y_i = np.sin(freqs * t_i) + 1.23
-            dy_i = rng.random((N_batch, N_d_i), dtype=dtype) * 0.1 + 0.01
-            noise = rng.normal(0, dy_i, size=(N_batch, N_d_i))
-            y_i = y_i + noise
+        freqs = rng.random((N_batch, 1), dtype=dtype) * 10 + 1
+        # broadcast over time: (N_batch, N_d_i)
+        y_i = np.sin(freqs * t_i) + 1.23
+        dy_i = rng.random((N_batch, N_d_i), dtype=dtype) * 0.1 + 0.01
+        noise = rng.normal(0, dy_i, size=(N_batch, N_d_i))
+        y_i = y_i + noise
+
+        if squeeze:
+            y_i = np.squeeze(y_i, axis=0)
+            dy_i = np.squeeze(dy_i, axis=0)
 
         # make read-only
         t_i.setflags(write=False)
