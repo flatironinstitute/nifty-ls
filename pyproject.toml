@@ -8,19 +8,21 @@ description = "A fast Lomb-Scargle periodogram. It's nifty, and uses a NUFFT."
 readme = "README.md"
 authors = [{ name = "Lehman Garrison" },
            { name = "Dan Foreman-Mackey" },
+           { name = "Yuwei (Peter) Sun" },
            ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 urls = { Homepage = "https://github.com/flatironinstitute.org/nifty-ls" }
-dependencies = ["numpy", "finufft >= 2.3"]
+dependencies = [
+    "numpy",
+    "finufft >= 2.3",
+]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 cuda11 = ["cufinufft", "cupy-cuda11x"]
 cuda12 = ["cufinufft", "cupy-cuda12x"]
 cuda = ["cufinufft", "cupy-cuda12x"]
-dev = ["pre-commit"]
-test = ["pytest", "pytest-benchmark", "astropy"]
 
 [tool.scikit-build]
 metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
@@ -41,9 +43,10 @@ version_file = "src/nifty_ls/version.py"
 [tool.pytest.ini_options]
 # is there a way to set this in the test script?
 addopts = [
-    "--benchmark-group-by=param:Nf",
+    "--benchmark-group-by=group,param:Nf",
     "--benchmark-disable-gc",
     "--benchmark-columns=min,mean,stddev,rounds,iterations",
+    "--benchmark-min-rounds=3",
     ]
 
 [tool.ruff.format]
@@ -52,19 +55,35 @@ docstring-code-format = true
 
 [tool.cibuildwheel]
 archs = "auto64"
+build-frontend = "build[uv]"
+enable = "cpython-freethreading"
 test-command = "pytest -s --benchmark-skip {project}/tests"
-test-extras = "test"
+test-groups = "test"
 skip = "pp* *-musllinux_*"
 
 [tool.cibuildwheel.linux]
 repair-wheel-command = [
   "auditwheel repair -w {dest_dir} {wheel}",
   # run abi3audit on wheels tagged with abi3
-  'case "$(basename {wheel})" in *"-abi3-"*) pip install -U abi3audit && abi3audit --strict --report {wheel};; esac',
+  'case "$(basename {wheel})" in *"-abi3-"*) uvx abi3audit --strict --report {wheel};; esac',
 ]
 
 [tool.cibuildwheel.macos]
 repair-wheel-command = [
   'delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}',
-  'case "$(basename {wheel})" in *"-abi3-"*) pip install -U abi3audit && abi3audit --strict --report {wheel};; esac',
+  'case "$(basename {wheel})" in *"-abi3-"*) uvx abi3audit --strict --report {wheel};; esac',
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    {include-group = "test"}
+]
+test = [
+    "astropy>=6",
+    {include-group = "test-freethreaded"},
+]
+test-freethreaded = [
+    "pytest>=8.4.1",
+    "pytest-benchmark>=5.1.0",
 ]

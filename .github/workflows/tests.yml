@@ -12,10 +12,33 @@ on:
 jobs:
   tests:
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.9"
+          - os: ubuntu-24.04
+            python-version: "3.10"
+          - os: ubuntu-24.04
+            python-version: "3.11"
+          - os: ubuntu-24.04
+            python-version: "3.12"
+          - os: ubuntu-24.04
+            python-version: "3.13"
+          - os: ubuntu-24.04
+            python-version: "3.14"
+          - os: ubuntu-24.04
+            python-version: "3.13t"
+          - os: ubuntu-24.04
+            python-version: "3.14t"
+          - os: macos-14
+            python-version: "3.13"
+          - os: ubuntu-24.04
+            python-version: "3.13"
+            sanitizers: true
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -24,17 +47,61 @@ jobs:
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
+      id: setup-python
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+
+    - name: Install LLVM
+      if: runner.os == 'macOS'
+      run: |
+        brew install llvm libomp
+        echo "CC=$(brew --prefix llvm)/bin/clang" >> $GITHUB_ENV
+        echo "CXX=$(brew --prefix llvm)/bin/clang++" >> $GITHUB_ENV
+        echo "CFLAGS=-I$(brew --prefix libomp)/include" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix libomp)/lib" >> $GITHUB_ENV
+        echo "MACOSX_DEPLOYMENT_TARGET=14" >> $GITHUB_ENV
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "0.8.4"
+
+    - name: Install FFTW (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfftw3-dev
+
+    - name: Install FFTW (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install fftw
+
+    - name: Setup sanitizers
+      if: matrix.sanitizers
+      run: |
+        echo "SKBUILD_CMAKE_ARGS=-DNIFTY_LS_SANITIZERS=ON" >> $GITHUB_ENV
+        echo "SKBUILD_CMAKE_BUILD_TYPE=Debug" >> $GITHUB_ENV
+        echo "LD_PRELOAD=$(gcc -print-file-name=libasan.so):$(gcc -print-file-name=libubsan.so)" >> $GITHUB_ENV
+        echo "ASAN_OPTIONS=halt_on_error=1:detect_leaks=0" >> $GITHUB_ENV
+        echo "UBSAN_OPTIONS=halt_on_error=1" >> $GITHUB_ENV
+        echo "PYTEST_ADDOPTS=--benchmark-skip" >> $GITHUB_ENV
 
     - name: Install from source
       run: |
-        pip install -U pip
-        pip install -vU \
+        uv sync -v \
           -Ccmake.verbose=true \
-          -Ccmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON \
-          .[test]
+          -Ccmake.define.NIFTY_LS_COMPILE_WARNING_AS_ERROR=ON
 
     - name: Run tests
       run: |
-        pytest -v
+        uv run pytest -vs
+
+    - name: Run free-threaded tests
+      if: endsWith(matrix.python-version, 't')
+      env:
+        NIFTY_LS_FORCE_FREETHREADED_TEST: 1
+      run: |
+        # Needs special treatment to only load nogil-compatible packages
+        uv run --no-dev --exact --group test-freethreaded pytest -xs tests/test_freethreaded.py
