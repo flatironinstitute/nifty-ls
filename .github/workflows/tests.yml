@@ -86,7 +86,7 @@ jobs:
         echo "LD_PRELOAD=$(gcc -print-file-name=libasan.so):$(gcc -print-file-name=libubsan.so)" >> $GITHUB_ENV
         echo "ASAN_OPTIONS=halt_on_error=1:detect_leaks=0" >> $GITHUB_ENV
         echo "UBSAN_OPTIONS=halt_on_error=1" >> $GITHUB_ENV
-        echo "PYTEST_ADDOPTS=--benchmark-skip"
+        echo "PYTEST_ADDOPTS=--benchmark-skip" >> $GITHUB_ENV
 
     - name: Install from source
       run: |
