@@ -59,7 +59,8 @@ jobs:
         echo "CC=$(brew --prefix llvm)/bin/clang" >> $GITHUB_ENV
         echo "CXX=$(brew --prefix llvm)/bin/clang++" >> $GITHUB_ENV
         echo "CFLAGS=-I$(brew --prefix libomp)/include" >> $GITHUB_ENV
-        echo "LDFLAGS=-L$(brew --prefix libomp)/lib" >> $GITHUB_ENV
+        # c++ library path is workaround for clang bug https://github.com/llvm/llvm-project/issues/155531
+        echo "LDFLAGS=-L$(brew --prefix libomp)/lib -L"$(brew --prefix llvm)"/lib/c++" >> $GITHUB_ENV
         echo "MACOSX_DEPLOYMENT_TARGET=14" >> $GITHUB_ENV
 
     - name: Install uv
