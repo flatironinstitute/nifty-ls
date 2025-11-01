@@ -44,7 +44,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         if: runner.os == 'macOS'  # macos doesn't run in a container and uses external uv
         with:
           version: "0.8.4"
@@ -72,7 +72,7 @@ jobs:
         fetch-depth: 0
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@v7
       with:
         version: "0.8.4"
 
