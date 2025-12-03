@@ -98,6 +98,11 @@ def lombscargle(
         A dataclass containing the computed periodogram(s), frequency grid parameters, and other.
         The fields are 'power', 'fmin', 'df', 'Nf', and 'fmax'.
         `nifty_result.power` will be an ndarray of shape (Nf,) or (N_y, Nf) if `y` is 2D.
+
+    Raises
+    ------
+    numpy.linalg.LinAlgError
+        If the solve encounters a singular (or nearly singular) matrix. Only for the chi2 backends.
     """
     fmin, df, Nf = utils.validate_frequency_grid(
         fmin,
