@@ -77,6 +77,11 @@ def lombscargle_heterobatch(
     -------
     powers : list of array-like
         A list of computed periodogram arrays, one for each input series.
+
+    Raises
+    ------
+    numpy.linalg.LinAlgError
+        If the solve encounters a singular (or nearly singular) matrix.
     """
 
     if nterms == 0 and not fit_mean:
@@ -121,24 +126,27 @@ def lombscargle_heterobatch(
         powers.append(power)
 
     # Call C++ function
-    process_chi2_hetero_batch(
-        t_list,
-        y_list,
-        dy_list,
-        fmin_list,
-        df_list,
-        Nf_list,
-        powers,
-        normalization,
-        nthreads,
-        center_data,
-        fit_mean,
-        eps,
-        upsampfac,
-        fftw,
-        nterms,
-        verbose,
-    )
+    try:
+        process_chi2_hetero_batch(
+            t_list,
+            y_list,
+            dy_list,
+            fmin_list,
+            df_list,
+            Nf_list,
+            powers,
+            normalization,
+            nthreads,
+            center_data,
+            fit_mean,
+            eps,
+            upsampfac,
+            fftw,
+            nterms,
+            verbose,
+        )
+    except ValueError as e:
+        raise np.linalg.LinAlgError() from e
 
     for i in range(len(powers)):
         if squeeze_output[i]:

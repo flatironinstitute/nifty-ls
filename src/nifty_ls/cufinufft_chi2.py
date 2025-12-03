@@ -5,14 +5,16 @@ periodogram via cufinufft and cupy.
 
 from __future__ import annotations
 
-from timeit import default_timer as timer
 from itertools import chain
+from timeit import default_timer as timer
+
+import cupyx
 
 from .utils import same_dtype_or_raise
 
 try:
-    import cupy as cp
     import cufinufft
+    import cupy as cp
 except ImportError as e:
     raise ImportError(
         'cufinufft and cupy are required for this module. Did you install with "pip install nifty-ls[cuda]"?'
@@ -84,6 +86,11 @@ def lombscargle(
         - `gpu_method`: the method to use on the GPU [1]
     nterms : int, optional
         Number of Fourier terms in the fit
+
+    Raises
+    ------
+    numpy.linalg.LinAlgError
+        If the solve encounters a singular (or nearly singular) matrix.
     """
 
     if nterms == 0 and not fit_mean:
@@ -298,9 +305,10 @@ def lombscargle(
     XTy_trans = XTy.transpose(0, 2, 1)  # Shape: (Nbatch, Nf, nterms_order)
 
     # Solve linear systems
-    solutions = cp.linalg.solve(
-        XTX_trans, XTy_trans
-    )  # Shape: (Nbatch, Nf, nterms_order)
+    with cupyx.errstate(linalg='raise'):
+        solutions = cp.linalg.solve(
+            XTX_trans, XTy_trans
+        )  # Shape: (Nbatch, Nf, nterms_order)
     raw_power = cp.sum(solutions * XTy_trans, axis=2)  # Shape: (Nbatch, Nf)
 
     # Apply normalization to all batches at once

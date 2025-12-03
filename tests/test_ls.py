@@ -426,3 +426,31 @@ def test_mixed_dtypes(data):
     for backend in backends:
         with pytest.raises(ValueError, match='dtype'):
             nifty_ls.lombscargle(**data_mixed, backend=backend)
+
+
+# GH #85
+@pytest.mark.parametrize(
+    'nifty_backend',
+    [
+        'finufft_chi2',
+        'cufinufft_chi2',
+    ],
+    indirect=['nifty_backend'],
+)
+def test_singular(nifty_backend):
+    """Test that a singular matrix doesn't crash the interpreter"""
+
+    backend_fn, backend_name = nifty_backend
+
+    t = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float64)
+    y = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float64)
+    fmin = 0.0
+    fmax = 0.5
+    Nf = 4
+
+    if backend_name.startswith('finufft'):
+        with pytest.raises(np.linalg.LinAlgError):
+            backend_fn(t=t, y=y, fmin=fmin, fmax=fmax, Nf=Nf, nterms=2)
+    else:
+        # doesn't seem to raise; just run it to make sure it doesn't crash
+        backend_fn(t=t, y=y, fmin=fmin, fmax=fmax, Nf=Nf, nterms=2)

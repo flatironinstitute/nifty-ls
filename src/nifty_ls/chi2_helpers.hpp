@@ -28,6 +28,28 @@ using namespace nb::literals;
 template <typename Scalar>
 using Complex = std::complex<Scalar>;
 
+enum class MatrixSolveStatus {
+    SUCCESS  = 0,
+    SINGULAR = 1
+};
+
+inline MatrixSolveStatus operator|(MatrixSolveStatus lhs, MatrixSolveStatus rhs) {
+    return static_cast<MatrixSolveStatus>(
+       static_cast<int>(lhs) | static_cast<int>(rhs)
+    );
+}
+
+inline MatrixSolveStatus &operator|=(MatrixSolveStatus &lhs, MatrixSolveStatus rhs) {
+    lhs = static_cast<MatrixSolveStatus>(static_cast<int>(lhs) | static_cast<int>(rhs));
+    return lhs;
+}
+
+#ifdef _OPENMP
+#pragma omp declare reduction(                                           \
+      MatrixSolveStatusOr:MatrixSolveStatus : omp_out = omp_out | omp_in \
+) initializer(omp_priv = MatrixSolveStatus::SUCCESS)
+#endif
+
 template <typename Scalar>
 void process_chi2_inputs_raw(
    Scalar *t1,                            // (N)
@@ -191,9 +213,8 @@ void compute_t_raw(
 // Solver for small matrices using LU decomposition with partial pivoting
 // Using single thread
 template <typename Scalar>
-void small_matrixs_solver(
-   std::vector<Scalar> &A, std::vector<Scalar> &B, const size_t n
-) {
+MatrixSolveStatus
+small_matrixs_solver(std::vector<Scalar> &A, std::vector<Scalar> &B, const size_t n) {
     // Tolerance for detecting singularity
     const Scalar tol = static_cast<Scalar>(1e-9);
 
@@ -201,7 +222,7 @@ void small_matrixs_solver(
     {
         // Solve a 2x2 system directly using the determinant
         Scalar det = A[0] * A[3] - A[1] * A[2];  // a11*a22 - a12*a21
-        if (std::abs(det) < tol) { throw std::runtime_error("Matrix is singular"); }
+        if (std::abs(det) < tol) { return MatrixSolveStatus::SINGULAR; }
         Scalar inv_det = static_cast<Scalar>(1.0) / det;
         Scalar b0      = B[0];
         Scalar b1      = B[1];
@@ -221,7 +242,7 @@ void small_matrixs_solver(
                     pivot   = i;
                 }
             }
-            if (max_val < tol) { throw std::runtime_error("Matrix is singular"); }
+            if (max_val < tol) { return MatrixSolveStatus::SINGULAR; }
             if (pivot != k) {
                 // Swap rows k and pivot in A
                 for (size_t j = 0; j < n; ++j) {
@@ -252,6 +273,8 @@ void small_matrixs_solver(
             B[i] /= A[i * n + i];  // Divide by U's diagonal element
         }
     }
+
+    return MatrixSolveStatus::SUCCESS;
 }
 
 // Single thread dot product for small vector
@@ -281,6 +304,8 @@ void process_chi2_outputs_raw(
 ) {
     const size_t order_size = order_types.size();
 
+    MatrixSolveStatus error_code = MatrixSolveStatus::SUCCESS;
+
 #ifdef _OPENMP
     if (nthreads < 1) { nthreads = omp_get_max_threads(); }
 #else
@@ -288,7 +313,8 @@ void process_chi2_outputs_raw(
 #endif
 
 #ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads) if (nthreads > 1)
+#pragma omp parallel num_threads(nthreads)                       \
+   reduction(MatrixSolveStatusOr : error_code) if (nthreads > 1)
 #endif
     {
         std::vector<Scalar> XTy(order_size);
@@ -340,13 +366,8 @@ void process_chi2_outputs_raw(
                 // Copy XTy to preserve it for dot product later
                 std::copy(XTy.begin(), XTy.end(), bvec.begin());
                 size_t n = order_size;
-                try {  // Using Custom Solver
-                    small_matrixs_solver(XTX, bvec, n);
-                } catch (const std::exception &e) {
-                    throw std::runtime_error(
-                       "Custom solver failed: " + std::string(e.what())
-                    );
-                }
+                error_code |= small_matrixs_solver(XTX, bvec, n);
+                if (error_code != MatrixSolveStatus::SUCCESS) { continue; }
                 // Dot product (XTy, bvec)
                 Scalar pw = small_matrixs_dot(n, bvec.data(), XTy.data());
 
@@ -368,5 +389,14 @@ void process_chi2_outputs_raw(
                 power[b * Nf + f] = pw;
             }
         }
+    }
+
+    switch (error_code) {
+        case MatrixSolveStatus::SUCCESS:
+            return;
+        case MatrixSolveStatus::SINGULAR:
+            throw nb::value_error(
+               "[nifty-ls finufft] Error: Singular matrix encountered during chi2 power computation."
+            );
     }
 }

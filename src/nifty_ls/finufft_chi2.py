@@ -78,6 +78,11 @@ def lombscargle(
         - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     nterms : int, optional
         Number of Fourier terms in the fit
+
+    Raises
+    ------
+    numpy.linalg.LinAlgError
+        If the solve encounters a singular (or nearly singular) matrix.
     """
 
     if nterms == 0 and not fit_mean:
@@ -375,18 +380,21 @@ def _lombscargle_compute(
             for t, _ in order
         ]
         order_indices = [item[1] for item in order]
-        chi2_helpers.process_chi2_outputs(
-            power,
-            Sw,
-            Cw,
-            Syw,
-            Cyw,
-            norm,
-            order_types,
-            order_indices,
-            norm_enum,
-            nthreads_helpers,
-        )
+        try:
+            chi2_helpers.process_chi2_outputs(
+                power,
+                Sw,
+                Cw,
+                Syw,
+                Cyw,
+                norm,
+                order_types,
+                order_indices,
+                norm_enum,
+                nthreads_helpers,
+            )
+        except ValueError as e:
+            raise np.linalg.LinAlgError() from e
 
     else:
         # Build-up matrices at each frequency
