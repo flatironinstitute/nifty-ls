@@ -483,6 +483,8 @@ The condition number is also a likely contributor to the mild upward trend in er
 #### Fast $\chi^2$ matrix condition number
 In the $\chi^2$ backends with `nterms > 1`, users should be aware that the first few modes tend to have ill-conditioned matrices, especially when using the default frequency grid. Each matrix represents a Fourier mode and its `nterms` harmonics, and the loss of conditioning appears to represent a loss of linear independence between the harmonics because the default minimum frequency (inherited from Astropy) is so low. In other words, the harmonics are not picking up appreciably different power across the signal. Solving for the harmonic amplitudes is thus under-constrained, which can amplify differences between nifty-ls and Astropy. Most users will not notice this unless directly comparing Astropy and nifty-ls periodograms, but if you encounter this, consider using fewer `nterms` or a higher minimum frequency.
 
+In extreme cases, the $\chi^2$ backend raise a `numpy.linalg.LinAlgError` if the matrix solve is singular or nearly singular.
+
 ## Testing
 First, install from source (`pip install . --group test`). Then, from the repo root, run:
 

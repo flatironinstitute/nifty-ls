@@ -7,6 +7,9 @@ finufft is now a vendored dependency. cufinufft is still external.
 ### Enhancements
 - "heterobatch" mode that supports threading over multiple time series of different lengths is now supported [#66]
 
+### Fixes
+- The interpreter no longer crashes in the `finufft_chi2` backend when a singular matrix is encountered. Instead, a `numpy.linalg.LinAlgError` exception is raised. [#86]
+
 ## v1.1.0 (2025-08-01)
 
 This release adds `nterms > 1` support, implemented in the `finufft_chi2` and `cufinufft_chi2` backends.  Thanks to @YuWei-CH for the feature!
