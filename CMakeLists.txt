@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15...3.27)
-project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
+project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX CUDA)
 
 # put a symlink to the compile_commands.json in the build dir
 # so the LSP can find it in a known directory without the platform tag
@@ -15,6 +15,8 @@ find_package(nanobind CONFIG REQUIRED)
 
 option(NIFTY_LS_OPENMP "Enable OpenMP support in the compiled extensions" ON)
 option(NIFTY_LS_HETEROBATCH "Enable heterobatch support with finufft" ON)
+option(NIFTY_LS_CUDA "Enable CUDA backend (gpu_helper)" ON)
+set(NIFTY_LS_CUFINUFFT_ROOT "" CACHE PATH "Prefix where cufinufft is installed (include/, lib/)")
 option(NIFTY_LS_SANITIZERS "Enable sanitizers for debugging" OFF)
 option(NIFTY_LS_COMPILE_WARNING_AS_ERROR "Treat compiler warnings as errors" OFF)
 
@@ -36,6 +38,26 @@ if(NIFTY_LS_SANITIZERS)
 endif()
 
 set(NIFTY_LS_MODULES cpu_helpers chi2_helpers)
+
+if(NIFTY_LS_CUDA)
+    enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)
+
+    # cufinufft C API (required for gpu_helper)
+    find_library(
+        CUFINUFFT_LIBRARY cufinufft
+        HINTS ${NIFTY_LS_CUFINUFFT_ROOT} ${NIFTY_LS_CUFINUFFT_ROOT}/lib ${NIFTY_LS_CUFINUFFT_ROOT}/lib64
+    )
+    find_path(
+        CUFINUFFT_INCLUDE_DIR cufinufft.h
+        HINTS ${NIFTY_LS_CUFINUFFT_ROOT} ${NIFTY_LS_CUFINUFFT_ROOT}/include
+    )
+    if(NOT CUFINUFFT_LIBRARY OR NOT CUFINUFFT_INCLUDE_DIR)
+        message(FATAL_ERROR "cufinufft library and headers are required when NIFTY_LS_CUDA=ON")
+    endif()
+
+    list(APPEND NIFTY_LS_MODULES gpu_helper)
+endif()
 
 if(NIFTY_LS_HETEROBATCH)
     # Download CPM.cmake if not already available
@@ -64,7 +86,12 @@ endif()
 
 
 foreach(MODULE_NAME ${NIFTY_LS_MODULES})
-    nanobind_add_module(${MODULE_NAME} src/nifty_ls/${MODULE_NAME}.cpp NOMINSIZE STABLE_ABI FREE_THREADED)
+    set(MODULE_SRC "src/nifty_ls/${MODULE_NAME}.cpp")
+    if(${MODULE_NAME} STREQUAL "gpu_helper")
+        set(MODULE_SRC "src/nifty_ls/${MODULE_NAME}.cu")
+    endif()
+
+    nanobind_add_module(${MODULE_NAME} ${MODULE_SRC} NOMINSIZE STABLE_ABI FREE_THREADED)
 
     target_compile_options(${MODULE_NAME} PRIVATE
         -Wall -Wextra -std=c++17
@@ -93,6 +120,29 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
        (${MODULE_NAME} STREQUAL "finufft_heterobatch_helpers" OR 
         ${MODULE_NAME} STREQUAL "finufft_chi2_heterobatch_helpers"))
         target_link_libraries(${MODULE_NAME} PRIVATE finufft)
+    endif()
+
+    if(${MODULE_NAME} STREQUAL "gpu_helper")
+        # cufinufft.h may live in ${prefix}/include or ${prefix}/include/cufinufft;
+        # finufft_common headers sit one level up, so add the parent include dir too.
+        get_filename_component(CUFINUFFT_INCLUDE_PARENT ${CUFINUFFT_INCLUDE_DIR} DIRECTORY)
+        target_include_directories(
+            ${MODULE_NAME}
+            PRIVATE
+            ${CUFINUFFT_INCLUDE_DIR}
+            ${CUFINUFFT_INCLUDE_PARENT}
+            ${CUFINUFFT_INCLUDE_PARENT}/finufft_common
+            ${CUFINUFFT_INCLUDE_PARENT}/../include
+            ${finufft_SOURCE_DIR}/include
+            ${finufft_SOURCE_DIR}/src
+        )
+        target_link_libraries(${MODULE_NAME} PRIVATE ${CUFINUFFT_LIBRARY} CUDA::cudart CUDA::cufft)
+        set_target_properties(
+            ${MODULE_NAME}
+            PROPERTIES
+                CUDA_SEPARABLE_COMPILATION ON
+                CUDA_ARCHITECTURES native
+        )
     endif()
 
     install(TARGETS ${MODULE_NAME} LIBRARY DESTINATION nifty_ls)
