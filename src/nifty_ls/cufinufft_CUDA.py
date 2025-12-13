@@ -1,5 +1,5 @@
 """
-CUDA Lomb-Scargle periodogram using gpu_helper (nanobind CUDA kernels + cufinufft C API).
+CUDA Lomb-Scargle periodogram using cuda_helper (nanobind CUDA kernels + cufinufft C API).
 This variant avoids CuPy entirely: inputs are NumPy arrays, and all device allocation
 and transfers are handled inside the C++/CUDA binding.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 from .utils import get_norm_enum, same_dtype_or_raise
-from . import gpu_helper
+from . import cuda_helper
 
 __all__ = ["lombscargle"]
 
@@ -26,28 +26,45 @@ def lombscargle(
     normalization="standard",
     verbose=False,
     cufinufft_kwargs=None,
+    tpb=None,
 ):
     """
-    Run Lomb-Scargle on GPU using cufinufft C API without requiring CuPy on the Python side.
+    Run Lomb-Scargle on GPU using cufinufft C API and CUDA kernels via nanobind.
 
     Parameters
     ----------
-    t, y, dy : array-like
-        1-D time array and 1- or 2-D values/uncertainties (shape (Nbatch, N) or (N,)).
-    fmin, df : float
-        Minimum frequency and frequency step (radians per unit time).
+    t : array-like
+        The time values, shape (N_t,)
+    y : array-like
+        The data values, shape (N_t,) or (N_y, N_t)
+    fmin : float
+        The minimum frequency of the periodogram.
+    df : float
+        The frequency bin width.
     Nf : int
-        Number of frequency bins.
-    center_data : bool
-        Subtract weighted mean before transform.
-    fit_mean : bool
-        Fit floating mean term (requires two NUFFTs per batch).
-    normalization : str
-        "standard" or "psd".
-    verbose : bool
-        Print timings (host-side only).
-    cufinufft_kwargs : dict
-        Supports "eps" and "gpu_method"; defaults eps to 1e-5 (float32) / 1e-9 (float64).
+        The number of frequency bins.
+    dy : array-like, optional
+        The uncertainties of the data values, broadcastable to `y`
+    nthreads : int, optional
+        The number of threads to use. The default behavior is to use (N_t / 4) * (Nf / 2^15) threads,
+        capped to the maximum number of OpenMP threads. This is a heuristic that may not work well in all cases.
+    center_data : bool, optional
+        Whether to center the data before computing the periodogram. Default is True.
+    fit_mean : bool, optional
+        Whether to fit a mean value to the data before computing the periodogram. Default is True.
+    normalization : str, optional
+        The normalization method to use. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
+    _no_cpp_helpers : bool, optional
+        Whether to use the pure Python implementation of the finufft pre- and post-processing.
+        Default is False.
+    verbose : bool, optional
+        Whether to print additional information about the finufft computation.
+    finufft_kwargs : dict, optional
+        Additional keyword arguments to pass to the `finufft.Plan()` constructor.
+        Particular finufft parameters of interest may be:
+        - `eps`: the requested precision [1e-9 for double precision and 1e-5 for single precision]
+        - `upsampfac`: the upsampling factor [1.25]
+        - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     """
 
     same_dtype_or_raise(t=t, y=y, dy=dy)
@@ -83,8 +100,9 @@ def lombscargle(
     gpu_method = int(cufinufft_kwargs.get("gpu_method", 1))
 
     norm_kind = get_norm_enum(normalization)
+    block_dim = -1 if tpb is None else int(tpb)
 
-    power = gpu_helper.lombscargle_gpu(
+    power = cuda_helper.lombscargle_cuda(
         t.astype(dtype, copy=False),
         y.astype(dtype, copy=False),
         dy.astype(dtype, copy=False),
@@ -96,6 +114,7 @@ def lombscargle(
         norm_kind,
         eps,
         gpu_method,
+        block_dim,
     )
 
     if squeeze_output:

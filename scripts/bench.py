@@ -27,6 +27,7 @@ DEFAULT_NF = None  # 10**5
 DEFAULT_DTYPE = 'f8'
 DEFAULT_METHODS = [
     'cufinufft',
+    'cufinufft_CUDA',
     'cufinufft_chi2',
     'finufft',
     'astropy',
@@ -68,6 +69,12 @@ def do_nifty_cufinufft_chi2(*args, nterms=4, **kwargs):
 
 def do_nifty_cufinufft(*args, **kwargs):
     return nifty_ls.cufinufft.lombscargle(
+        *args, **kwargs, cufinufft_kwargs={'eps': DEFAULT_EPS}
+    )
+
+
+def do_nifty_cufinufft_cuda(*args, **kwargs):
+    return nifty_ls.cufinufft_CUDA.lombscargle(
         *args, **kwargs, cufinufft_kwargs={'eps': DEFAULT_EPS}
     )
 
@@ -139,6 +146,7 @@ METHODS = {
         *args, **kwargs, nthreads=1
     ),
     'cufinufft': do_nifty_cufinufft,
+    'cufinufft_CUDA': do_nifty_cufinufft_cuda,
     'cufinufft_chi2': do_nifty_cufinufft_chi2,
     'astropy': do_astropy_fast,
     'astropy_brute': lambda *args, **kwargs: do_astropy_fast(
@@ -234,6 +242,10 @@ def get_plot_kwargs(method, nthread_max=NTHREAD_MAX):
         label = 'nifty-ls (cufinufft)'
         color = 'C2'
         ls = '-'
+    elif method == 'cufinufft_CUDA':
+        label = 'nifty-ls (cufinufft CUDA)'
+        color = 'C2'
+        ls = '--'
     # Group 3: astropy and winding methods - different color, same family
     elif method == 'astropy':
         label = r'Astropy (${\tt fast}$ method)'

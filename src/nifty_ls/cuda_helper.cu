@@ -1,5 +1,6 @@
 // CUDA implementation of Lomb-Scargle helpers and cufinufft bindings.
 #include <cuda_runtime.h>
+#include <math_constants.h>
 #include <thrust/complex.h>
 #include <thrust/functional.h>
 
@@ -16,6 +17,7 @@
 #include "utils_helpers.hpp"
 using utils_helpers::NormKind;
 
+// Type 1 NUFFT
 #ifndef CUFINUFFT_TYPE1
 #define CUFINUFFT_TYPE1 1
 #endif
@@ -108,8 +110,7 @@ using namespace nb::literals;
 
 namespace {
 
-    constexpr int TPB        = 256;
-    constexpr double PI_CUDA = 3.14159265358979323846;
+    constexpr int TPB = 256;
 
     template <typename Scalar>
     using Complex = thrust::complex<Scalar>;
@@ -140,6 +141,9 @@ namespace {
         }                                                       \
     } while (0)
 
+    // partial_wsum_yoff kernel: For each batch, calculate the weight w = 1/dy^2 for dy
+    // and write it into w2. Then, perform block reduction to obtain wsum_partial and
+    // yoff_partial.
     template <typename Scalar>
     __global__ void partial_wsum_yoff(
        const Scalar *dy,
@@ -184,6 +188,7 @@ namespace {
             __syncthreads();
         }
 
+        // Write final result
         if (threadIdx.x == 0) {
             const size_t block_idx  = batch * blocks_per_batch + blockIdx.x;
             wsum_partial[block_idx] = s_wsum[0];
@@ -191,6 +196,8 @@ namespace {
         }
     }
 
+    // reduce_partials kernel: Reduce partial result from previous kernel to obtain a
+    // wsum/yoff for each batch.
     __global__ void reduce_partials(
        const double *partial, double *total, const size_t blocks_per_batch
     ) {
@@ -214,6 +221,8 @@ namespace {
         if (threadIdx.x == 0) { total[batch] = sdata[0]; }
     }
 
+    // set_norm_and_yoff kernel: Execute yoff /= wsum (if center/fit), and set norm (PSD
+    // or 0)
     template <typename Scalar>
     __global__ void set_norm_and_yoff(
        const double *wsum,
@@ -231,6 +240,8 @@ namespace {
         norm[batch] = psd_norm ? static_cast<Scalar>(wsum_i) : Scalar(0);
     }
 
+    // finalize_phase_shift kernel: Calulate t1, t2, normalize w2, construct yw/w/w2,
+    // and accumulate norm using shared reduction and atomicAdd (non-PSD cases)
     template <typename Scalar>
     __global__ void finalize_phase_shift(
        const Scalar *t,
@@ -256,7 +267,7 @@ namespace {
         if (j >= N) { return; }
 
         const size_t idx    = batch * N + j;
-        const Scalar TWO_PI = static_cast<Scalar>(2 * PI_CUDA);
+        const Scalar TWO_PI = static_cast<Scalar>(2 * CUDART_PI);
         const Scalar t1_val = TWO_PI * df * t[j];
         const Scalar t2_val = t1_val + t1_val;
 
@@ -305,6 +316,8 @@ namespace {
         w2[idx] = w2_val * exp_t2;
     }
 
+    // process_finufft_outputs_kernel kernel: Compute Lomb-Scargle power using
+    // f1/fw/f2/norm_YY
     template <typename Scalar>
     __global__ void process_finufft_outputs_kernel(
        Scalar *power,
@@ -336,6 +349,7 @@ namespace {
             tan_2omega_tau = f2v.imag() / f2v.real();
         }
 
+        // scalar operations for register data
         const Scalar S2w =
            tan_2omega_tau / std::sqrt(1 + tan_2omega_tau * tan_2omega_tau);
         const Scalar C2w = Scalar(1) / std::sqrt(1 + tan_2omega_tau * tan_2omega_tau);
@@ -534,6 +548,7 @@ namespace {
     }
 
     // Aliases for cufinufft preprocessing/postprocessing; reuse same kernels
+    // Help re-using in heterobatch version
     template <typename Scalar>
     void process_cufinufft_inputs_cuda(
        nifty_cuda_arr_1d<Scalar> t1_,
@@ -635,8 +650,9 @@ namespace {
         cufinufft_type1_execute(t1, c, M, Nf, ntrans, fk, eps, gpu_method);
     }
 
+    // Bind lombscargle_cuda
     template <typename Scalar>
-    nb::ndarray<Scalar, nb::ndim<2>, nb::numpy> lombscargle_gpu(
+    nb::ndarray<Scalar, nb::ndim<2>, nb::numpy> lombscargle_cuda(
        nb::ndarray<const Scalar, nb::ndim<1>, nb::device::cpu> t_,
        nb::ndarray<const Scalar, nb::ndim<2>, nb::device::cpu> y_,
        nb::ndarray<const Scalar, nb::ndim<2>, nb::device::cpu> dy_,
@@ -651,8 +667,9 @@ namespace {
        const int block_dim
     ) {
         // Shapes
-        const size_t N      = y_.shape(1);
-        const size_t Nbatch = y_.shape(0);
+        const size_t N       = y_.shape(1);
+        const size_t Nbatch  = y_.shape(0);
+        const int tpb_launch = clamp_block_dim_host(block_dim);
 
         // Device allocations
         Scalar *d_t    = nullptr;
@@ -702,7 +719,7 @@ namespace {
            cudaMemcpy(d_dy, dy_.data(), NN * sizeof(Scalar), cudaMemcpyHostToDevice)
         );
 
-        const size_t blocks_per_batch = (N + TPB - 1) / TPB;
+        const size_t blocks_per_batch = (N + tpb_launch - 1) / tpb_launch;
         CUDA_CHECK(
            cudaMalloc(&wsum_partial, Nbatch * blocks_per_batch * sizeof(double))
         );
@@ -714,8 +731,8 @@ namespace {
 
         // Preprocess
         const dim3 grid_partial(blocks_per_batch, Nbatch);
-        const size_t shmem_partial = 2 * TPB * sizeof(double);
-        partial_wsum_yoff<<<grid_partial, TPB, shmem_partial>>>(
+        const size_t shmem_partial = 2 * tpb_launch * sizeof(double);
+        partial_wsum_yoff<<<grid_partial, tpb_launch, shmem_partial>>>(
            d_dy,
            d_y,
            d_w2,
@@ -728,18 +745,18 @@ namespace {
         CUDA_CHECK(cudaGetLastError());
 
         const dim3 grid_reduce(Nbatch);
-        const size_t shmem_reduce = TPB * sizeof(double);
-        reduce_partials<<<grid_reduce, TPB, shmem_reduce>>>(
+        const size_t shmem_reduce = tpb_launch * sizeof(double);
+        reduce_partials<<<grid_reduce, tpb_launch, shmem_reduce>>>(
            wsum_partial, wsum, blocks_per_batch
         );
         CUDA_CHECK(cudaGetLastError());
-        reduce_partials<<<grid_reduce, TPB, shmem_reduce>>>(
+        reduce_partials<<<grid_reduce, tpb_launch, shmem_reduce>>>(
            yoff_partial, yoff, blocks_per_batch
         );
         CUDA_CHECK(cudaGetLastError());
 
-        const dim3 grid_batch((Nbatch + TPB - 1) / TPB);
-        set_norm_and_yoff<<<grid_batch, TPB>>>(
+        const dim3 grid_batch((Nbatch + tpb_launch - 1) / tpb_launch);
+        set_norm_and_yoff<<<grid_batch, tpb_launch>>>(
            wsum,
            yoff,
            d_norm,
@@ -753,8 +770,8 @@ namespace {
         Complex<Scalar> *d_w  = fit_mean ? (d_yw_w + Nbatch * N) : nullptr;
 
         const dim3 grid_finalize(blocks_per_batch, Nbatch);
-        const size_t shmem_norm = TPB * sizeof(double);
-        finalize_phase_shift<<<grid_finalize, TPB, shmem_norm>>>(
+        const size_t shmem_norm = tpb_launch * sizeof(double);
+        finalize_phase_shift<<<grid_finalize, tpb_launch, shmem_norm>>>(
            d_t,
            d_y,
            wsum,
@@ -850,7 +867,7 @@ namespace {
 
 }  // namespace
 
-NB_MODULE(gpu_helper, m) {
+NB_MODULE(cuda_helper, m) {
     // noconvert to avoid host staging; requires device arrays
     m.def(
        "process_finufft_inputs",
@@ -1010,8 +1027,8 @@ NB_MODULE(gpu_helper, m) {
 
     // End-to-end path without CuPy: host arrays in/out
     m.def(
-       "lombscargle_gpu",
-       &lombscargle_gpu<double>,
+       "lombscargle_cuda",
+       &lombscargle_cuda<double>,
        "t"_a.noconvert(),
        "y"_a.noconvert(),
        "dy"_a.noconvert(),
@@ -1027,8 +1044,8 @@ NB_MODULE(gpu_helper, m) {
     );
 
     m.def(
-       "lombscargle_gpu",
-       &lombscargle_gpu<float>,
+       "lombscargle_cuda",
+       &lombscargle_cuda<float>,
        "t"_a.noconvert(),
        "y"_a.noconvert(),
        "dy"_a.noconvert(),
