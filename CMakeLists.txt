@@ -56,7 +56,7 @@ if(NIFTY_LS_CUDA)
         message(FATAL_ERROR "cufinufft library and headers are required when NIFTY_LS_CUDA=ON")
     endif()
 
-    list(APPEND NIFTY_LS_MODULES cuda_helper)
+    list(APPEND NIFTY_LS_MODULES cuda_helper chi2_cuda_helper)
 endif()
 
 if(NIFTY_LS_HETEROBATCH)
@@ -88,6 +88,9 @@ endif()
 foreach(MODULE_NAME ${NIFTY_LS_MODULES})
     set(MODULE_SRC "src/nifty_ls/${MODULE_NAME}.cpp")
     if(${MODULE_NAME} STREQUAL "cuda_helper")
+        set(MODULE_SRC "src/nifty_ls/${MODULE_NAME}.cu")
+    endif()
+    if(${MODULE_NAME} STREQUAL "chi2_cuda_helper")
         set(MODULE_SRC "src/nifty_ls/${MODULE_NAME}.cu")
     endif()
 
@@ -122,7 +125,7 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
         target_link_libraries(${MODULE_NAME} PRIVATE finufft)
     endif()
 
-    if(${MODULE_NAME} STREQUAL "cuda_helper")
+    if(${MODULE_NAME} STREQUAL "cuda_helper" OR ${MODULE_NAME} STREQUAL "chi2_cuda_helper")
         # cufinufft.h may live in ${prefix}/include or ${prefix}/include/cufinufft;
         # finufft_common headers sit one level up, so add the parent include dir too.
         get_filename_component(CUFINUFFT_INCLUDE_PARENT ${CUFINUFFT_INCLUDE_DIR} DIRECTORY)
@@ -133,10 +136,8 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
             ${CUFINUFFT_INCLUDE_PARENT}
             ${CUFINUFFT_INCLUDE_PARENT}/finufft_common
             ${CUFINUFFT_INCLUDE_PARENT}/../include
-            ${finufft_SOURCE_DIR}/include
-            ${finufft_SOURCE_DIR}/src
         )
-        target_link_libraries(${MODULE_NAME} PRIVATE ${CUFINUFFT_LIBRARY} CUDA::cudart CUDA::cufft)
+        target_link_libraries(${MODULE_NAME} PRIVATE ${CUFINUFFT_LIBRARY} CUDA::cudart CUDA::cufft CUDA::cublas)
         set_target_properties(
             ${MODULE_NAME}
             PROPERTIES

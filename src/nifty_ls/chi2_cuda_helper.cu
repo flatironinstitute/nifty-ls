@@ -2,9 +2,9 @@
 #include <cuda_runtime.h>
 #include <math_constants.h>
 
-#include <cublas_v2.h>
 #include <algorithm>
 #include <cmath>
+#include <cublas_v2.h>
 #include <stdexcept>
 #include <type_traits>
 #include <vector>
@@ -14,6 +14,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 
+#include "cufinufft_traits.hpp"
 #include "utils_helpers.hpp"
 #include <cufinufft.h>
 
@@ -38,10 +39,6 @@ namespace {
         __syncthreads();                                          \
     }                                                             \
     var = sdata[0];
-#ifndef CUFINUFFT_TYPE1
-#define CUFINUFFT_TYPE1 1
-#endif
-
 #define CUDA_CHECK(expr)                                        \
     do {                                                        \
         cudaError_t _err = (expr);                              \
@@ -50,12 +47,12 @@ namespace {
         }                                                       \
     } while (0)
 
-#define CUBLAS_CHECK(expr)                                      \
-    do {                                                        \
-        cublasStatus_t _err = (expr);                           \
-        if (_err != CUBLAS_STATUS_SUCCESS) {                    \
-            throw std::runtime_error("cublas error");           \
-        }                                                       \
+#define CUBLAS_CHECK(expr)                            \
+    do {                                              \
+        cublasStatus_t _err = (expr);                 \
+        if (_err != CUBLAS_STATUS_SUCCESS) {          \
+            throw std::runtime_error("cublas error"); \
+        }                                             \
     } while (0)
 
     // Mirror of TermType from utils_helpers (Sine/Cosine)
@@ -109,8 +106,7 @@ namespace {
         tn_out[j]                   = tn;
         const Complex<Scalar> phase = exp(Complex<Scalar>(Scalar(0), factor * tn));
         for (size_t b = 0; b < Nbatch; ++b) {
-            output[b * N + j] =
-               Complex<Scalar>(yw[b * N + j], Scalar(0)) * phase;
+            output[b * N + j] = Complex<Scalar>(yw[b * N + j], Scalar(0)) * phase;
             output[(b + Nbatch) * N + j] =
                Complex<Scalar>(w[b * N + j], Scalar(0)) * phase;
         }
@@ -282,90 +278,6 @@ namespace {
         }
     }
 
-    // cufinufft type-1 plan helpers
-    template <typename Scalar>
-    struct CufinufftTraits;
-
-    template <>
-    struct CufinufftTraits<double> {
-        using plan_t    = cufinufft_plan;
-        using complex_t = cuDoubleComplex;
-
-        static int makeplan(
-           int64_t dim,
-           int64_t *nmodes,
-           int iflag,
-           int64_t ntrans,
-           double eps,
-           plan_t *plan,
-           cufinufft_opts *opts
-        ) {
-            return cufinufft_makeplan(
-               CUFINUFFT_TYPE1, dim, nmodes, iflag, ntrans, eps, plan, opts
-            );
-        }
-
-        static int setpts(plan_t plan, int64_t M, const double *x) {
-            return cufinufft_setpts(
-               plan,
-               M,
-               const_cast<double *>(x),
-               nullptr,
-               nullptr,
-               0,
-               nullptr,
-               nullptr,
-               nullptr
-            );
-        }
-
-        static int execute(plan_t plan, const complex_t *c, complex_t *fk) {
-            return cufinufft_execute(plan, const_cast<complex_t *>(c), fk);
-        }
-
-        static int destroy(plan_t plan) { return cufinufft_destroy(plan); }
-    };
-
-    template <>
-    struct CufinufftTraits<float> {
-        using plan_t    = cufinufftf_plan;
-        using complex_t = cuFloatComplex;
-
-        static int makeplan(
-           int64_t dim,
-           int64_t *nmodes,
-           int iflag,
-           int64_t ntrans,
-           double eps,
-           plan_t *plan,
-           cufinufft_opts *opts
-        ) {
-            return cufinufftf_makeplan(
-               CUFINUFFT_TYPE1, dim, nmodes, iflag, ntrans, eps, plan, opts
-            );
-        }
-
-        static int setpts(plan_t plan, int64_t M, const float *x) {
-            return cufinufftf_setpts(
-               plan,
-               M,
-               const_cast<float *>(x),
-               nullptr,
-               nullptr,
-               0,
-               nullptr,
-               nullptr,
-               nullptr
-            );
-        }
-
-        static int execute(plan_t plan, const complex_t *c, complex_t *fk) {
-            return cufinufftf_execute(plan, const_cast<complex_t *>(c), fk);
-        }
-
-        static int destroy(plan_t plan) { return cufinufftf_destroy(plan); }
-    };
-
     // Kernel to assemble XTX and XTy for each (batch, freq)
     template <typename Scalar>
     __global__ void assemble_xtx_xty(
@@ -389,9 +301,9 @@ namespace {
         const size_t idx   = blockIdx.x * blockDim.x + threadIdx.x;
         const size_t total = static_cast<size_t>(Nbatch) * static_cast<size_t>(chunk_f);
         if (idx >= total) return;
-        const size_t batch    = idx / static_cast<size_t>(chunk_f);
-        const size_t f_local  = idx - batch * static_cast<size_t>(chunk_f);
-        const size_t f        = static_cast<size_t>(start_f) + f_local;
+        const size_t batch       = idx / static_cast<size_t>(chunk_f);
+        const size_t f_local     = idx - batch * static_cast<size_t>(chunk_f);
+        const size_t f           = static_cast<size_t>(start_f) + f_local;
         const size_t Nf_total_sz = Nf_total;
 
         const auto Sw_b  = Sw + batch * nSW * Nf_total_sz;
@@ -407,23 +319,21 @@ namespace {
         auto get_SS = [&](int m, int n) -> Scalar {
             int diff = abs(m - n);
             return Scalar(0.5)
-                   * (Cw_b[diff * Nf_total_sz + f]
-                      - Cw_b[(m + n) * Nf_total_sz + f]);
+                   * (Cw_b[diff * Nf_total_sz + f] - Cw_b[(m + n) * Nf_total_sz + f]);
         };
         auto get_CC = [&](int m, int n) -> Scalar {
             int diff = abs(m - n);
             return Scalar(0.5)
-                   * (Cw_b[diff * Nf_total_sz + f]
-                      + Cw_b[(m + n) * Nf_total_sz + f]);
+                   * (Cw_b[diff * Nf_total_sz + f] + Cw_b[(m + n) * Nf_total_sz + f]);
         };
         auto get_SC = [&](int m, int n) -> Scalar {
-            int diff    = abs(m - n);
+            int diff = abs(m - n);
             Scalar term =
                (m >= n ? Scalar(1) : Scalar(-1)) * Sw_b[diff * Nf_total_sz + f];
             return Scalar(0.5) * (term + Sw_b[(m + n) * Nf_total_sz + f]);
         };
         auto get_CS = [&](int m, int n) -> Scalar {
-            int diff    = abs(n - m);
+            int diff = abs(n - m);
             Scalar term =
                (n >= m ? Scalar(1) : Scalar(-1)) * Sw_b[diff * Nf_total_sz + f];
             return Scalar(0.5) * (term + Sw_b[(n + m) * Nf_total_sz + f]);
@@ -465,10 +375,10 @@ namespace {
     // Kernel to compute power from solution and XTy
     template <typename Scalar>
     __global__ void compute_power_kernel(
-       Scalar *power,               // full output [Nbatch, Nf_total]
-       const Scalar *solution,      // B after solve, size chunk_total*k
-       const Scalar *XTy,           // original XTy, size chunk_total*k
-       const Scalar *norm,          // [Nbatch]
+       Scalar *power,           // full output [Nbatch, Nf_total]
+       const Scalar *solution,  // B after solve, size chunk_total*k
+       const Scalar *XTy,       // original XTy, size chunk_total*k
+       const Scalar *norm,      // [Nbatch]
        int k,
        size_t Nf_total,
        size_t Nbatch,
@@ -479,7 +389,7 @@ namespace {
         const size_t idx   = blockIdx.x * blockDim.x + threadIdx.x;
         const size_t total = static_cast<size_t>(Nbatch) * static_cast<size_t>(chunk_f);
         if (idx >= total) return;
-        const size_t batch = idx / static_cast<size_t>(chunk_f);
+        const size_t batch   = idx / static_cast<size_t>(chunk_f);
         const size_t f_local = idx - batch * static_cast<size_t>(chunk_f);
         const size_t f       = static_cast<size_t>(start_f) + f_local;
 
@@ -542,10 +452,10 @@ namespace {
        int norm_kind_int
     ) {
         // Process frequencies in chunks to limit memory and cublas batch size.
-        constexpr int CHUNK_F = 8192;
-        const size_t max_chunk_f =
-           static_cast<size_t>(CHUNK_F) < Nf_total ? static_cast<size_t>(CHUNK_F)
-                                                   : Nf_total;
+        constexpr int CHUNK_F        = 8192;
+        const size_t max_chunk_f     = static_cast<size_t>(CHUNK_F) < Nf_total ?
+                                          static_cast<size_t>(CHUNK_F) :
+                                          Nf_total;
         const size_t max_chunk_total = static_cast<size_t>(Nbatch) * max_chunk_f;
 
         Scalar *d_A   = nullptr;
@@ -555,7 +465,7 @@ namespace {
         CUDA_CHECK(cudaMalloc(&d_B, max_chunk_total * k * sizeof(Scalar)));
         CUDA_CHECK(cudaMalloc(&d_XTy, max_chunk_total * k * sizeof(Scalar)));
 
-        int *d_pivots = nullptr;
+        int *d_pivots    = nullptr;
         int *d_infoArray = nullptr;
         CUDA_CHECK(cudaMalloc(&d_pivots, max_chunk_total * k * sizeof(int)));
         CUDA_CHECK(cudaMalloc(&d_infoArray, max_chunk_total * sizeof(int)));
@@ -575,7 +485,7 @@ namespace {
         }
 
         cublasHandle_t cublas_handle = nullptr;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
+        CUBLAS_CHECK(cublasCreate(&cublas_handle));  // Create cublas handle
 
         const int tpb = 128;
         for (size_t start_f = 0; start_f < Nf_total; start_f += max_chunk_f) {
@@ -605,10 +515,7 @@ namespace {
             );
             CUDA_CHECK(cudaGetLastError());
             CUDA_CHECK(cudaMemcpy(
-               d_XTy,
-               d_B,
-               chunk_total * k * sizeof(Scalar),
-               cudaMemcpyDeviceToDevice
+               d_XTy, d_B, chunk_total * k * sizeof(Scalar), cudaMemcpyDeviceToDevice
             ));
 
             const int batch_count = static_cast<int>(chunk_total);
@@ -617,6 +524,7 @@ namespace {
                    cublas_handle, k, d_A_array, k, d_pivots, d_infoArray, batch_count
                 ));
                 int info = 0;
+                // batched LU+solve for each chunk
                 CUBLAS_CHECK(cublasSgetrsBatched(
                    cublas_handle,
                    CUBLAS_OP_N,
@@ -672,6 +580,7 @@ namespace {
             CUDA_CHECK(cudaGetLastError());
         }
 
+        // Destory and cleanup
         CUBLAS_CHECK(cublasDestroy(cublas_handle));
         cudaFree(d_pivots);
         cudaFree(d_infoArray);
@@ -807,25 +716,13 @@ namespace {
         typename Traits::plan_t plan_w  = nullptr;
         CUFINUFFT_CHECK(
            Traits::makeplan(
-              dim,
-              nmodes,
-              iflag,
-              static_cast<int64_t>(yww_trans),
-              eps,
-              &plan_yw,
-              &opts
+              dim, nmodes, iflag, static_cast<int64_t>(yww_trans), eps, &plan_yw, &opts
            ),
            "cufinufft_makeplan failed"
         );
         CUFINUFFT_CHECK(
            Traits::makeplan(
-              dim,
-              nmodes,
-              iflag,
-              static_cast<int64_t>(Nbatch),
-              eps,
-              &plan_w,
-              &opts
+              dim, nmodes, iflag, static_cast<int64_t>(Nbatch), eps, &plan_w, &opts
            ),
            "cufinufft_makeplan failed"
         );
@@ -845,8 +742,10 @@ namespace {
             );
             CUDA_CHECK(cudaGetLastError());
 
-            CUFINUFFT_CHECK(Traits::setpts(plan_yw, static_cast<int64_t>(N), d_tn),
-                            "cufinufft_setpts failed");
+            CUFINUFFT_CHECK(
+               Traits::setpts(plan_yw, static_cast<int64_t>(N), d_tn),
+               "cufinufft_setpts failed"
+            );
             CUFINUFFT_CHECK(
                Traits::execute(
                   plan_yw,
@@ -885,8 +784,10 @@ namespace {
             );
             CUDA_CHECK(cudaGetLastError());
 
-            CUFINUFFT_CHECK(Traits::setpts(plan_w, static_cast<int64_t>(N), d_tn),
-                            "cufinufft_setpts failed");
+            CUFINUFFT_CHECK(
+               Traits::setpts(plan_w, static_cast<int64_t>(N), d_tn),
+               "cufinufft_setpts failed"
+            );
             CUFINUFFT_CHECK(
                Traits::execute(
                   plan_w,

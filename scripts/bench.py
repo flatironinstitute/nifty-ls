@@ -29,6 +29,7 @@ DEFAULT_METHODS = [
     'cufinufft',
     'cufinufft_CUDA',
     'cufinufft_chi2',
+    'cufinufft_chi2_CUDA',
     'finufft',
     'astropy',
     'finufft_par',
@@ -63,6 +64,11 @@ def do_nifty_finufft_chi2(*args, nterms=4, **kwargs):
 
 def do_nifty_cufinufft_chi2(*args, nterms=4, **kwargs):
     return nifty_ls.cufinufft_chi2.lombscargle(
+        *args, **kwargs, nterms=nterms, cufinufft_kwargs={'eps': DEFAULT_EPS}
+    )
+
+def do_nifty_cufinufft_chi2_cuda(*args, nterms=4, **kwargs):
+    return nifty_ls.cufinufft_chi2_CUDA.lombscargle(
         *args, **kwargs, nterms=nterms, cufinufft_kwargs={'eps': DEFAULT_EPS}
     )
 
@@ -148,6 +154,7 @@ METHODS = {
     'cufinufft': do_nifty_cufinufft,
     'cufinufft_CUDA': do_nifty_cufinufft_cuda,
     'cufinufft_chi2': do_nifty_cufinufft_chi2,
+    'cufinufft_chi2_CUDA': do_nifty_cufinufft_chi2_cuda,
     'astropy': do_astropy_fast,
     'astropy_brute': lambda *args, **kwargs: do_astropy_fast(
         *args, **kwargs, use_fft=False

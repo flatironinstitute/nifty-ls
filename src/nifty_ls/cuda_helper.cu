@@ -2,108 +2,20 @@
 #include <cuda_runtime.h>
 #include <math_constants.h>
 #include <thrust/complex.h>
-#include <thrust/functional.h>
 
 #include <cufinufft.h>
 
+#include <algorithm>
 #include <stdexcept>
 #include <type_traits>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/complex.h>
-#include <nanobind/stl/vector.h>
 
 #include "utils_helpers.hpp"
+#include "cufinufft_traits.hpp"
 using utils_helpers::NormKind;
-
-// Type 1 NUFFT
-#ifndef CUFINUFFT_TYPE1
-#define CUFINUFFT_TYPE1 1
-#endif
-
-template <typename Scalar>
-struct CufinufftTraits;
-
-template <>
-struct CufinufftTraits<double> {
-    using plan_t    = cufinufft_plan;
-    using complex_t = cuDoubleComplex;
-
-    static int makeplan(
-       int64_t dim,
-       int64_t *nmodes,
-       int iflag,
-       int64_t ntrans,
-       double eps,
-       plan_t *plan,
-       cufinufft_opts *opts
-    ) {
-        return cufinufft_makeplan(
-           CUFINUFFT_TYPE1, dim, nmodes, iflag, ntrans, eps, plan, opts
-        );
-    }
-
-    static int setpts(plan_t plan, int64_t M, const double *x) {
-        return cufinufft_setpts(
-           plan,
-           M,
-           const_cast<double *>(x),
-           nullptr,
-           nullptr,
-           0,
-           nullptr,
-           nullptr,
-           nullptr
-        );
-    }
-
-    static int execute(plan_t plan, const complex_t *c, complex_t *fk) {
-        return cufinufft_execute(plan, const_cast<complex_t *>(c), fk);
-    }
-
-    static int destroy(plan_t plan) { return cufinufft_destroy(plan); }
-};
-
-template <>
-struct CufinufftTraits<float> {
-    using plan_t    = cufinufftf_plan;
-    using complex_t = cuFloatComplex;
-
-    static int makeplan(
-       int64_t dim,
-       int64_t *nmodes,
-       int iflag,
-       int64_t ntrans,
-       double eps,
-       plan_t *plan,
-       cufinufft_opts *opts
-    ) {
-        return cufinufftf_makeplan(
-           CUFINUFFT_TYPE1, dim, nmodes, iflag, ntrans, eps, plan, opts
-        );
-    }
-
-    static int setpts(plan_t plan, int64_t M, const float *x) {
-        return cufinufftf_setpts(
-           plan,
-           M,
-           const_cast<float *>(x),
-           nullptr,
-           nullptr,
-           0,
-           nullptr,
-           nullptr,
-           nullptr
-        );
-    }
-
-    static int execute(plan_t plan, const complex_t *c, complex_t *fk) {
-        return cufinufftf_execute(plan, const_cast<complex_t *>(c), fk);
-    }
-
-    static int destroy(plan_t plan) { return cufinufftf_destroy(plan); }
-};
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -121,6 +33,7 @@ namespace {
     template <typename Scalar>
     using nifty_cuda_arr_2d = nb::ndarray<Scalar, nb::ndim<2>, nb::device::cuda>;
 
+    // Define post-process prototype
     template <typename Scalar>
     void process_finufft_outputs_cuda(
        nifty_cuda_arr_2d<Scalar> power_,
@@ -196,29 +109,43 @@ namespace {
         }
     }
 
-    // reduce_partials kernel: Reduce partial result from previous kernel to obtain a
-    // wsum/yoff for each batch.
-    __global__ void reduce_partials(
-       const double *partial, double *total, const size_t blocks_per_batch
+    // reduce_partials2 kernel: Reduce two partial arrays in one pass.
+    __global__ void reduce_partials2(
+       const double *partial1,
+       const double *partial2,
+       double *total1,
+       double *total2,
+       const size_t blocks_per_batch
     ) {
         const size_t batch = blockIdx.x;
 
-        extern __shared__ double sdata[];
-        double sum = 0.0;
+        extern __shared__ double scratch[];
+        double *s1 = scratch;
+        double *s2 = scratch + blockDim.x;
+
+        double sum1 = 0.0;
+        double sum2 = 0.0;
         for (size_t b = threadIdx.x; b < blocks_per_batch; b += blockDim.x) {
-            sum += partial[batch * blocks_per_batch + b];
+            const size_t idx = batch * blocks_per_batch + b;
+            sum1 += partial1[idx];
+            sum2 += partial2[idx];
         }
-        sdata[threadIdx.x] = sum;
+        s1[threadIdx.x] = sum1;
+        s2[threadIdx.x] = sum2;
         __syncthreads();
 
         for (unsigned int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
             if (threadIdx.x < stride) {
-                sdata[threadIdx.x] += sdata[threadIdx.x + stride];
+                s1[threadIdx.x] += s1[threadIdx.x + stride];
+                s2[threadIdx.x] += s2[threadIdx.x + stride];
             }
             __syncthreads();
         }
 
-        if (threadIdx.x == 0) { total[batch] = sdata[0]; }
+        if (threadIdx.x == 0) {
+            total1[batch] = s1[0];
+            total2[batch] = s2[0];
+        }
     }
 
     // set_norm_and_yoff kernel: Execute yoff /= wsum (if center/fit), and set norm (PSD
@@ -302,18 +229,24 @@ namespace {
             atomicAdd(&norm[batch], static_cast<Scalar>(s_norm[0]));
         }
 
-        const Complex<Scalar> phase_shift(
-           Scalar(0), static_cast<Scalar>(Nf / 2) + fmin / df
-        );
-        const Complex<Scalar> exp_t1 = thrust::exp(phase_shift * t1_val);
-        const Complex<Scalar> exp_t2 = thrust::exp(phase_shift * t2_val);
+        const Scalar phase_factor = static_cast<Scalar>(Nf / 2) + fmin / df;
+        const Scalar angle        = phase_factor * t1_val;
+        Scalar sin_angle          = Scalar(0);
+        Scalar cos_angle          = Scalar(1);
+        if constexpr (std::is_same_v<Scalar, float>) {
+            sincosf(angle, &sin_angle, &cos_angle);
+        } else {
+            sincos(angle, &sin_angle, &cos_angle);
+        }
+        const Complex<Scalar> exp_t1(cos_angle, sin_angle);
 
         const Scalar y_adj           = y[idx] - yoff_i;
-        const Complex<Scalar> w2_val = w2[idx];
+        const Complex<Scalar> w2_val = w2[idx];  // normalized: imag == 0
 
-        yw[idx] = y_adj * w2_val * exp_t1;
-        if (fit_mean) { w[idx] = w2_val * exp_t1; }
-        w2[idx] = w2_val * exp_t2;
+        const Complex<Scalar> w2_exp_t1 = w2_val * exp_t1;
+        yw[idx]                         = y_adj * w2_exp_t1;
+        if (fit_mean) { w[idx] = w2_exp_t1; }
+        w2[idx] = w2_exp_t1 * exp_t1;  // exp(i*2*angle)
     }
 
     // process_finufft_outputs_kernel kernel: Compute Lomb-Scargle power using
@@ -391,8 +324,10 @@ namespace {
 
     inline int clamp_block_dim_host(int block_dim) {
         if (block_dim <= 0) { return TPB; }
+        int dev = 0;
+        CUDA_CHECK(cudaGetDevice(&dev));
         cudaDeviceProp prop;
-        cudaGetDeviceProperties(&prop, 0);
+        CUDA_CHECK(cudaGetDeviceProperties(&prop, dev));
         return std::min(block_dim, prop.maxThreadsPerBlock);
     }
 
@@ -421,6 +356,7 @@ namespace {
         cufinufft_default_opts(&opts);
         opts.gpu_method = gpu_method;
 
+        // TODO: DEBUG
         CUFINUFFT_CHECK(
            Traits::makeplan(dim, nmodes, iflag, ntrans, eps, &plan, &opts),
            "cufinufft_makeplan failed"
@@ -502,13 +438,9 @@ namespace {
         CUDA_CHECK(cudaGetLastError());
 
         const dim3 grid_reduce(Nbatch);
-        const size_t shmem_reduce = TPB * sizeof(double);
-        reduce_partials<<<grid_reduce, TPB, shmem_reduce>>>(
-           wsum_partial, wsum, blocks_per_batch
-        );
-        CUDA_CHECK(cudaGetLastError());
-        reduce_partials<<<grid_reduce, TPB, shmem_reduce>>>(
-           yoff_partial, yoff, blocks_per_batch
+        const size_t shmem_reduce = 2 * TPB * sizeof(double);
+        reduce_partials2<<<grid_reduce, TPB, shmem_reduce>>>(
+           wsum_partial, yoff_partial, wsum, yoff, blocks_per_batch
         );
         CUDA_CHECK(cudaGetLastError());
 
@@ -745,13 +677,9 @@ namespace {
         CUDA_CHECK(cudaGetLastError());
 
         const dim3 grid_reduce(Nbatch);
-        const size_t shmem_reduce = tpb_launch * sizeof(double);
-        reduce_partials<<<grid_reduce, tpb_launch, shmem_reduce>>>(
-           wsum_partial, wsum, blocks_per_batch
-        );
-        CUDA_CHECK(cudaGetLastError());
-        reduce_partials<<<grid_reduce, tpb_launch, shmem_reduce>>>(
-           yoff_partial, yoff, blocks_per_batch
+        const size_t shmem_reduce = 2 * tpb_launch * sizeof(double);
+        reduce_partials2<<<grid_reduce, tpb_launch, shmem_reduce>>>(
+           wsum_partial, yoff_partial, wsum, yoff, blocks_per_batch
         );
         CUDA_CHECK(cudaGetLastError());
 

@@ -21,6 +21,7 @@ def lombscargle(
     df,
     Nf,
     dy=None,
+    nthreads=None,  # kept for API symmetry; not used in CUDA path
     center_data=True,
     fit_mean=True,
     normalization="standard",
@@ -46,25 +47,20 @@ def lombscargle(
     dy : array-like, optional
         The uncertainties of the data values, broadcastable to `y`
     nthreads : int, optional
-        The number of threads to use. The default behavior is to use (N_t / 4) * (Nf / 2^15) threads,
-        capped to the maximum number of OpenMP threads. This is a heuristic that may not work well in all cases.
+        Kept for API symmetry; not used in this CUDA backend.
     center_data : bool, optional
         Whether to center the data before computing the periodogram. Default is True.
     fit_mean : bool, optional
         Whether to fit a mean value to the data before computing the periodogram. Default is True.
     normalization : str, optional
         The normalization method to use. One of ['standard', 'model', 'log', 'psd']. Default is 'standard'.
-    _no_cpp_helpers : bool, optional
-        Whether to use the pure Python implementation of the finufft pre- and post-processing.
-        Default is False.
     verbose : bool, optional
-        Whether to print additional information about the finufft computation.
-    finufft_kwargs : dict, optional
-        Additional keyword arguments to pass to the `finufft.Plan()` constructor.
-        Particular finufft parameters of interest may be:
-        - `eps`: the requested precision [1e-9 for double precision and 1e-5 for single precision]
-        - `upsampfac`: the upsampling factor [1.25]
-        - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
+        Whether to print additional information about the cufinufft computation.
+    cufinufft_kwargs : dict, optional
+        Additional keyword arguments to pass to the cufinufft C API wrapper.
+        Parameters of interest may be:
+        - `eps`: requested precision [1e-9 for double, 1e-5 for float]
+        - `gpu_method`: cufinufft GPU method selector
     """
 
     same_dtype_or_raise(t=t, y=y, dy=dy)
