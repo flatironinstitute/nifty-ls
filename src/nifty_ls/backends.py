@@ -15,7 +15,7 @@ __all__ = [
     'HETEROBATCH_BACKEND_NAMES',
 ]
 
-CHI2_BACKEND_NAMES = ['finufft_chi2', 'cufinufft_chi2']
+CHI2_BACKEND_NAMES = ['finufft_chi2', 'cufinufft_chi2', 'cufinufft_chi2_CUDA']
 STANDARD_BACKEND_NAMES = ['finufft', 'cufinufft', 'cufinufft_CUDA']
 BACKEND_TYPE = Literal[
     'auto',
@@ -23,6 +23,7 @@ BACKEND_TYPE = Literal[
     'finufft_chi2',
     'cufinufft',
     'cufinufft_chi2',
+    'cufinufft_chi2_CUDA',
     'cufinufft_CUDA',
 ]
 BACKEND_NAMES = list(get_args(BACKEND_TYPE))
