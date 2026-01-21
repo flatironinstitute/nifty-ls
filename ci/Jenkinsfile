@@ -26,5 +26,16 @@ pipeline {
                 sh 'uv run --extra cuda pytest -v'
             }
         }
+        stage('Test with CUDA Sanitizer') {
+            environment {
+                OMP_NUM_THREADS = "$PARALLEL"
+           }
+            steps {
+                sh '''
+                    uv sync --extra cuda
+                    compute-sanitizer .venv/bin/python -m pytest -sv -k cufinufft --benchmark-skip
+                '''
+            }
+        }
     }
 }
