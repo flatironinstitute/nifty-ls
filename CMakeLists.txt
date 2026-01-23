@@ -15,7 +15,7 @@ find_package(nanobind CONFIG REQUIRED)
 
 option(NIFTY_LS_OPENMP "Enable OpenMP support in the compiled extensions" ON)
 option(NIFTY_LS_HETEROBATCH "Enable heterobatch support with finufft" ON)
-option(NIFTY_LS_CUDA "Enable CUDA backend (cuda_helper)" ON)
+option(NIFTY_LS_CUDA "Enable CUDA backend (cuda_helper)" OFF)
 set(NIFTY_LS_CUFINUFFT_ROOT "" CACHE PATH "Prefix where cufinufft is installed (include/, lib/)")
 option(NIFTY_LS_SANITIZERS "Enable sanitizers for debugging" OFF)
 option(NIFTY_LS_COMPILE_WARNING_AS_ERROR "Treat compiler warnings as errors" OFF)
