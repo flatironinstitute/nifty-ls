@@ -90,4 +90,3 @@ struct CufinufftTraits<float> {
 
     static int destroy(plan_t plan) { return cufinufftf_destroy(plan); }
 };
-

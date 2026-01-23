@@ -13,8 +13,8 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/complex.h>
 
-#include "utils_helpers.hpp"
 #include "cufinufft_traits.hpp"
+#include "utils_helpers.hpp"
 using utils_helpers::NormKind;
 
 namespace nb = nanobind;

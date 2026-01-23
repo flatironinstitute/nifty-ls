@@ -67,6 +67,7 @@ def do_nifty_cufinufft_chi2(*args, nterms=4, **kwargs):
         *args, **kwargs, nterms=nterms, cufinufft_kwargs={'eps': DEFAULT_EPS}
     )
 
+
 def do_nifty_cufinufft_chi2_cuda(*args, nterms=4, **kwargs):
     return nifty_ls.cufinufft_chi2_CUDA.lombscargle(
         *args, **kwargs, nterms=nterms, cufinufft_kwargs={'eps': DEFAULT_EPS}

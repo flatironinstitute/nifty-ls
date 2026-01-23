@@ -5,7 +5,7 @@ import numpy as np
 from .utils import get_norm_enum, same_dtype_or_raise
 from . import chi2_cuda_helper
 
-__all__ = ["lombscargle"]
+__all__ = ['lombscargle']
 
 
 def lombscargle(
@@ -18,7 +18,7 @@ def lombscargle(
     nthreads=None,  # kept for API symmetry; not used in CUDA path
     center_data=True,
     fit_mean=True,
-    normalization="standard",
+    normalization='standard',
     verbose=False,
     cufinufft_kwargs=None,
     nterms=1,
@@ -29,7 +29,7 @@ def lombscargle(
     Preprocess, NUFFT (cufinufft C API), and postprocess all run on GPU.
     """
     if nterms == 0 and not fit_mean:
-        raise ValueError("Cannot have nterms = 0 without fitting bias")
+        raise ValueError('Cannot have nterms = 0 without fitting bias')
 
     same_dtype_or_raise(t=t, y=y, dy=dy)
 
@@ -39,7 +39,7 @@ def lombscargle(
 
     dtype = t.dtype
     if dtype not in (np.float32, np.float64):
-        raise TypeError("t/y/dy must be float32 or float64")
+        raise TypeError('t/y/dy must be float32 or float64')
 
     if dy is None:
         dy = np.array(1.0, dtype=dtype)
@@ -53,12 +53,12 @@ def lombscargle(
 
     Nbatch, _ = y.shape
 
-    default_cufinufft_kwargs = dict(eps="default", gpu_method=1)
+    default_cufinufft_kwargs = dict(eps='default', gpu_method=1)
     cufinufft_kwargs = {**default_cufinufft_kwargs, **(cufinufft_kwargs or {})}
-    if cufinufft_kwargs["eps"] == "default":
-        cufinufft_kwargs["eps"] = 1e-5 if dtype == np.float32 else 1e-9
-    eps = float(cufinufft_kwargs["eps"])
-    gpu_method = int(cufinufft_kwargs.get("gpu_method", 1))
+    if cufinufft_kwargs['eps'] == 'default':
+        cufinufft_kwargs['eps'] = 1e-5 if dtype == np.float32 else 1e-9
+    eps = float(cufinufft_kwargs['eps'])
+    gpu_method = int(cufinufft_kwargs.get('gpu_method', 1))
     block_dim = -1 if tpb is None else int(tpb)
 
     norm_kind = get_norm_enum(normalization)
@@ -84,7 +84,7 @@ def lombscargle(
 
     if verbose:
         print(
-            f"[nifty-ls cufinufft_chi2_CUDA] batches={Nbatch}, dtype={dtype}, eps={eps}, nterms={nterms}"
+            f'[nifty-ls cufinufft_chi2_CUDA] batches={Nbatch}, dtype={dtype}, eps={eps}, nterms={nterms}'
         )
 
     return power
