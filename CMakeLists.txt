@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15...3.27)
-project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX CUDA)
+project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
 # put a symlink to the compile_commands.json in the build dir
 # so the LSP can find it in a known directory without the platform tag
