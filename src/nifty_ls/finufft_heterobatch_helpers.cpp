@@ -226,8 +226,10 @@ void process_hetero_batch(
     const size_t N_series = t_list.size();
 
     // Check input sizes
-    if (y_list.size() != N_series || fmin_list.size() != N_series
-        || df_list.size() != N_series || Nf_list.size() != N_series) {
+    if (
+       y_list.size() != N_series || fmin_list.size() != N_series
+       || df_list.size() != N_series || Nf_list.size() != N_series
+    ) {
         throw std::runtime_error("All input lists must have same length");
     }
 

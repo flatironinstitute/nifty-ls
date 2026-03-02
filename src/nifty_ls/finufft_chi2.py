@@ -408,10 +408,12 @@ def _lombscargle_compute(
                 'C': lambda m, i: Cyw_b[m, i],
                 'SS': lambda m, n, i: 0.5 * (Cw_b[abs(m - n), i] - Cw_b[m + n, i]),
                 'CC': lambda m, n, i: 0.5 * (Cw_b[abs(m - n), i] + Cw_b[m + n, i]),
-                'SC': lambda m, n, i: 0.5
-                * (np.sign(m - n) * Sw_b[abs(m - n), i] + Sw_b[m + n, i]),
-                'CS': lambda m, n, i: 0.5
-                * (np.sign(n - m) * Sw_b[abs(n - m), i] + Sw_b[n + m, i]),
+                'SC': lambda m, n, i: (
+                    0.5 * (np.sign(m - n) * Sw_b[abs(m - n), i] + Sw_b[m + n, i])
+                ),
+                'CS': lambda m, n, i: (
+                    0.5 * (np.sign(n - m) * Sw_b[abs(n - m), i] + Sw_b[n + m, i])
+                ),
             }
 
         def compute_power_single(funcs, order, i, norm_value, normalization):
