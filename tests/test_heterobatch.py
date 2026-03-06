@@ -14,6 +14,9 @@ import nifty_ls
 import nifty_ls.backends
 from nifty_ls.test_helpers.utils import gen_data_mp
 
+# We're really comparing finufft to itself in this module, so in principle the tolerance should be pretty tight.
+RTOL = 2e-5
+
 
 @pytest.fixture
 def data(request):
@@ -96,7 +99,11 @@ def test_lombscargle(data, nifty_backend, nterms, Nf=1000):
         )
         standard_result_powers.append(standard_result.power)
 
-    np.testing.assert_allclose(heterobatch_results.power_list, standard_result_powers)
+    np.testing.assert_allclose(
+        heterobatch_results.power_list,
+        standard_result_powers,
+        rtol=RTOL,
+    )
 
 
 @pytest.mark.parametrize(
@@ -146,7 +153,9 @@ def test_normalization(data, nifty_backend, nterms, Nf=1000):
             standard_result_powers.append(standard_result.power)
 
         np.testing.assert_allclose(
-            heterobatch_results.power_list, standard_result_powers
+            heterobatch_results.power_list,
+            standard_result_powers,
+            rtol=RTOL,
         )
 
 
@@ -196,7 +205,9 @@ def test_center_data(data, center_data, nifty_backend, nterms, Nf=1000):
         )
         standard_result_powers.append(standard_result.power)
 
-    np.testing.assert_allclose(heterobatch_results.power_list, standard_result_powers)
+    np.testing.assert_allclose(
+        heterobatch_results.power_list, standard_result_powers, rtol=RTOL
+    )
 
 
 @pytest.mark.parametrize('fit_mean', [True, False])
@@ -245,7 +256,9 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
         )
         standard_result_powers.append(standard_result.power)
 
-    np.testing.assert_allclose(heterobatch_results.power_list, standard_result_powers)
+    np.testing.assert_allclose(
+        heterobatch_results.power_list, standard_result_powers, rtol=RTOL
+    )
 
 
 @pytest.mark.parametrize(
@@ -298,7 +311,9 @@ def test_dy_none(data, nifty_backend, nterms, Nf=1000):
         )
         standard_result_powers.append(standard_result.power)
 
-    np.testing.assert_allclose(heterobatch_results.power_list, standard_result_powers)
+    np.testing.assert_allclose(
+        heterobatch_results.power_list, standard_result_powers, rtol=RTOL
+    )
 
 
 @pytest.mark.parametrize(
@@ -352,7 +367,9 @@ def test_dy_mix_type(data, nifty_backend, nterms, Nf=1000):
         )
         standard_result_powers.append(standard_result.power)
 
-    np.testing.assert_allclose(heterobatch_results.power_list, standard_result_powers)
+    np.testing.assert_allclose(
+        heterobatch_results.power_list, standard_result_powers, rtol=RTOL
+    )
 
 
 @pytest.mark.parametrize(

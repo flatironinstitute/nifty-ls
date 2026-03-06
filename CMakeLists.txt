@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15...3.27)
+cmake_minimum_required(VERSION 3.15...3.32)
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
 # put a symlink to the compile_commands.json in the build dir
@@ -49,7 +49,7 @@ if(NIFTY_LS_HETEROBATCH)
     CPMAddPackage(
         NAME finufft
         GITHUB_REPOSITORY flatironinstitute/finufft
-        GIT_TAG v2.4.1
+        GIT_TAG v2.5.0
         OPTIONS
             "FINUFFT_USE_OPENMP ON"
             "FINUFFT_USE_CPU ON"
