@@ -32,7 +32,7 @@ jobs:
         CFLAGS="-I$(brew --prefix libomp)/include"
         LDFLAGS="-L$(brew --prefix libomp)/lib"
         MACOSX_DEPLOYMENT_TARGET=${{ matrix.macosx_deployment_target }}
-      CIBW_CONFIG_SETTINGS: "cmake.verbose=true cmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON"
+      CIBW_CONFIG_SETTINGS: "cmake.verbose=true cmake.define.NIFTY_LS_COMPILE_WARNING_AS_ERROR=ON"
       CIBW_BUILD_VERBOSITY: 1
       CIBW_BEFORE_ALL_MACOS: |
         brew install llvm libomp
