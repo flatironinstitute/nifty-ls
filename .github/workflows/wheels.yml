@@ -20,10 +20,9 @@ jobs:
         include:
           - label: "linux-target-x86_64"
             os: ubuntu-24.04
-          - label: "macos-target-x86_64"
-            os: macos-13
           - label: "macos-target-arm64"
             os: macos-14
+            macosx_deployment_target: "14"
 
     env:
       # All the MacOS logic is adapted directly from finufft
@@ -32,7 +31,7 @@ jobs:
         CXX=$(brew --prefix llvm)/bin/clang++
         CFLAGS="-I$(brew --prefix libomp)/include"
         LDFLAGS="-L$(brew --prefix libomp)/lib"
-        MACOSX_DEPLOYMENT_TARGET=${{ matrix.os == 'macos-14' && '14' || '13' }}
+        MACOSX_DEPLOYMENT_TARGET=${{ matrix.macosx_deployment_target }}
       CIBW_CONFIG_SETTINGS: "cmake.verbose=true cmake.define.CMAKE_COMPILE_WARNING_AS_ERROR=ON"
       CIBW_BUILD_VERBOSITY: 1
       CIBW_BEFORE_ALL_MACOS: |
@@ -47,7 +46,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         if: runner.os == 'macOS'  # macos doesn't run in a container and uses external uv
         with:
-          version: "0.8.4"
+          version: "0.11.0"
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
@@ -74,7 +73,7 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v7
       with:
-        version: "0.8.4"
+        version: "0.11.0"
 
     - name: Build SDist
       run: |
