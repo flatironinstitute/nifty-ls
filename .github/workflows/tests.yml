@@ -17,12 +17,6 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            python-version: "3.9"
-          - os: ubuntu-24.04
-            python-version: "3.10"
-          - os: ubuntu-24.04
-            python-version: "3.11"
-          - os: ubuntu-24.04
             python-version: "3.12"
           - os: ubuntu-24.04
             python-version: "3.13"
@@ -34,9 +28,14 @@ jobs:
             python-version: "3.14t"
           - os: macos-14
             python-version: "3.13"
+          - os: macos-26
+            python-version: "3.13"
           - os: ubuntu-24.04
             python-version: "3.13"
             sanitizers: true
+          # - os: macos-26
+          #   python-version: "3.13"
+          #   sanitizers: true
     env:
       UV_PYTHON: ${{ matrix.python-version }}
 
@@ -63,10 +62,16 @@ jobs:
         echo "LDFLAGS=-L$(brew --prefix libomp)/lib -L"$(brew --prefix llvm)"/lib/c++" >> $GITHUB_ENV
         echo "MACOSX_DEPLOYMENT_TARGET=14" >> $GITHUB_ENV
 
+    - name: Setup Env (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        echo "CC=gcc" >> $GITHUB_ENV
+        echo "CXX=g++" >> $GITHUB_ENV
+
     - name: Install uv
       uses: astral-sh/setup-uv@v7
       with:
-        version: "0.8.4"
+        version: "0.11.0"
 
     - name: Install FFTW (Linux)
       if: runner.os == 'Linux'
@@ -84,20 +89,28 @@ jobs:
       run: |
         echo "SKBUILD_CMAKE_ARGS=-DNIFTY_LS_SANITIZERS=ON" >> $GITHUB_ENV
         echo "SKBUILD_CMAKE_BUILD_TYPE=Debug" >> $GITHUB_ENV
-        echo "LD_PRELOAD=$(gcc -print-file-name=libasan.so):$(gcc -print-file-name=libubsan.so)" >> $GITHUB_ENV
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          echo "LD_PRELOAD=$($CC -print-file-name=libasan.so):$($CC -print-file-name=libubsan.so)" >> $GITHUB_ENV
+        elif [ "$RUNNER_OS" = "macOS" ]; then
+          RUNTIME_DIR=$($CC -print-runtime-dir)
+          ASAN_DYLIB=$(find "$RUNTIME_DIR" -name 'libclang_rt.asan_osx_dynamic.dylib' 2>/dev/null | head -1)
+          echo "DYLD_INSERT_LIBRARIES=$ASAN_DYLIB" >> $GITHUB_ENV
+        fi
         echo "ASAN_OPTIONS=halt_on_error=1:detect_leaks=0" >> $GITHUB_ENV
         echo "UBSAN_OPTIONS=halt_on_error=1" >> $GITHUB_ENV
         echo "PYTEST_ADDOPTS=--benchmark-skip" >> $GITHUB_ENV
 
     - name: Install from source
       run: |
-        uv sync -v \
+        uv sync \
+          -v \
+          --no-editable \
           -Ccmake.verbose=true \
           -Ccmake.define.NIFTY_LS_COMPILE_WARNING_AS_ERROR=ON
 
     - name: Run tests
       run: |
-        uv run pytest -vs
+        uv run -v --no-sync pytest -vs
 
     - name: Run free-threaded tests
       if: endsWith(matrix.python-version, 't')
@@ -105,4 +118,10 @@ jobs:
         NIFTY_LS_FORCE_FREETHREADED_TEST: 1
       run: |
         # Needs special treatment to only load nogil-compatible packages
-        uv run --no-dev --exact --group test-freethreaded pytest -xs tests/test_freethreaded.py
+        uv run -v --no-dev --exact --group test-freethreaded pytest -xs tests/test_freethreaded.py
+
+    # - name: Setup tmate session
+    #   if: ${{ failure() }}
+    #   uses: mxschmitt/action-tmate@v3
+    #   with:
+    #     limit-access-to-actor: true

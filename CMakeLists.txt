@@ -85,6 +85,7 @@ foreach(MODULE_NAME ${NIFTY_LS_MODULES})
 
     if(APPLE)
         # On macOS, use flat namespace to avoid duplicate initialization of libomp
+        # TODO: unclear if this works with sanitizers
         target_link_options(${MODULE_NAME} PRIVATE -Wl,-flat_namespace)
     endif()
 
