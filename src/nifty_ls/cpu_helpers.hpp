@@ -67,11 +67,10 @@ void process_finufft_inputs_raw(
     std::vector<double> wsum(Nbatch, 0.);  // use double for stability
     std::vector<double> yoff(Nbatch, 0.);
 
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) num_threads(nthreads) collapse(2) \
-   reduction(vsum : wsum) reduction(vsum : yoff) if (nthreads > 1)
-#endif
     // w2 = dy**-2.
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) num_threads(nthreads) if (nthreads > 1)
+#endif
     for (size_t i = 0; i < Nbatch; ++i) {
         for (size_t j = 0; j < N; ++j) {
             w2[i * N + j] = 1 / (dy(i, j) * dy(i, j));
