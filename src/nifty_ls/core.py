@@ -35,6 +35,7 @@ def lombscargle(
     fmin: Optional[float] = None,
     fmax: Optional[float] = None,
     Nf: Optional[int] = None,
+    f: Optional[npt.NDArray[np.floating]] = None,
     center_data: bool = True,
     fit_mean: bool = True,
     normalization: NORMALIZATION_TYPE = 'standard',
@@ -104,15 +105,20 @@ def lombscargle(
     numpy.linalg.LinAlgError
         If the solve encounters a singular (or nearly singular) matrix. Only for the chi2 backends.
     """
-    fmin, df, Nf = utils.validate_frequency_grid(
-        fmin,
-        fmax,
-        Nf,
-        t,
-        assume_sorted_t=assume_sorted_t,
-        samples_per_peak=samples_per_peak,
-        nyquist_factor=nyquist_factor,
-    )
+    if f is None:
+        fmin, df, Nf = utils.validate_frequency_grid(
+            fmin,
+            fmax,
+            Nf,
+            t,
+            assume_sorted_t=assume_sorted_t,
+            samples_per_peak=samples_per_peak,
+            nyquist_factor=nyquist_factor,
+        )
+    else:
+        fmin = f[0]
+        df = None
+        Nf = len(f)
     # Nterm verification
     if nterms is None:
         nterms = 1
@@ -150,6 +156,9 @@ def lombscargle(
         backend_kwargs.setdefault('nterms', nterms)
 
     backend_module = importlib.import_module(f'.{backend}', __package__)
+
+    if f is not None:
+        backend_kwargs['f'] = f
 
     power = backend_module.lombscargle(
         t=t,
