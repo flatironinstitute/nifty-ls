@@ -49,7 +49,7 @@ if(NIFTY_LS_HETEROBATCH)
     CPMAddPackage(
         NAME finufft
         GITHUB_REPOSITORY flatironinstitute/finufft
-        GIT_TAG v2.5.0
+        GIT_TAG v2.5.1
         OPTIONS
             "FINUFFT_USE_OPENMP ON"
             "FINUFFT_USE_CPU ON"

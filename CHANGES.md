@@ -7,6 +7,7 @@ finufft is now a vendored dependency. cufinufft is still external.
 ### Enhancements
 - "heterobatch" mode that supports threading over multiple time series of different lengths is now supported [#66]
 - The vendored finufft for heterobatch has been updated to 2.5.0 [#98]
+- The vendored finufft for heterobatch has been updated to 2.5.1 [#106]
 
 ### Fixes
 - The interpreter no longer crashes in the `finufft_chi2` backend when a singular matrix is encountered. Instead, a `numpy.linalg.LinAlgError` exception is raised. [#86]
