@@ -122,14 +122,18 @@ def lombscargle(
     # Backend selection
     if backend == 'auto':
         if nterms > 1:
-            if 'cufinufft_chi2' in AVAILABLE_BACKENDS:
+            if 'cufinufft_chi2_CUDA' in AVAILABLE_BACKENDS:
+                backend = 'cufinufft_chi2_CUDA'
+            elif 'cufinufft_chi2' in AVAILABLE_BACKENDS:
                 backend = 'cufinufft_chi2'
             elif 'finufft_chi2' in AVAILABLE_BACKENDS:
                 backend = 'finufft_chi2'
             else:
                 raise ValueError(
-                    'Please install and select the "cufinufft_chi2" or "finufft_chi2" backend when nterms > 1.'
+                    'Please install and select one of "cufinufft_chi2_CUDA", "cufinufft_chi2", or "finufft_chi2" when nterms > 1.'
                 )
+        elif 'cufinufft_CUDA' in AVAILABLE_BACKENDS:
+            backend = 'cufinufft_CUDA'
         elif 'cufinufft' in AVAILABLE_BACKENDS:
             backend = 'cufinufft'
         elif 'finufft' in AVAILABLE_BACKENDS:
@@ -140,12 +144,12 @@ def lombscargle(
         raise ValueError(
             f'Unknown or unavailable backend: {backend}. Available backends are: {AVAILABLE_BACKENDS}'
         )
-    if backend in ('finufft', 'cufinufft') and nterms > 1:
+    if backend in ('finufft', 'cufinufft', 'cufinufft_CUDA') and nterms > 1:
         raise ValueError(
             f'Backend "{backend}" only supports nterms == 1. '
             'Use "cufinufft_chi2" or "finufft_chi2" for nterms > 1.'
         )
-    if backend == 'cufinufft_chi2' or backend == 'finufft_chi2':
+    if backend in ('cufinufft_chi2_CUDA', 'cufinufft_chi2', 'finufft_chi2'):
         # Add nterms to backend_kwargs and pass it to the backend
         backend_kwargs.setdefault('nterms', nterms)
 

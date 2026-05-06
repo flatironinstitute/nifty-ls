@@ -320,6 +320,29 @@ Individual periodograms in the heterobatch interface can have uniform batching; 
 
 A similar dynamic dispatch effect can be achieved with [free-threaded Python](#free-threaded-parallelism), but as the dispatch is still done in Python, it will likely not be as performant as heterobatch.
 
+The `heterobatch` interface also provides a CUDA backend, which dispatches individual periodograms to cuFINUFFT at the C++ level using an OpenMP thread pool and CUDA streams. As a result, it can utilize GPU compute resources with very high efficiency.
+
+The CUDA backend requires cuFINUFFT as a prerequisite. Users must build cuFINUFFT separately and point to the installation path during configuration. For example:
+```bash
+### Build cufinufft
+git clone https://github.com/flatironinstitute/finufft.git
+cd finufft
+mkdir build && cd build
+cmake .. \
+  -DFINUFFT_USE_CUDA=ON \
+  -DFINUFFT_BUILD_TESTS=ON \
+  -DCMAKE_INSTALL_PREFIX=/custom/path/to/cufinufft
+
+cmake --build . -- -j
+ctest
+cmake --install .
+
+### Build nifty-ls with CUDA backend
+pip install -e .[cuda,dev] --no-build-isolation -Ccmake.args="-DNIFTY_LS_CUDA=ON -DNIFTY_LS_CUFINUFFT_ROOT=/custom/path/to/cufinufft"
+```
+
+CUDA compute sanitizers can be enabled by setting `-DNIFTY_LS_SANITIZERS=ON`, which helps detect CUDA memory errors during debugging.
+
 ### Free-Threaded Parallelism
 nifty-ls supports [free-threaded Python](https://docs.python.org/3/howto/free-threading-python.html)
 since version 1.1.0. With a free-threaded build of Python, efficient parallelism over many time
@@ -417,6 +440,8 @@ Here, the finufft single-threaded advantage is consistently 6× across problem s
 The 200× advantage of the GPU extends to even smaller $N$ in this case, since we're sending and receiving more data at once.
 
 We see that both multi-threaded finufft and cufinufft particularly benefit from batched transforms, as this exposes more parallelism and amortizes fixed latencies.
+
+With kernel fusion and CUDA streams, the `heterobatch` interface significantly reduces kernel launch overhead, which is particularly beneficial for small problem sizes. To better match GPU architectures, users can tune `TPB` (threads per block) to adjust GPU occupancy, and `CHUNK_F` to control memory usage.
 
 <!-- FUTURE: move to a readthedocs page and include the following performance plot
 
