@@ -7,6 +7,9 @@
 #include <vector>
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
 
 #include <nanobind/nanobind.h>
@@ -28,27 +31,24 @@ using namespace nb::literals;
 template <typename Scalar>
 using Complex = std::complex<Scalar>;
 
-enum class MatrixSolveStatus {
-    SUCCESS  = 0,
-    SINGULAR = 1
+#if defined(__AVX512F__)
+#define SOLVER_VEC_BYTES 64
+#elif defined(__AVX__)
+#define SOLVER_VEC_BYTES 32
+#else
+#define SOLVER_VEC_BYTES 16
+#endif
+
+template <typename Scalar>
+struct solver_vec_traits {
+    typedef Scalar type __attribute__((vector_size(SOLVER_VEC_BYTES)));
 };
 
-inline MatrixSolveStatus operator|(MatrixSolveStatus lhs, MatrixSolveStatus rhs) {
-    return static_cast<MatrixSolveStatus>(
-       static_cast<int>(lhs) | static_cast<int>(rhs)
-    );
-}
+template <typename Scalar>
+using SOLVER_VEC = typename solver_vec_traits<Scalar>::type;
 
-inline MatrixSolveStatus &operator|=(MatrixSolveStatus &lhs, MatrixSolveStatus rhs) {
-    lhs = static_cast<MatrixSolveStatus>(static_cast<int>(lhs) | static_cast<int>(rhs));
-    return lhs;
-}
-
-#ifdef _OPENMP
-#pragma omp declare reduction(                                           \
-      MatrixSolveStatusOr:MatrixSolveStatus : omp_out = omp_out | omp_in \
-) initializer(omp_priv = MatrixSolveStatus::SUCCESS)
-#endif
+template <typename Scalar>
+constexpr size_t SOLVER_VEC_LEN = sizeof(SOLVER_VEC<Scalar>) / sizeof(Scalar);
 
 template <typename Scalar>
 void process_chi2_inputs_raw(
@@ -210,89 +210,165 @@ void compute_t_raw(
     }
 }
 
-// Solver for small matrices using LU decomposition with partial pivoting
-// Using single thread
 template <typename Scalar>
-MatrixSolveStatus
-small_matrixs_solver(std::vector<Scalar> &A, std::vector<Scalar> &B, const size_t n) {
-    // Tolerance for detecting singularity
-    const Scalar tol = static_cast<Scalar>(1e-9);
+SOLVER_VEC<Scalar> solver_vec_splat(const Scalar value) {
+    SOLVER_VEC<Scalar> result{};
+    for (size_t lane = 0; lane < SOLVER_VEC_LEN<Scalar>; ++lane) {
+        result[lane] = value;
+    }
+    return result;
+}
 
-    if (n == 2)  // min of n
-    {
-        // Solve a 2x2 system directly using the determinant
-        Scalar det = A[0] * A[3] - A[1] * A[2];  // a11*a22 - a12*a21
-        if (std::abs(det) < tol) { return MatrixSolveStatus::SINGULAR; }
-        Scalar inv_det = static_cast<Scalar>(1.0) / det;
-        Scalar b0      = B[0];
-        Scalar b1      = B[1];
-        // Solution using inverse matrix
-        B[0] = (A[3] * b0 - A[2] * b1) * inv_det;   // (a22*b1 - a21*b2) / det
-        B[1] = (-A[1] * b0 + A[0] * b1) * inv_det;  // (-a12*b1 + a11*b2) / det
-    } else {
-        // LU decomposition with partial pivoting for n > 2
-        for (size_t k = 0; k < n; ++k) {
-            // Find pivot
-            size_t pivot   = k;
-            Scalar max_val = std::abs(A[k * n + k]);
-            for (size_t i = k + 1; i < n; ++i) {
-                Scalar val = std::abs(A[i * n + k]);
-                if (val > max_val) {
-                    max_val = val;
-                    pivot   = i;
-                }
-            }
-            if (max_val < tol) { return MatrixSolveStatus::SINGULAR; }
-            if (pivot != k) {
-                // Swap rows k and pivot in A
-                for (size_t j = 0; j < n; ++j) {
-                    std::swap(A[k * n + j], A[pivot * n + j]);
-                }
-                // Apply the same swap to B
-                std::swap(B[k], B[pivot]);
-            }
-            // Gaussian elimination to form L and U
-            for (size_t j = k + 1; j < n; ++j) {
-                Scalar m     = A[j * n + k] / A[k * n + k];  // Multiplier
-                A[j * n + k] = m;                            // Store L (below diagonal)
-                for (size_t l = k + 1; l < n; ++l) {
-                    A[j * n + l] -= m * A[k * n + l];  // Update U
-                }
-            }
+template <typename Scalar>
+SOLVER_VEC<Scalar> solver_vec_sqrt(const SOLVER_VEC<Scalar> value) {
+    SOLVER_VEC<Scalar> result{};
+    for (size_t lane = 0; lane < SOLVER_VEC_LEN<Scalar>; ++lane) {
+        result[lane] = std::sqrt(value[lane]);
+    }
+    return result;
+}
+
+inline bool solver_is_nonfinite(const double value) {
+    union {
+        double f;
+        uint64_t u;
+    } bits = {value};
+    return (bits.u & UINT64_C(0x7fffffffffffffff)) >= UINT64_C(0x7ff0000000000000);
+}
+
+inline bool solver_is_nonfinite(const float value) {
+    union {
+        float f;
+        uint32_t u;
+    } bits = {value};
+    return (bits.u & UINT32_C(0x7fffffff)) >= UINT32_C(0x7f800000);
+}
+
+template <typename Scalar>
+bool solver_condition_is_singular(const Scalar condition_bound) {
+    const Scalar threshold = static_cast<Scalar>(1e11);
+    return solver_is_nonfinite(condition_bound) || condition_bound < Scalar(0)
+           || condition_bound > threshold;
+}
+
+template <typename Scalar>
+bool solver_complex_denominator_is_singular(const Scalar real, const Scalar imag) {
+    const Scalar denom = real * real + imag * imag;
+    return solver_is_nonfinite(denom) || denom <= Scalar(0);
+}
+
+// Levinson-Durbin recursion for lane-batched complex Hermitian Toeplitz systems.
+template <typename Scalar>
+SOLVER_VEC<Scalar> small_toeplitz_solver(
+   const std::vector<SOLVER_VEC<Scalar>> &Rr,
+   const std::vector<SOLVER_VEC<Scalar>> &Ri,
+   const std::vector<SOLVER_VEC<Scalar>> &Yr,
+   const std::vector<SOLVER_VEC<Scalar>> &Yi,
+   std::vector<SOLVER_VEC<Scalar>> &Xr,
+   std::vector<SOLVER_VEC<Scalar>> &Xi,
+   std::vector<SOLVER_VEC<Scalar>> &Ar,
+   std::vector<SOLVER_VEC<Scalar>> &Ai,
+   std::vector<SOLVER_VEC<Scalar>> &Apr,
+   std::vector<SOLVER_VEC<Scalar>> &Api,
+   const size_t n
+) {
+    const SOLVER_VEC<Scalar> zero = solver_vec_splat<Scalar>(Scalar(0));
+    const SOLVER_VEC<Scalar> one  = solver_vec_splat<Scalar>(Scalar(1));
+
+    SOLVER_VEC<Scalar> E               = Rr[0];
+    SOLVER_VEC<Scalar> condition_bound = one;
+
+    Xr[0] = Yr[0] / E;
+    Xi[0] = Yi[0] / E;
+    Ar[0] = one;
+    Ai[0] = zero;
+
+    for (size_t k = 1; k < n; ++k) {
+        SOLVER_VEC<Scalar> lambda_r = zero;
+        SOLVER_VEC<Scalar> lambda_i = zero;
+
+        for (size_t i = 0; i < k; ++i) {
+            const SOLVER_VEC<Scalar> rr = Rr[k - i];
+            const SOLVER_VEC<Scalar> ri = Ri[k - i];
+            const SOLVER_VEC<Scalar> ar = Ar[i];
+            const SOLVER_VEC<Scalar> ai = Ai[i];
+            lambda_r += rr * ar - ri * ai;
+            lambda_i += rr * ai + ri * ar;
         }
 
-        // Forward substitution: Solve L * Y = B
-        for (size_t i = 0; i < n; ++i) {
-            for (size_t j = 0; j < i; ++j) { B[i] -= A[i * n + j] * B[j]; }
-            // L has 1s on diagonal, so no division needed
+        const SOLVER_VEC<Scalar> gamma_r = -lambda_r / E;
+        const SOLVER_VEC<Scalar> gamma_i = -lambda_i / E;
+
+        for (size_t i = 0; i < k; ++i) {
+            Apr[i] = Ar[i];
+            Api[i] = Ai[i];
         }
 
-        // Backward substitution: Solve U * X = Y
-        for (size_t i = n; i-- > 0;) {
-            for (size_t j = i + 1; j < n; ++j) { B[i] -= A[i * n + j] * B[j]; }
-            B[i] /= A[i * n + i];  // Divide by U's diagonal element
+        Ar[k] = gamma_r * Apr[0] - gamma_i * (-Api[0]);
+        Ai[k] = gamma_r * (-Api[0]) + gamma_i * Apr[0];
+
+        for (size_t i = 1; i < k; ++i) {
+            const SOLVER_VEC<Scalar> apr = Apr[k - i];
+            const SOLVER_VEC<Scalar> api = -Api[k - i];
+            Ar[i]                        = Apr[i] + gamma_r * apr - gamma_i * api;
+            Ai[i]                        = Api[i] + gamma_r * api + gamma_i * apr;
+        }
+
+        const SOLVER_VEC<Scalar> abs2_gamma = gamma_r * gamma_r + gamma_i * gamma_i;
+        const SOLVER_VEC<Scalar> abs_gamma  = solver_vec_sqrt<Scalar>(abs2_gamma);
+        condition_bound *= (one + abs_gamma) / (one - abs_gamma);
+        E *= one - abs2_gamma;
+
+        SOLVER_VEC<Scalar> mu_r = Yr[k];
+        SOLVER_VEC<Scalar> mu_i = Yi[k];
+
+        for (size_t i = 0; i < k; ++i) {
+            const SOLVER_VEC<Scalar> rr = Rr[k - i];
+            const SOLVER_VEC<Scalar> ri = Ri[k - i];
+            const SOLVER_VEC<Scalar> xr = Xr[i];
+            const SOLVER_VEC<Scalar> xi = Xi[i];
+            mu_r -= rr * xr - ri * xi;
+            mu_i -= rr * xi + ri * xr;
+        }
+
+        const SOLVER_VEC<Scalar> nu_r = mu_r / E;
+        const SOLVER_VEC<Scalar> nu_i = mu_i / E;
+
+        Xr[k] = nu_r * Ar[0] - nu_i * (-Ai[0]);
+        Xi[k] = nu_r * (-Ai[0]) + nu_i * Ar[0];
+
+        for (size_t i = 0; i < k; ++i) {
+            const SOLVER_VEC<Scalar> ar = Ar[k - i];
+            const SOLVER_VEC<Scalar> ai = -Ai[k - i];
+            Xr[i] += nu_r * ar - nu_i * ai;
+            Xi[i] += nu_r * ai + nu_i * ar;
         }
     }
 
-    return MatrixSolveStatus::SUCCESS;
+    return condition_bound;
 }
 
-// Single thread dot product for small vector
 template <typename Scalar>
-Scalar small_matrixs_dot(const int n, const Scalar *x, const Scalar *y) {
-    Scalar result = 0.0;
-    for (int i = 0; i < n; ++i) { result += x[i] * y[i]; }
+SOLVER_VEC<Scalar> small_toeplitz_dot(
+   const std::vector<SOLVER_VEC<Scalar>> &Yr,
+   const std::vector<SOLVER_VEC<Scalar>> &Yi,
+   const std::vector<SOLVER_VEC<Scalar>> &Xr,
+   const std::vector<SOLVER_VEC<Scalar>> &Xi,
+   const size_t n
+) {
+    SOLVER_VEC<Scalar> result = solver_vec_splat<Scalar>(Scalar(0));
+    for (size_t i = 0; i < n; ++i) { result += Yr[i] * Xr[i] + Yi[i] * Xi[i]; }
     return result;
 }
 
 template <typename Scalar>
 void process_chi2_outputs_raw(
-   Scalar *power,       // (Nbatch, Nf)
-   const Scalar *Sw,    // input, (Nbatch, nSW, Nf)
-   const Scalar *Cw,    // input, (Nbatch, nSW, Nf)
-   const Scalar *Syw,   // input, (Nbatch, nSY, Nf)
-   const Scalar *Cyw,   // input, (Nbatch, nSY, Nf)
-   const Scalar *norm,  // input, (Nbatch, 1)
+   Scalar *power,
+   const Scalar *Sw,
+   const Scalar *Cw,
+   const Scalar *Syw,
+   const Scalar *Cyw,
+   const Scalar *norm,
    const std::vector<TermType> &order_types,
    const std::vector<size_t> &order_indices,
    const size_t Nbatch,
@@ -303,8 +379,43 @@ void process_chi2_outputs_raw(
    int nthreads
 ) {
     const size_t order_size = order_types.size();
+    const bool fit_mean =
+       order_size > 0 && order_types[0] == TermType::Cosine && order_indices[0] == 0;
+    const size_t order_offset = fit_mean ? 1 : 0;
 
-    MatrixSolveStatus error_code = MatrixSolveStatus::SUCCESS;
+    if (order_size < order_offset || ((order_size - order_offset) % 2) != 0) {
+        throw nb::value_error(
+           "[nifty-ls finufft] Error: Unsupported chi2 model order for Toeplitz solve."
+        );
+    }
+
+    const size_t degree        = (order_size - order_offset) / 2;
+    const size_t toeplitz_size = 2 * degree + 1;
+    const size_t center        = degree;
+
+    if (nSW < toeplitz_size || nSY < degree + 1) {
+        throw nb::value_error(
+           "[nifty-ls finufft] Error: Insufficient chi2 trigonometric sums for Toeplitz solve."
+        );
+    }
+
+    for (size_t i = 0; i < degree; ++i) {
+        const size_t sin_pos = order_offset + 2 * i;
+        const size_t cos_pos = sin_pos + 1;
+        const size_t h       = i + 1;
+        if (order_types[sin_pos] != TermType::Sine
+            || order_types[cos_pos] != TermType::Cosine || order_indices[sin_pos] != h
+            || order_indices[cos_pos] != h) {
+            throw nb::value_error(
+               "[nifty-ls finufft] Error: Unsupported chi2 model order for Toeplitz solve."
+            );
+        }
+    }
+
+    size_t singular_count       = 0;
+    const size_t solver_vec_len = SOLVER_VEC_LEN<Scalar>;
+    const size_t freq_blocks    = (Nf + solver_vec_len - 1) / solver_vec_len;
+    const Scalar nan            = std::numeric_limits<Scalar>::quiet_NaN();
 
 #ifdef _OPENMP
     if (nthreads < 1) { nthreads = omp_get_max_threads(); }
@@ -313,90 +424,158 @@ void process_chi2_outputs_raw(
 #endif
 
 #ifdef _OPENMP
-#pragma omp parallel num_threads(nthreads)                       \
-   reduction(MatrixSolveStatusOr : error_code) if (nthreads > 1)
+#pragma omp parallel num_threads(nthreads)         \
+   reduction(+ : singular_count) if (nthreads > 1)
 #endif
     {
-        std::vector<Scalar> XTy(order_size);
-        std::vector<Scalar> XTX(order_size * order_size);
-        std::vector<Scalar> bvec(order_size);
-        std::vector<Scalar> sw_local(nSW);
-        std::vector<Scalar> cw_local(nSW);
+        using Vec = SOLVER_VEC<Scalar>;
+
+        const Vec zero = solver_vec_splat<Scalar>(Scalar(0));
+        const Vec one  = solver_vec_splat<Scalar>(Scalar(1));
+
+        std::vector<Vec> Rr(toeplitz_size);
+        std::vector<Vec> Ri(toeplitz_size);
+        std::vector<Vec> Yr(toeplitz_size);
+        std::vector<Vec> Yi(toeplitz_size);
+        std::vector<Vec> Xr(toeplitz_size);
+        std::vector<Vec> Xi(toeplitz_size);
+        std::vector<Vec> Ar(toeplitz_size);
+        std::vector<Vec> Ai(toeplitz_size);
+        std::vector<Vec> Apr(toeplitz_size);
+        std::vector<Vec> Api(toeplitz_size);
+        std::vector<Vec> center_rhs_r(toeplitz_size);
+        std::vector<Vec> center_rhs_i(toeplitz_size);
+        std::vector<Vec> center_xr(toeplitz_size);
+        std::vector<Vec> center_xi(toeplitz_size);
+
+        for (size_t k = 0; k < toeplitz_size; ++k) {
+            center_rhs_r[k] = zero;
+            center_rhs_i[k] = zero;
+        }
+        center_rhs_r[center] = one;
+
 #ifdef _OPENMP
 #pragma omp for collapse(2) schedule(static)
 #endif
         for (size_t b = 0; b < Nbatch; ++b) {
-            for (size_t f = 0; f < Nf; ++f) {
-                Scalar norm_val = norm[b];
-                for (size_t i = 0; i < nSW; ++i) {
-                    sw_local[i] = Sw[b * nSW * Nf + i * Nf + f];
-                    cw_local[i] = Cw[b * nSW * Nf + i * Nf + f];
-                }
-                for (size_t i = 0; i < order_size; ++i) {
-                    TermType t = order_types[i];
-                    size_t m   = order_indices[i];
-                    XTy[i] = (t == TermType::Sine) ? Syw[b * nSY * Nf + m * Nf + f] :
-                                                     Cyw[b * nSY * Nf + m * Nf + f];
-                }
-                for (size_t i = 0; i < order_size; ++i) {
-                    TermType ti = order_types[i];
-                    size_t m    = order_indices[i];
-                    for (size_t j = 0; j < order_size; ++j) {
-                        TermType tj = order_types[j];
-                        size_t n    = order_indices[j];
-                        size_t d    = (m > n) ? (m - n) : (n - m);
-                        size_t s    = m + n;
-                        if (ti == TermType::Sine && tj == TermType::Sine) {
-                            XTX[j * order_size + i] =
-                               Scalar(0.5) * (cw_local[d] - cw_local[s]);
-                        } else if (ti == TermType::Cosine && tj == TermType::Cosine) {
-                            XTX[j * order_size + i] =
-                               Scalar(0.5) * (cw_local[d] + cw_local[s]);
-                        } else if (ti == TermType::Sine && tj == TermType::Cosine) {
-                            int sign = (m > n ? 1 : (m < n ? -1 : 0));
-                            XTX[j * order_size + i] =
-                               Scalar(0.5) * (sign * sw_local[d] + sw_local[s]);
+            for (size_t block = 0; block < freq_blocks; ++block) {
+                const size_t base = block * solver_vec_len;
+
+                for (size_t k = 0; k < toeplitz_size; ++k) {
+                    const ptrdiff_t h =
+                       static_cast<ptrdiff_t>(k) - static_cast<ptrdiff_t>(degree);
+
+                    for (size_t lane = 0; lane < solver_vec_len; ++lane) {
+                        size_t f = base + lane;
+                        if (f >= Nf) { f = Nf - 1; }
+
+                        Rr[k][lane] = Cw[b * nSW * Nf + k * Nf + f];
+                        Ri[k][lane] = -Sw[b * nSW * Nf + k * Nf + f];
+
+                        if (h == 0) {
+                            Yr[k][lane] = fit_mean ? Cyw[b * nSY * Nf + f] : Scalar(0);
+                            Yi[k][lane] = Scalar(0);
+                        } else if (h > 0) {
+                            const size_t ah = static_cast<size_t>(h);
+                            Yr[k][lane]     = Cyw[b * nSY * Nf + ah * Nf + f];
+                            Yi[k][lane]     = -Syw[b * nSY * Nf + ah * Nf + f];
                         } else {
-                            int sign = (n > m ? 1 : (n < m ? -1 : 0));
-                            XTX[j * order_size + i] =
-                               Scalar(0.5) * (sign * sw_local[d] + sw_local[s]);
+                            const size_t ah = static_cast<size_t>(-h);
+                            Yr[k][lane]     = Cyw[b * nSY * Nf + ah * Nf + f];
+                            Yi[k][lane]     = Syw[b * nSY * Nf + ah * Nf + f];
                         }
                     }
                 }
-                // Copy XTy to preserve it for dot product later
-                std::copy(XTy.begin(), XTy.end(), bvec.begin());
-                size_t n = order_size;
-                error_code |= small_matrixs_solver(XTX, bvec, n);
-                if (error_code != MatrixSolveStatus::SUCCESS) { continue; }
-                // Dot product (XTy, bvec)
-                Scalar pw = small_matrixs_dot(n, bvec.data(), XTy.data());
 
-                // Apply normalization
-                switch (norm_kind) {
-                    case NormKind::Standard:
-                        pw /= norm_val;
-                        break;
-                    case NormKind::Model:
-                        pw /= (norm_val - pw);
-                        break;
-                    case NormKind::Log:
-                        pw = -std::log(1 - pw / norm_val);
-                        break;
-                    case NormKind::PSD:
-                        pw *= Scalar(0.5);
-                        break;
+                Vec condition_bound = small_toeplitz_solver<Scalar>(
+                   Rr, Ri, Yr, Yi, Xr, Xi, Ar, Ai, Apr, Api, toeplitz_size
+                );
+                Vec center_condition_bound = one;
+
+                if (!fit_mean) {
+                    // Remove the central harmonic with a Schur complement when
+                    // the bias term is not part of the fitted model.
+                    center_condition_bound = small_toeplitz_solver<Scalar>(
+                       Rr,
+                       Ri,
+                       center_rhs_r,
+                       center_rhs_i,
+                       center_xr,
+                       center_xi,
+                       Ar,
+                       Ai,
+                       Apr,
+                       Api,
+                       toeplitz_size
+                    );
+
+                    const Vec denom = center_xr[center] * center_xr[center]
+                                      + center_xi[center] * center_xi[center];
+                    const Vec ratio_r =
+                       (Xr[center] * center_xr[center] + Xi[center] * center_xi[center])
+                       / denom;
+                    const Vec ratio_i =
+                       (Xi[center] * center_xr[center] - Xr[center] * center_xi[center])
+                       / denom;
+
+                    for (size_t k = 0; k < toeplitz_size; ++k) {
+                        const Vec tr = center_xr[k] * ratio_r - center_xi[k] * ratio_i;
+                        const Vec ti = center_xr[k] * ratio_i + center_xi[k] * ratio_r;
+                        Xr[k] -= tr;
+                        Xi[k] -= ti;
+                    }
                 }
-                power[b * Nf + f] = pw;
+
+                const Vec dot =
+                   small_toeplitz_dot<Scalar>(Yr, Yi, Xr, Xi, toeplitz_size);
+
+                for (size_t lane = 0; lane < solver_vec_len; ++lane) {
+                    const size_t f = base + lane;
+                    if (f >= Nf) { continue; }
+
+                    bool is_singular =
+                       solver_condition_is_singular(condition_bound[lane]);
+                    if (!fit_mean) {
+                        is_singular =
+                           is_singular
+                           || solver_condition_is_singular(center_condition_bound[lane])
+                           || solver_complex_denominator_is_singular(
+                              center_xr[center][lane], center_xi[center][lane]
+                           );
+                    }
+
+                    if (is_singular) {
+                        power[b * Nf + f] = nan;
+                        ++singular_count;
+                        continue;
+                    }
+
+                    Scalar pw       = dot[lane];
+                    Scalar norm_val = norm[b];
+
+                    switch (norm_kind) {
+                        case NormKind::Standard:
+                            pw /= norm_val;
+                            break;
+                        case NormKind::Model:
+                            pw /= (norm_val - pw);
+                            break;
+                        case NormKind::Log:
+                            pw = -std::log(1 - pw / norm_val);
+                            break;
+                        case NormKind::PSD:
+                            pw *= Scalar(0.5);
+                            break;
+                    }
+                    power[b * Nf + f] = pw;
+                }
             }
         }
     }
 
-    switch (error_code) {
-        case MatrixSolveStatus::SUCCESS:
-            return;
-        case MatrixSolveStatus::SINGULAR:
-            throw nb::value_error(
-               "[nifty-ls finufft] Error: Singular matrix encountered during chi2 power computation."
-            );
+    if (singular_count == Nbatch * Nf) {
+        throw nb::value_error(
+           "[nifty-ls finufft] Error: All systems were singular during chi2 power computation."
+        );
     }
 }
