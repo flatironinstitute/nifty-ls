@@ -52,19 +52,19 @@ constexpr size_t SOLVER_VEC_LEN = sizeof(SOLVER_VEC<Scalar>) / sizeof(Scalar);
 
 template <typename Scalar>
 void process_chi2_inputs_raw(
-   Scalar *t1,                            // (N)
-   Complex<Scalar> *yw,                   // (Nbatch, N)
-   Complex<Scalar> *w,                    // (Nbatch, N)
-   Scalar *w2s,                           // (Nbatch, 1)
-   Scalar *norm,                          // (Nbatch, 1)
-   Scalar *yws,                           // (Nbatch, 1)
-   Scalar *Sw,                            // (Nbatch, nSW, Nf)
-   Scalar *Cw,                            // (Nbatch, nSW, Nf)
-   Scalar *Syw,                           // (Nbatch, nSY, Nf)
-   Scalar *Cyw,                           // (Nbatch, nSY, Nf)
-   const nifty_arr_1d<const Scalar> &t,   // (N_d)
-   const nifty_arr_2d<const Scalar> &y,   // (N_batch, N_d)
-   const nifty_arr_2d<const Scalar> &dy,  // (N_batch, N_d)
+   Scalar *t1,
+   Complex<Scalar> *yw,
+   Complex<Scalar> *w,
+   Scalar *w2s,
+   Scalar *norm,
+   Scalar *yws,
+   Scalar *Sw,
+   Scalar *Cw,
+   Scalar *Syw,
+   Scalar *Cyw,
+   const nifty_arr_1d<const Scalar> &t,
+   const nifty_arr_2d<const Scalar> &y,
+   const nifty_arr_2d<const Scalar> &dy,
    const size_t Nbatch,
    const size_t N,
    const size_t Nf,
@@ -403,9 +403,11 @@ void process_chi2_outputs_raw(
         const size_t sin_pos = order_offset + 2 * i;
         const size_t cos_pos = sin_pos + 1;
         const size_t h       = i + 1;
-        if (order_types[sin_pos] != TermType::Sine
-            || order_types[cos_pos] != TermType::Cosine || order_indices[sin_pos] != h
-            || order_indices[cos_pos] != h) {
+        if (
+           order_types[sin_pos] != TermType::Sine
+           || order_types[cos_pos] != TermType::Cosine || order_indices[sin_pos] != h
+           || order_indices[cos_pos] != h
+        ) {
             throw nb::value_error(
                "[nifty-ls finufft] Error: Unsupported chi2 model order for Toeplitz solve."
             );
