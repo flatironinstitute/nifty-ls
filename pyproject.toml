@@ -61,6 +61,7 @@ test-groups = "test"
 skip = "pp* *-musllinux_*"
 
 [tool.cibuildwheel.linux]
+environment = { CFLAGS = "-march=x86-64-v3", CXXFLAGS = "-march=x86-64-v3" }
 repair-wheel-command = [
   "auditwheel repair -w {dest_dir} {wheel}",
   # run abi3audit on wheels tagged with abi3
