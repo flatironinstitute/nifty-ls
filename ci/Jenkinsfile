@@ -1,41 +1,27 @@
-pipeline {
-    agent {
-        dockerfile {
-            filename 'ci/Dockerfile'
-            args '--gpus 1'
-            label 'docker && gpu'
-        }
-    }
-    options {
-        timeout(time: 1, unit: 'HOURS')
-    }
-    environment {
-        HOME = "$WORKSPACE"
-    }
-    stages {
+properties([
+  disableConcurrentBuilds(),
+  buildDiscarder(logRotator(numToKeepStr: '10', daysToKeepStr: '30'))
+])
+
+timeout(time: 1, unit: 'HOURS') {
+  buildPod(context: 'ci', gpus: 1) {
+    withEnv(["HOME=$WORKSPACE"]) {
         stage('Build') {
-            steps {
                 sh 'uv sync -v --extra cuda'
-            }
         }
         stage('Test') {
-            environment {
-                OMP_NUM_THREADS = "$PARALLEL"
-            }
-            steps {
-                sh 'uv run --extra cuda pytest -v'
-            }
+                sh '''#!/bin/sh -e
+                    export OMP_NUM_THREADS=$PARALLEL
+                    uv run --extra cuda pytest -v
+                '''
         }
         stage('Test with CUDA Sanitizer') {
-            environment {
-                OMP_NUM_THREADS = "$PARALLEL"
-           }
-            steps {
-                sh '''
+                sh '''#!/bin/sh -e
+                    export OMP_NUM_THREADS=$PARALLEL
                     uv sync --extra cuda
                     compute-sanitizer .venv/bin/python -m pytest -sv -k cufinufft --benchmark-skip
                 '''
-            }
         }
     }
+  }
 }
