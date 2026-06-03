@@ -224,43 +224,46 @@ def test_astropy_hook(data, nifty_backend, nterms, Nf=1000):
     np.testing.assert_allclose(astropy_power, nifty_power)
 
 
+@pytest.mark.parametrize('fit_mean', [True, False])
 @pytest.mark.parametrize(
     'nifty_backend,nterms',
-    [('finufft', None), ('finufft_chi2', 1), ('finufft_chi2', 2)],
+    [
+        ('finufft', None),
+        ('finufft_chi2', 1),
+        ('finufft_chi2', 2),
+        ('finufft_chi2', 3),
+    ],
     indirect=['nifty_backend'],
 )
-def test_no_cpp_helpers(data, batched_data, nifty_backend, nterms, Nf=1000):
-    """Check that the _no_cpp_helpers flag works as expected for batched and unbatched"""
+def test_no_cpp_helpers(data, batched_data, nifty_backend, nterms, fit_mean, Nf=1000):
+    """Check that the _no_cpp_helpers flag works as expected for batched and unbatched.
+
+    This is the strongest chi2 test: the _no_cpp_helpers=True path is an independent
+    NumPy reference that assembles the sin/cos normal equations and solves them with
+    np.linalg.solve, so it cross-checks the C++ complex-exponential Levinson solver
+    (including the fit_mean=False Schur-complement path) against a different algorithm
+    in a different basis.
+    """
 
     backend_fn, _ = nifty_backend
 
+    kw = dict(Nf=Nf, nterms=nterms, fit_mean=fit_mean)
+
     # Unbatched case
-    power_cpp_unbatched = backend_fn(
-        **data, Nf=Nf, nterms=nterms, _no_cpp_helpers=False
-    ).power
-    power_nocpp_unbatched = backend_fn(
-        **data, Nf=Nf, nterms=nterms, _no_cpp_helpers=True
-    ).power
+    power_cpp_unbatched = backend_fn(**data, _no_cpp_helpers=False, **kw).power
+    power_nocpp_unbatched = backend_fn(**data, _no_cpp_helpers=True, **kw).power
     np.testing.assert_allclose(power_cpp_unbatched, power_nocpp_unbatched)
 
     # Batched case
-    power_cpp_batched = backend_fn(
-        **batched_data, Nf=Nf, nterms=nterms, _no_cpp_helpers=False
-    ).power
-    power_nocpp_batched = backend_fn(
-        **batched_data, Nf=Nf, nterms=nterms, _no_cpp_helpers=True
-    ).power
+    power_cpp_batched = backend_fn(**batched_data, _no_cpp_helpers=False, **kw).power
+    power_nocpp_batched = backend_fn(**batched_data, _no_cpp_helpers=True, **kw).power
     np.testing.assert_allclose(power_cpp_batched, power_nocpp_batched)
 
     # Batched case without dy
     batched_data = batched_data.copy()
     batched_data['dy'] = None
-    power_cpp = backend_fn(
-        **batched_data, Nf=Nf, nterms=nterms, _no_cpp_helpers=False
-    ).power
-    power_nocpp = backend_fn(
-        **batched_data, Nf=Nf, nterms=nterms, _no_cpp_helpers=True
-    ).power
+    power_cpp = backend_fn(**batched_data, _no_cpp_helpers=False, **kw).power
+    power_nocpp = backend_fn(**batched_data, _no_cpp_helpers=True, **kw).power
     np.testing.assert_allclose(power_cpp, power_nocpp)
 
 
@@ -321,6 +324,56 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
     dtype = data['t'].dtype
 
     np.testing.assert_allclose(fitmean_nifty, fitmean_astropy, rtol=rtol(dtype, Nf))
+
+
+@pytest.mark.parametrize('fit_mean', [True, False])
+@pytest.mark.parametrize(
+    'nifty_backend,nterms', [('finufft_chi2', 2)], indirect=['nifty_backend']
+)
+def test_chi2_singular_returns_nan(nifty_backend, nterms, fit_mean):
+    """A grid that includes f=0 makes the chi2 system rank-deficient at the f=0 bin
+    (every harmonic collapses to cos=1, sin=0, i.e. the rank-1 all-ones matrix), while
+    higher-frequency bins stay well-conditioned. The chi2 backend should return NaN for
+    the singular bin(s) rather than raising, as long as the whole grid is not singular.
+    """
+    backend_fn, _ = nifty_backend
+
+    rng = np.random.default_rng(42)
+    N = 100
+    t = np.sort(rng.uniform(0, 100, N))
+    y = np.sin(5 * t) + 1.0
+    dy = np.full(N, 0.1)
+
+    # Grid bin 0 is exactly f=0 (singular); higher bins span a normal band (finite).
+    power = backend_fn(
+        t, y, dy, fmin=0.0, fmax=1.0, Nf=50, nterms=nterms, fit_mean=fit_mean
+    ).power
+
+    assert np.isnan(power[0]), 'expected NaN at the singular f=0 bin'
+    assert np.isfinite(power).any(), 'expected finite power at well-conditioned bins'
+
+
+@pytest.mark.parametrize('fit_mean', [True, False])
+@pytest.mark.parametrize(
+    'nifty_backend,nterms', [('finufft_chi2', 2)], indirect=['nifty_backend']
+)
+def test_chi2_all_singular_raises(nifty_backend, nterms, fit_mean):
+    """If every frequency in the grid is singular, the backend raises LinAlgError.
+    Confining the grid to f≈0 over a short baseline keeps every harmonic phase below
+    ~1e-6 rad, so every system is singular far beyond the condition-number threshold.
+    """
+    backend_fn, _ = nifty_backend
+
+    rng = np.random.default_rng(42)
+    N = 100
+    t = np.sort(rng.uniform(0, 1, N))
+    y = np.sin(5 * t) + 1.0
+    dy = np.full(N, 0.1)
+
+    with pytest.raises(np.linalg.LinAlgError):
+        backend_fn(
+            t, y, dy, fmin=0.0, fmax=1e-7, Nf=5, nterms=nterms, fit_mean=fit_mean
+        )
 
 
 @pytest.mark.parametrize(
