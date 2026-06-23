@@ -31,6 +31,8 @@ minimum-version = "0.8"
 build-dir = "build/{wheel_tag}"
 # editable.rebuild = true  # use with --no-build-isolation
 wheel.py-api = "cp312"
+# Force CMake to use Ninja or MinGW Makefiles rather than Visual Studio
+cmake.args = ["-G Ninja"]
 
 # For debugging:
 # cmake.build-type = "Debug"
