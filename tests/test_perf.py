@@ -14,7 +14,13 @@ import pytest
 
 import nifty_ls
 import nifty_ls.backends
-from nifty_ls.test_helpers.utils import gen_data, astropy_ls
+from nifty_ls.test_helpers.utils import gen_data
+from nifty_ls.test_helpers.utils import astropy_ls as _astropy_ls
+
+
+def astropy_ls(*args, **kwargs):
+    kwargs.setdefault('use_fft', True)
+    return _astropy_ls(*args, **kwargs)
 
 
 @pytest.fixture(scope='module')

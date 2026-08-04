@@ -107,7 +107,8 @@ configuring the libraries as desired. Note that (cu)finufft is not bundled with 
 
 nifty-ls can likewise be built from source following the instructions above for
 best performance, but most of the heavy computations are offloaded to (cu)finufft,
-so the performance benefit is minimal.
+so the performance benefit is minimal. The nifty-ls wheels are built against x86-64-v3
+for Linux.
 
 ## Usage
 ### From Astropy
