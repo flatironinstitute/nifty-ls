@@ -5,21 +5,20 @@ import matplotlib
 
 matplotlib.use('Agg')
 
-import nifty_ls.finufft
-import nifty_ls.finufft_chi2
-
-from astropy.io import ascii
-from astropy.table import Table
-import click
-
-import matplotlib.pyplot as plt
-import numpy as np
 import timeit
 
-import nifty_ls
+import astropy.timeseries.periodograms.lombscargle.implementations.chi2_impl as astropychi2_impl
 import astropy.timeseries.periodograms.lombscargle.implementations.fast_impl as astropy_impl
 import astropy.timeseries.periodograms.lombscargle.implementations.fastchi2_impl as astropyfastchi2_impl
-import astropy.timeseries.periodograms.lombscargle.implementations.chi2_impl as astropychi2_impl
+import click
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import ascii
+from astropy.table import Table
+
+import nifty_ls
+import nifty_ls.finufft
+import nifty_ls.finufft_chi2
 
 # The Gowanlock+ paper uses N_t=3554 as their single-object dataset.
 DEFAULT_N = 3554

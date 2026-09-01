@@ -4,10 +4,11 @@ __all__ = ['lombscargle_heterobatch']
 
 import numpy as np
 
-from nifty_ls.finufft_chi2_heterobatch_helpers import process_chi2_hetero_batch
 from nifty_ls.finufft import FFTW_ESTIMATE
-from .utils import same_dtype_or_raise, broadcast_dy_list, get_norm_enum
+from nifty_ls.finufft_chi2_heterobatch_helpers import process_chi2_hetero_batch
+
 from .finufft import get_finufft_max_threads
+from .utils import broadcast_dy_list, get_norm_enum, same_dtype_or_raise
 
 
 def lombscargle_heterobatch(

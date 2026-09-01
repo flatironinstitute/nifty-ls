@@ -13,7 +13,7 @@ import pytest
 import nifty_ls
 import nifty_ls.backends
 import nifty_ls.utils
-from nifty_ls.test_helpers.utils import gen_data, astropy_ls
+from nifty_ls.test_helpers.utils import astropy_ls, gen_data
 
 
 def rtol(dtype, Nf):

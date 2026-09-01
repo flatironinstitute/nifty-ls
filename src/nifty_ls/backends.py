@@ -4,15 +4,15 @@ from importlib import import_module
 from typing import Literal, get_args
 
 __all__ = [
-    'available_backends',
-    'BACKEND_TYPE',
     'BACKEND_NAMES',
+    'BACKEND_TYPE',
     'CHI2_BACKEND_NAMES',
-    'STANDARD_BACKEND_NAMES',
-    'HETEROBATCH_STANDARD_BACKEND_NAMES',
-    'HETEROBATCH_CHI2_BACKEND_NAMES',
-    'HETEROBATCH_BACKEND_TYPE',
     'HETEROBATCH_BACKEND_NAMES',
+    'HETEROBATCH_BACKEND_TYPE',
+    'HETEROBATCH_CHI2_BACKEND_NAMES',
+    'HETEROBATCH_STANDARD_BACKEND_NAMES',
+    'STANDARD_BACKEND_NAMES',
+    'available_backends',
 ]
 
 CHI2_BACKEND_NAMES = ['finufft_chi2', 'cufinufft_chi2']

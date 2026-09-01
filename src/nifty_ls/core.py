@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import importlib
-from typing import Optional, Literal
+from dataclasses import dataclass
+from typing import Literal, Optional
 
 import numpy as np
 import numpy.typing as npt
 
 from . import utils
 from .backends import (
-    available_backends,
     BACKEND_TYPE,
     HETEROBATCH_BACKEND_TYPE,
+    available_backends,
 )
 
 __all__ = [
+    'AVAILABLE_BACKENDS',
+    'NORMALIZATION_TYPE',
+    'NiftyHeteroBatchResult',
+    'NiftyResult',
     'lombscargle',
     'lombscargle_heterobatch',
-    'NiftyResult',
-    'NiftyHeteroBatchResult',
-    'NORMALIZATION_TYPE',
-    'AVAILABLE_BACKENDS',
 ]
 
 

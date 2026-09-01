@@ -8,13 +8,12 @@ eye out for alternatives.
 
 from __future__ import annotations
 
-
 import numpy as np
 import pytest
 
 import nifty_ls
 import nifty_ls.backends
-from nifty_ls.test_helpers.utils import gen_data, astropy_ls
+from nifty_ls.test_helpers.utils import astropy_ls, gen_data
 
 
 @pytest.fixture(scope='module')

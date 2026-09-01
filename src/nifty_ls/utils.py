@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import numpy as np
 
 __all__ = ['validate_frequency_grid']

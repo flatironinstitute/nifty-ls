@@ -1,11 +1,9 @@
 import logging
 
-from .core import lombscargle, lombscargle_heterobatch
-from .core import NiftyResult
-
+from .core import NiftyResult, lombscargle, lombscargle_heterobatch
 from .version import __version__
 
-__all__ = ['lombscargle', 'lombscargle_heterobatch', 'NiftyResult', '__version__']
+__all__ = ['NiftyResult', '__version__', 'lombscargle', 'lombscargle_heterobatch']
 
 
 # Make "fastnifty" and "fastnifty_chi2" available as a method for astropy's Lomb Scargle
