@@ -1,6 +1,7 @@
 """nifty-ls test helpers"""
 
 from __future__ import annotations
+
 from functools import partial
 
 import numpy as np
@@ -27,7 +28,7 @@ def gen_data(N=100, Nbatch=None, seed=5043, dtype=np.float64):
     y.setflags(write=False)
     dy.setflags(write=False)
 
-    return dict(t=t, y=y, dy=dy, fmin=fmin, fmax=fmax)
+    return {'t': t, 'y': y, 'dy': dy, 'fmin': fmin, 'fmax': fmax}
 
 
 def gen_data_mp(N_series=100_000, N_batch=None, N_d=100, dtype=np.float64, seed=5043):
@@ -80,15 +81,15 @@ def gen_data_mp(N_series=100_000, N_batch=None, N_d=100, dtype=np.float64, seed=
         fmin_list[i] + df_list[i] * (Nf_list[i] - 1) for i in range(len(fmin_list))
     ]
 
-    return dict(
-        t=t_list,
-        y=y_list,
-        dy=dy_list,
-        fmin=fmin_list,
-        fmax=fmax_list,
-        df=df_list,
-        Nf=Nf_list,
-    )
+    return {
+        't': t_list,
+        'y': y_list,
+        'dy': dy_list,
+        'fmin': fmin_list,
+        'fmax': fmax_list,
+        'df': df_list,
+        'Nf': Nf_list,
+    }
 
 
 def astropy_ls(

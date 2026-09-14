@@ -2,18 +2,16 @@ from __future__ import annotations
 
 __all__ = ['lombscargle']
 
+from itertools import chain
 from timeit import default_timer as timer
 
 import finufft
-from nifty_ls.finufft import FFTW_ESTIMATE
-
 import numpy as np
 
+from nifty_ls.finufft import FFTW_ESTIMATE
+
 from . import chi2_helpers
-
-from itertools import chain
-
-from .utils import same_dtype_or_raise, get_norm_enum
+from .utils import get_norm_enum, same_dtype_or_raise
 
 
 def lombscargle(
@@ -88,12 +86,12 @@ def lombscargle(
     if nterms == 0 and not fit_mean:
         raise ValueError('Cannot have nterms = 0 without fitting bias')
 
-    default_finufft_kwargs = dict(
-        eps='default',
-        upsampfac=1.25,  # Default upsampling factor
-        fftw=FFTW_ESTIMATE,  # FFTW_ESTIMATE
-        debug=int(verbose),
-    )
+    default_finufft_kwargs = {
+        'eps': 'default',
+        'upsampfac': 1.25,  # Default upsampling factor
+        'fftw': FFTW_ESTIMATE,  # FFTW_ESTIMATE
+        'debug': int(verbose),
+    }
 
     finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
 

@@ -82,7 +82,7 @@ def lombscargle(
         - `gpu_method`: the method to use on the GPU [1]
     """
 
-    default_cufinufft_kwargs = dict(eps='default', gpu_method=1)
+    default_cufinufft_kwargs = {'eps': 'default', 'gpu_method': 1}
 
     cufinufft_kwargs = {**default_cufinufft_kwargs, **(cufinufft_kwargs or {})}
 

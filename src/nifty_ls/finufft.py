@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__all__ = ['lombscargle', 'FFTW_MEASURE', 'FFTW_ESTIMATE']
+__all__ = ['FFTW_ESTIMATE', 'FFTW_MEASURE', 'lombscargle']
 
 from timeit import default_timer as timer
 
@@ -8,7 +8,7 @@ import finufft
 import numpy as np
 
 from . import cpu_helpers
-from .utils import same_dtype_or_raise, get_norm_enum
+from .utils import get_norm_enum, same_dtype_or_raise
 
 FFTW_MEASURE = 0
 FFTW_ESTIMATE = 64
@@ -81,12 +81,12 @@ def lombscargle(
         - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     """
 
-    default_finufft_kwargs = dict(
-        eps='default',
-        upsampfac=1.25,
-        fftw=FFTW_ESTIMATE,
-        debug=int(verbose),
-    )
+    default_finufft_kwargs = {
+        'eps': 'default',
+        'upsampfac': 1.25,
+        'fftw': FFTW_ESTIMATE,
+        'debug': int(verbose),
+    }
 
     finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
 

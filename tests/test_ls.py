@@ -13,7 +13,7 @@ import pytest
 import nifty_ls
 import nifty_ls.backends
 import nifty_ls.utils
-from nifty_ls.test_helpers.utils import gen_data, astropy_ls
+from nifty_ls.test_helpers.utils import astropy_ls, gen_data
 
 
 def rtol(dtype, Nf):
@@ -99,7 +99,7 @@ def test_backend_error_handling(data, Nf=1000):
 def test_lombscargle(data, Nf, nifty_backend, nterms):
     """Check that the basic implementation agrees with the brute-force Astropy answer"""
 
-    backend_fn, backend_name = nifty_backend
+    backend_fn, _backend_name = nifty_backend
     nifty_res = backend_fn(**data, Nf=Nf, nterms=nterms).power
     brute_res = astropy_ls(**data, nterms=nterms, Nf=Nf, use_fft=False)
     dtype = data['t'].dtype
@@ -127,7 +127,7 @@ def test_lombscargle(data, Nf, nifty_backend, nterms):
 def test_batched(batched_data, nifty_backend, nterms, Nf=1000):
     """Check various batching modes with different backends and nterms"""
 
-    backend_fn, backend_name = nifty_backend
+    backend_fn, _backend_name = nifty_backend
     nifty_res = backend_fn(**batched_data, Nf=Nf, nterms=nterms).power
 
     t = batched_data['t']
@@ -166,7 +166,7 @@ def test_batched(batched_data, nifty_backend, nterms, Nf=1000):
 def test_normalization(data, nifty_backend, nterms, Nf=1000):
     """Check that the normalization modes work as expected"""
 
-    backend_fn, backend_name = nifty_backend
+    backend_fn, _backend_name = nifty_backend
 
     for norm in ['standard', 'model', 'log', 'psd']:
         nifty_res = backend_fn(
@@ -210,14 +210,14 @@ def test_astropy_hook(data, nifty_backend, nterms, Nf=1000):
             freq,
             method='fastnifty_chi2',
             assume_regular_frequency=True,
-            method_kwds=dict(backend=backend_name),
+            method_kwds={'backend': backend_name},
         )
     else:
         astropy_power = ls.power(
             freq,
             method='fastnifty',
             assume_regular_frequency=True,
-            method_kwds=dict(backend=backend_name),
+            method_kwds={'backend': backend_name},
         )
 
     # same backend, ought to match very closely
@@ -276,7 +276,7 @@ def test_no_cpp_helpers(data, batched_data, nifty_backend, nterms, Nf=1000):
     indirect=['nifty_backend'],
 )
 def test_center_data(data, center_data, nterms, nifty_backend, Nf=1000):
-    backend_fn, backend_name = nifty_backend
+    backend_fn, _backend_name = nifty_backend
 
     center_nifty = backend_fn(
         **data, Nf=Nf, nterms=nterms, center_data=center_data
@@ -306,7 +306,7 @@ def test_center_data(data, center_data, nterms, nifty_backend, Nf=1000):
     indirect=['nifty_backend'],
 )
 def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
-    backend_fn, backend_name = nifty_backend
+    backend_fn, _backend_name = nifty_backend
 
     fitmean_nifty = backend_fn(**data, Nf=Nf, fit_mean=fit_mean, nterms=nterms).power
 
@@ -336,7 +336,7 @@ def test_fit_mean(data, fit_mean, nifty_backend, nterms, Nf=1000):
 def test_dy_none(data, batched_data, nifty_backend, nterms, Nf=1000):
     """Test that `dy = None` works properly"""
 
-    backend_fn, backend_name = nifty_backend
+    backend_fn, _backend_name = nifty_backend
 
     # Unbatched case
     data = data.copy()

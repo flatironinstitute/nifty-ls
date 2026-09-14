@@ -96,7 +96,7 @@ def lombscargle(
     if nterms == 0 and not fit_mean:
         raise ValueError('Cannot have nterms = 0 without fitting bias')
 
-    default_cufinufft_kwargs = dict(eps='default', gpu_method=1)
+    default_cufinufft_kwargs = {'eps': 'default', 'gpu_method': 1}
 
     cufinufft_kwargs = {**default_cufinufft_kwargs, **(cufinufft_kwargs or {})}
 

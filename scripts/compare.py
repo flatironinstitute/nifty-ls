@@ -1,13 +1,10 @@
 from pathlib import Path
 
 import click
-from astropy.table import Table
-import numpy as np
 import matplotlib.pyplot as plt
-
-from bench import run_one
-from bench import METHODS
-from bench import get_plot_kwargs
+import numpy as np
+from astropy.table import Table
+from bench import METHODS, get_plot_kwargs, run_one
 
 DEFAULT_DTYPE = 'f8'
 DEFAULT_LOGN = 3

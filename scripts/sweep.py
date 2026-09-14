@@ -2,14 +2,11 @@ from pathlib import Path
 
 import asdf
 import click
-from astropy.table import Table
-from matplotlib.legend_handler import HandlerTuple
-import numpy as np
 import matplotlib.pyplot as plt
-
-from bench import run_one
-from bench import METHODS
-from bench import get_plot_kwargs
+import numpy as np
+from astropy.table import Table
+from bench import METHODS, get_plot_kwargs, run_one
+from matplotlib.legend_handler import HandlerTuple
 
 DEFAULT_DTYPE = 'f8'
 DEFAULT_LOGN = 3
@@ -29,7 +26,7 @@ DEFAULT_METHODS = [
 # Function to generate sweep ranges based on min and max parameters
 def generate_sweep_ranges(min_nf, max_nf):
     nf_sweep = [int(2**i / 5) for i in range(min_nf, max_nf, 1)]
-    nf_sweep = sum([[i, i + 1] for i in nf_sweep], [])
+    nf_sweep = [j for i in nf_sweep for j in (i, i + 1)]
     n_sweep = [int(i / 12.5) for i in nf_sweep]
     return n_sweep, nf_sweep
 
@@ -141,7 +138,7 @@ def run(dtype, methods, ref, output_file, min_nf, max_nf, max_cunf):
                     all_tables.append(table)
 
     # save results
-    af = asdf.AsdfFile(tree=dict(data=all_tables))
+    af = asdf.AsdfFile(tree={'data': all_tables})
     af.write_to(output_file)
 
     plot_fname = Path(output_file).with_suffix('.png')
@@ -172,7 +169,7 @@ def _analyze(all_tables, fname, plot=True, paper=False):
         elif t % 2 == 0 and 'astropy_fastchi2' in powers:
             powers['astropy_fastchi2_worst'] = powers.pop('astropy_fastchi2')
         ref = table.meta['ref']
-        for method in powers:
+        for method, p1 in powers.items():
             if method == ref:
                 continue
             if (
@@ -188,7 +185,7 @@ def _analyze(all_tables, fname, plot=True, paper=False):
                 continue
             # if method == 'cufinufft':
             #     continue
-            p1, p2 = powers[method], powers[ref]
+            p2 = powers[ref]
 
             denom = powers[ref]
             nz = denom != 0
@@ -205,12 +202,12 @@ def _analyze(all_tables, fname, plot=True, paper=False):
             }
 
             all_info.append(
-                dict(
-                    method=method,
-                    N=table.meta['N'],
-                    Nf=table.meta['Nf'],
-                    bxp_stats=bxp_stats,
-                )
+                {
+                    'method': method,
+                    'N': table.meta['N'],
+                    'Nf': table.meta['Nf'],
+                    'bxp_stats': bxp_stats,
+                }
             )
 
             print(f'{method} vs {ref}, N={table.meta["N"]}, Nf={table.meta["Nf"]}')

@@ -118,13 +118,16 @@ of the fast family of methods that assume a regularly-spaced frequency grid.
 ```python
 import nifty_ls
 from astropy.timeseries import LombScargle
-frequency, power = LombScargle(t, y).autopower(method="fastnifty")
+
+frequency, power = LombScargle(t, y).autopower(method='fastnifty')
 ```
 
 For `nterms > 1`, pass the `"fastnifty_chi2"` method:
 
 ```python
-frequency_chi2, power_chi2 = LombScargle(t, y, nterms=2).autopower(method="fastnifty_chi2")
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=2).autopower(
+    method='fastnifty_chi2'
+)
 ```
 
 <details>
@@ -144,7 +147,9 @@ y = np.sin(50 * t) + 1 + rng.poisson(size=N)
 frequency, power = LombScargle(t, y).autopower(method='fastnifty')
 
 nterms = 4
-frequency_chi2, power_chi2 = LombScargle(t, y, nterms=nterms).autopower(method='fastnifty_chi2')
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=nterms).autopower(
+    method='fastnifty_chi2'
+)
 
 plt.figure(figsize=(12, 5))
 
@@ -158,7 +163,9 @@ plt.legend()
 
 # Plot 2: Two component signal with chi2
 plt.subplot(1, 2, 2)
-plt.plot(frequency_chi2, power_chi2, label='nifty-ls Chi2 (multi-component)', color='red')
+plt.plot(
+    frequency_chi2, power_chi2, label='nifty-ls Chi2 (multi-component)', color='red'
+)
 plt.xlabel('Frequency (cycles per unit time)')
 plt.ylabel('Power')
 plt.title('Multi-Component Signal (nterms=4)')
@@ -172,13 +179,17 @@ plt.show()
 To use the CUDA (cufinufft) backend, pass the appropriate argument via `method_kws`:
 
 ```python
-frequency, power = LombScargle(t, y).autopower(method="fastnifty", method_kws=dict(backend="cufinufft"))
+frequency, power = LombScargle(t, y).autopower(
+    method='fastnifty', method_kws={'backend': 'cufinufft'}
+)
 ```
 
 Likewise, for `nterms > 1`:
 
 ```python
-frequency_chi2, power_chi2 = LombScargle(t, y, nterms=2).autopower(method="fastnifty_chi2", method_kws=dict(backend="cufinufft_chi2"))
+frequency_chi2, power_chi2 = LombScargle(t, y, nterms=2).autopower(
+    method='fastnifty_chi2', method_kws={'backend': 'cufinufft_chi2'}
+)
 ```
 
 In many cases, accelerating your periodogram is as simple as setting the `method`
@@ -197,6 +208,7 @@ A single periodogram can be computed through nifty-ls as:
 
 ```python
 import nifty_ls
+
 # with automatic frequency grid:
 nifty_res = nifty_ls.lombscargle(t, y, dy)
 
@@ -207,7 +219,9 @@ nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy, nterms=4)
 nifty_res = nifty_ls.lombscargle(t, y, dy, fmin=0.1, fmax=10, Nf=10**6)
 
 # with user-specified backend method:
-nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy, Nf=10**6, nterms=4, backend='finufft_chi2')
+nifty_res_chi2 = nifty_ls.lombscargle(
+    t, y, dy, Nf=10**6, nterms=4, backend='finufft_chi2'
+)
 ```
 
 <details>
@@ -233,7 +247,9 @@ nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy=None, nterms=4)
 nifty_res = nifty_ls.lombscargle(t, y, fmin=0.1, fmax=10, Nf=10**6)
 
 # with user-specified backend method:
-nifty_res_chi2 = nifty_ls.lombscargle(t, y, dy=None, Nf=10**6, nterms=4, backend='finufft_chi2')
+nifty_res_chi2 = nifty_ls.lombscargle(
+    t, y, dy=None, Nf=10**6, nterms=4, backend='finufft_chi2'
+)
 
 plt.figure(figsize=(12, 5))
 
@@ -273,7 +289,7 @@ Nf = 200
 
 rng = np.random.default_rng()
 t = np.sort(rng.random(N_t))
-obj_freqs = rng.random(N_obj).reshape(-1,1)
+obj_freqs = rng.random(N_obj).reshape(-1, 1)
 y_batch = np.sin(obj_freqs * t)
 dy_batch = rng.random(y_batch.shape)
 
@@ -330,7 +346,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 with ThreadPoolExecutor(max_workers=nthreads) as executor:
     futures = [
-        executor.submit(nifty_ls.lombscargle, t, y, nthreads=1) for (t,y) in zip(t_values, y_values)
+        executor.submit(nifty_ls.lombscargle, t, y, nthreads=1)
+        for (t, y) in zip(t_values, y_values)
     ]
 results = [future.result() for future in futures]
 ```
@@ -363,17 +380,20 @@ for i in range(N_periodograms):
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=python_threads) as executor:
     futures = [
-        executor.submit(nifty_ls.lombscargle, t, y, nthreads=1) for (t,y) in zip(t_values, y_values)
+        executor.submit(nifty_ls.lombscargle, t, y, nthreads=1)
+        for (t, y) in zip(t_values, y_values)
     ]
 
 results = [future.result() for future in futures]
 
-fig, axes = plt.subplots(N_periodograms, 1, figsize=(6, 2 * N_periodograms), constrained_layout=True)
+fig, axes = plt.subplots(
+    N_periodograms, 1, figsize=(6, 2 * N_periodograms), constrained_layout=True
+)
 for i in range(N_periodograms):
     axes[i].plot(results[i].freq(), results[i].power)
-    axes[i].set_title(f"Periodogram {i + 1}")
-    axes[i].set_xlabel("Frequency")
-    axes[i].set_ylabel("Power")
+    axes[i].set_title(f'Periodogram {i + 1}')
+    axes[i].set_xlabel('Frequency')
+    axes[i].set_ylabel('Power')
 
 plt.show()
 ```
