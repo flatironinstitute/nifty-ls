@@ -81,12 +81,12 @@ def lombscargle(
         - `fftw`: the FFTW planner flags [FFTW_ESTIMATE]
     """
 
-    default_finufft_kwargs = dict(
-        eps='default',
-        upsampfac=1.25,
-        fftw=FFTW_ESTIMATE,
-        debug=int(verbose),
-    )
+    default_finufft_kwargs = {
+        'eps': 'default',
+        'upsampfac': 1.25,
+        'fftw': FFTW_ESTIMATE,
+        'debug': int(verbose),
+    }
 
     finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
 

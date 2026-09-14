@@ -86,12 +86,12 @@ def lombscargle(
     if nterms == 0 and not fit_mean:
         raise ValueError('Cannot have nterms = 0 without fitting bias')
 
-    default_finufft_kwargs = dict(
-        eps='default',
-        upsampfac=1.25,  # Default upsampling factor
-        fftw=FFTW_ESTIMATE,  # FFTW_ESTIMATE
-        debug=int(verbose),
-    )
+    default_finufft_kwargs = {
+        'eps': 'default',
+        'upsampfac': 1.25,  # Default upsampling factor
+        'fftw': FFTW_ESTIMATE,  # FFTW_ESTIMATE
+        'debug': int(verbose),
+    }
 
     finufft_kwargs = {**default_finufft_kwargs, **(finufft_kwargs or {})}
 

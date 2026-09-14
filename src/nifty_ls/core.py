@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -31,10 +31,10 @@ NORMALIZATION_TYPE = Literal['standard', 'model', 'log', 'psd']
 def lombscargle(
     t: npt.NDArray[np.floating],
     y: npt.NDArray[np.floating],
-    dy: Optional[npt.NDArray[np.floating]] = None,
-    fmin: Optional[float] = None,
-    fmax: Optional[float] = None,
-    Nf: Optional[int] = None,
+    dy: npt.NDArray[np.floating] | None = None,
+    fmin: float | None = None,
+    fmax: float | None = None,
+    Nf: int | None = None,
     center_data: bool = True,
     fit_mean: bool = True,
     normalization: NORMALIZATION_TYPE = 'standard',
@@ -43,7 +43,7 @@ def lombscargle(
     nyquist_factor: int = 5,
     backend: BACKEND_TYPE = 'auto',
     nterms: int = 1,
-    **backend_kwargs: Optional[dict],
+    **backend_kwargs: dict | None,
 ) -> NiftyResult:
     """
     Compute a Lomb-Scargle periodogram, or a batch of periodograms if `y` and `dy` are 2D arrays.
@@ -184,10 +184,10 @@ def lombscargle(
 def lombscargle_heterobatch(
     t_list: list[npt.NDArray[np.floating]],
     y_list: list[npt.NDArray[np.floating]],
-    dy_list: Optional[list[Optional[npt.NDArray[np.floating]]]] = None,
-    fmin_list: Optional[list[float]] = None,
-    fmax_list: Optional[list[float]] = None,
-    Nf_list: Optional[list[float]] = None,
+    dy_list: list[npt.NDArray[np.floating] | None] | None = None,
+    fmin_list: list[float] | None = None,
+    fmax_list: list[float] | None = None,
+    Nf_list: list[float] | None = None,
     center_data: bool = True,
     fit_mean: bool = True,
     normalization: NORMALIZATION_TYPE = 'standard',
@@ -196,7 +196,7 @@ def lombscargle_heterobatch(
     nyquist_factor: int = 5,
     backend: HETEROBATCH_BACKEND_TYPE = 'auto',
     nterms: int = 1,
-    **backend_kwargs: Optional[dict],
+    **backend_kwargs: dict | None,
 ) -> NiftyHeteroBatchResult:
     """
     Compute multiple series of Lomb-Scargle periodograms, or a batch of periodograms if `y` and `dy` are 2D arrays.
@@ -348,7 +348,7 @@ class NiftyResult:
     fit_mean: bool
     normalization: NORMALIZATION_TYPE
     backend: BACKEND_TYPE
-    backend_kwargs: Optional[dict]
+    backend_kwargs: dict | None
 
     def freq(self) -> npt.NDArray[np.floating]:
         return self.fmin + self.df * np.arange(self.Nf)
@@ -365,7 +365,7 @@ class NiftyHeteroBatchResult:
     fit_mean: bool
     normalization: NORMALIZATION_TYPE
     backend: BACKEND_TYPE
-    backend_kwargs: Optional[dict]
+    backend_kwargs: dict | None
 
     def freq_list(self) -> list[npt.NDArray[np.floating]]:
         return [

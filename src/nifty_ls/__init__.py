@@ -5,12 +5,14 @@ from .version import __version__
 
 __all__ = ['NiftyResult', '__version__', 'lombscargle', 'lombscargle_heterobatch']
 
+logger = logging.getLogger(__name__)
+
 
 # Make "fastnifty" and "fastnifty_chi2" available as a method for astropy's Lomb Scargle
 try:
     import astropy.timeseries.periodograms.lombscargle.implementations.main as astropy_ls
 except ImportError:
-    logging.info('Astropy not found, fastnifty method will not be available')
+    logger.info('Astropy not found, fastnifty method will not be available')
     astropy_ls = None
 
 if astropy_ls:

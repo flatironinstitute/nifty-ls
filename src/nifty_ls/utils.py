@@ -139,11 +139,11 @@ def broadcast_dy_list(y_list, dy_list):
 def get_norm_enum(norm: str):
     from .cpu_helpers import NormKind
 
-    norm_enum = dict(
-        standard=NormKind.Standard,
-        model=NormKind.Model,
-        log=NormKind.Log,
-        psd=NormKind.PSD,
-    )[norm.lower()]
+    norm_enum = {
+        'standard': NormKind.Standard,
+        'model': NormKind.Model,
+        'log': NormKind.Log,
+        'psd': NormKind.PSD,
+    }[norm.lower()]
 
     return norm_enum
