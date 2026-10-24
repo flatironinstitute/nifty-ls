@@ -10,6 +10,7 @@ DEFAULT_DTYPE = 'f8'
 DEFAULT_LOGN = 3
 DEFAULT_METHODS = [
     'cufinufft',
+    'cufinufft_CUDA',
     'cufinufft_chi2',
     'finufft',
     'astropy',
