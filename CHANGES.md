@@ -4,6 +4,8 @@
 
 finufft is now a vendored dependency. cufinufft is still external.
 
+nifty-ls now follows [SPEC 0](https://scientific-python.org/specs/spec-0000/) for Python and NumPy version support, so Python 3.13 or later and NumPy 2.2 or later are required.
+
 ### Enhancements
 - "heterobatch" mode that supports threading over multiple time series of different lengths is now supported [#66]
 - The vendored finufft for heterobatch has been updated to 2.5.0 [#98]
