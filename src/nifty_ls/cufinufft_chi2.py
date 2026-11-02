@@ -306,9 +306,9 @@ def lombscargle(
 
     # Solve linear systems
     with cupyx.errstate(linalg='raise'):
-        solutions = cp.linalg.solve(
-            XTX_trans, XTy_trans
-        )  # Shape: (Nbatch, Nf, nterms_order)
+        solutions = cp.linalg.solve(XTX_trans, XTy_trans[..., None])[
+            ..., 0
+        ]  # Shape: (Nbatch, Nf, nterms_order)
     raw_power = cp.sum(solutions * XTy_trans, axis=2)  # Shape: (Nbatch, Nf)
 
     # Apply normalization to all batches at once
