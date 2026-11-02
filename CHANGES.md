@@ -13,6 +13,7 @@ nifty-ls now follows [SPEC 0](https://scientific-python.org/specs/spec-0000/) fo
 
 ### Fixes
 - The interpreter no longer crashes in the `finufft_chi2` backend when a singular matrix is encountered. Instead, a `numpy.linalg.LinAlgError` exception is raised. [#86]
+- The `cufinufft_chi2` backend now works with CuPy 14, which adopted NumPy 2's `linalg.solve` semantics. Previously it raised a `ValueError`. [#127]
 
 ## v1.1.0 (2025-08-01)
 
