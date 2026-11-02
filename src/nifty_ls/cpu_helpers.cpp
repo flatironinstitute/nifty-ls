@@ -9,12 +9,13 @@
 #define _USE_MATH_DEFINES
 #endif
 
+#include <nanobind/nanobind.h>
+
 #include <algorithm>
 #include <complex>
 #include <vector>
 
 #include "cpu_helpers.hpp"
-#include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/complex.h>
 
