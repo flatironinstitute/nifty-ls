@@ -13,12 +13,7 @@ NIFTY_LS_FORCE_FREETHREADED_TEST = (
 
 
 def nogil_or_exit():
-    try:
-        gil_enabled = sys._is_gil_enabled()
-    except AttributeError:
-        gil_enabled = True
-
-    if gil_enabled:
+    if sys._is_gil_enabled():
         if NIFTY_LS_FORCE_FREETHREADED_TEST:
             pytest.fail(
                 'NIFTY_LS_FORCE_FREETHREADED_TEST is set, but Python is not running in free-threaded mode.'

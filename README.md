@@ -42,6 +42,8 @@ There is some pre- and post-processing of $S_k$ and $C_k$ to compute the periodo
 Because FINUFFT is so fast, the matrix assembly and linear‐algebra solve can be the primary bottlenecks of the fast $\chi^2$ method. These routines and other computational steps have been optimized and parallelized in nifty-ls.
 
 ## Installation
+nifty-ls follows [SPEC 0](https://scientific-python.org/specs/spec-0000/) for its minimum supported Python and NumPy versions.
+
 ### From PyPI
 For CPU support:
 

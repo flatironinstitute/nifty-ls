@@ -10,11 +10,11 @@ authors = [{ name = "Lehman Garrison" },
            { name = "Dan Foreman-Mackey" },
            { name = "Yuwei (Peter) Sun" },
            ]
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 license = { file = "LICENSE" }
 urls = { Homepage = "https://github.com/flatironinstitute.org/nifty-ls" }
 dependencies = [
-    "numpy",
+    "numpy >= 2.2",
     "finufft >= 2.3",
 ]
 dynamic = ["version"]
@@ -81,7 +81,7 @@ dev = [
     {include-group = "test"}
 ]
 test = [
-    "astropy>=6",
+    "astropy>=7.0",
     {include-group = "test-freethreaded"},
 ]
 test-freethreaded = [
