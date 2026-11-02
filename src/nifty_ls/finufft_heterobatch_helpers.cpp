@@ -1,11 +1,12 @@
 /* Heterobatch implementation for multi-series processing
  */
 
+#include <nanobind/nanobind.h>
+
 #include <algorithm>
 #include <complex>
 #include <finufft.h>
 #include <iostream>
-#include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>

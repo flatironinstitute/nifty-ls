@@ -4,6 +4,8 @@
  * of array-wise as occurs in Numpy.
  */
 
+#include <nanobind/nanobind.h>
+
 #include <algorithm>
 #include <complex>
 #include <vector>
