@@ -86,5 +86,5 @@ test = [
 ]
 test-freethreaded = [
     "pytest>=8.4.1",
-    "pytest-benchmark>=5.1.0",
+    "pytest-benchmark>=5.3.1",
 ]
