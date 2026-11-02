@@ -16,19 +16,20 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-24.04
-            python-version: "3.12"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             python-version: "3.13"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
+            python-version: "3.13"
+            resolution: lowest-direct
+          - os: ubuntu-26.04
             python-version: "3.14"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             python-version: "3.14t"
           - os: macos-14
             python-version: "3.13"
           - os: macos-26
             python-version: "3.13"
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             python-version: "3.13"
             sanitizers: true
           # - os: macos-26
@@ -36,6 +37,7 @@ jobs:
           #   sanitizers: true
     env:
       UV_PYTHON: ${{ matrix.python-version }}
+      UV_RESOLUTION: ${{ matrix.resolution || 'highest' }}
 
     steps:
     - uses: actions/checkout@v7
